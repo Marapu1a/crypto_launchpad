@@ -1,0 +1,740 @@
+{
+  "repository": "https://github.com/Marapu1a/rh_project",
+  "commit": "ae4452547b7df09124af3bcb72261120725d5aba",
+  "imported_at": "2026-10-07",
+  "status": "reference-only; legacy rules, not platform runtime",
+  "seeds": [
+    "contracts/MonthlyOutcome.sol",
+    "contracts/DrandRandomAdapter.sol",
+    "contracts/PurchaseRecognitionSource.sol",
+    "contracts/LocalPonsCollector.sol",
+    "scripts/monthly-outcome.cjs",
+    "scripts/direct-buy.cjs",
+    "scripts/attempt-lifecycle.cjs",
+    "scripts/persistent-buy-indexer.cjs",
+    "scripts/shared-index-config.cjs",
+    "scripts/purchase-recognition.cjs",
+    "scripts/prepare-purchase-recognition.cjs",
+    "scripts/drand-delivery-worker.cjs",
+    "scripts/pons-transaction-journal.cjs",
+    "scripts/local-receipt.cjs",
+    "scripts/pons-funding-pass.cjs",
+    "scripts/pons-automation.cjs",
+    "scripts/local-promo-scheduler.cjs",
+    "scripts/user-status-api.cjs",
+    "web/app.js",
+    "web/overview.js",
+    "web/claim.js",
+    "test/direct-buy.test.cjs",
+    "test/persistent-buy-indexer.test.cjs",
+    "test/shared-index-config.test.cjs",
+    "test/attempt-lifecycle.test.cjs",
+    "test/attempt-lifecycle-events.test.cjs",
+    "test/purchase-recognition.test.cjs",
+    "test/drand-binding-model.test.cjs",
+    "test/drand-delivery-worker.test.cjs",
+    "test/local-transaction.test.cjs",
+    "test/local-state-lock.test.cjs",
+    "contracts/vendor/drand/LICENSE",
+    "hardhat.config.cjs"
+  ],
+  "files": [
+    {
+      "path": "contracts/BuyPolicySource.sol",
+      "sha256_lf": "ff636a1e4d01bbe93d7463ff70c304c72f35a7fcdf0d3da19de1c6df2f81986f"
+    },
+    {
+      "path": "contracts/ChainBlocks.sol",
+      "sha256_lf": "83883a3c0b6dbca40ba9dbbf2f985a0b85b56ac11b533144aa17e1ab0e9d605b"
+    },
+    {
+      "path": "contracts/CutoffHistory.sol",
+      "sha256_lf": "3e39f79b16228cab5e5669563e0b2c8446a1710f132a2b8153d9e1b686fcacb0"
+    },
+    {
+      "path": "contracts/DrandRandomAdapter.sol",
+      "sha256_lf": "1abc8c0a7d1af4ea601102e19516e47fcab5ade8f165e0b2c60335db77843baa"
+    },
+    {
+      "path": "contracts/DualControllerPromoVault.sol",
+      "sha256_lf": "31e66724289b458ed0d5852f1e6db6ac1b785b8aa14463545092548a827aefed"
+    },
+    {
+      "path": "contracts/FeeRouter.sol",
+      "sha256_lf": "f0cd29684d653d16ed52b4ee5ec2c78ac523940f5bfb67540c33591ba09caa5e"
+    },
+    {
+      "path": "contracts/ILocalRandom.sol",
+      "sha256_lf": "64c6ee18452d4a5ded24a7aac9c4fda0d5511831a3d80219884e956a89b87b55"
+    },
+    {
+      "path": "contracts/IPonsVenue.sol",
+      "sha256_lf": "bfcaa5cf01e49bb6a73bfd780f008ed80b62ac8687409b7037d17b2b33330b43"
+    },
+    {
+      "path": "contracts/IPrizePriceSource.sol",
+      "sha256_lf": "4f02c261f5f326a70ddb65b45f9f03b76d73399edb12c000cb869cd0db285ccd"
+    },
+    {
+      "path": "contracts/IPrizeSwapAdapter.sol",
+      "sha256_lf": "5df9db6cbeda70d3c174810288dd21b93d11259a6e156a24f5237c041c6b9483"
+    },
+    {
+      "path": "contracts/InfinityCollector.sol",
+      "sha256_lf": "f06331e809b968065c1a596aeed5581083b42bb8a411275c3f62d76d66423998"
+    },
+    {
+      "path": "contracts/LocalMarketPrizeConverter.sol",
+      "sha256_lf": "9e3faa3350835e0a03d2dd2109cdaa6c0f2d54449d22373cb03bfcc3a3563b7e"
+    },
+    {
+      "path": "contracts/LocalMonthlyController.sol",
+      "sha256_lf": "07669b0f2d70fe8fec78ce6ecf736fe21e242cd6aaca923fd583d9b7935bad11"
+    },
+    {
+      "path": "contracts/LocalPonsCollector.sol",
+      "sha256_lf": "af61949f7d3651cced9dc7d6a3b2f66f4c89cc1d27706c5e60012d455c02029e"
+    },
+    {
+      "path": "contracts/LocalPrizeConverter.sol",
+      "sha256_lf": "8346b7dc03ceceaaf9764bcdb14ee3623174c0fbc5ab27f986fc94642e577e40"
+    },
+    {
+      "path": "contracts/LocalScheduledPrizeConverter.sol",
+      "sha256_lf": "0a38fe7f7e8867e5da6a8f28221a801d75ec4084a5fef593756759d1cdd069d0"
+    },
+    {
+      "path": "contracts/LocalShortController.sol",
+      "sha256_lf": "ac55ed2fbc2a1c5b6422341426e7724afa9673ac675b6095f720e7a594974a91"
+    },
+    {
+      "path": "contracts/LocalV4PrizeAdapter.sol",
+      "sha256_lf": "643cf212d38df1ec06e0f1b50b070d7edbf92752b093617c38319dcd69dd2782"
+    },
+    {
+      "path": "contracts/MonthlyControllerBase.sol",
+      "sha256_lf": "c80c898d800691d4a01d2e69482605ea75b5da417ec4360cd90f6562c1e0e112"
+    },
+    {
+      "path": "contracts/MonthlyOutcome.sol",
+      "sha256_lf": "edbfef546db35754e6b0f4436c5ced59e541a446023c5e0b1fb5f640bf6faa1e"
+    },
+    {
+      "path": "contracts/MonthlySettlement.sol",
+      "sha256_lf": "86416b3fdd250e103673125c6c254d3bc8d8a9d6700976a5d1f4aa403af6deec"
+    },
+    {
+      "path": "contracts/ParticipantRegistry.sol",
+      "sha256_lf": "7244a4ede035e46de118114e10edf2e3d96cf27caacedc9c9e540d345a6f0e49"
+    },
+    {
+      "path": "contracts/PromoVault.sol",
+      "sha256_lf": "7c813a1a35f4accbd67316450f8e87be0ea67a01686cd4e01dc90433bec12bcb"
+    },
+    {
+      "path": "contracts/PurchaseRecognitionSource.sol",
+      "sha256_lf": "762c0c036fa2df83675de249064a426bcbe7c476cc89e335109156f0c2375c4c"
+    },
+    {
+      "path": "contracts/RobinhoodControllerChecks.sol",
+      "sha256_lf": "efc53c40e746699e86f09c4fbe14f82114e590dceb2698bc52b4ea8d2e9b558a"
+    },
+    {
+      "path": "contracts/RobinhoodMonthlyController.sol",
+      "sha256_lf": "053f12fd8e4a3b452bf2e9085fab3dca132181385eeccc2ea945cfb5421fe580"
+    },
+    {
+      "path": "contracts/RobinhoodShortController.sol",
+      "sha256_lf": "54098a1cfeeb428ca0acb5e8ab0b77abb32c32273084c05ba2995d8c4cbe28f1"
+    },
+    {
+      "path": "contracts/ShortControllerBase.sol",
+      "sha256_lf": "e5225b851894e3e3236d3a253ec8bc7e02be8268575ef97b9bce42cfecaa3785"
+    },
+    {
+      "path": "contracts/ShortDatasetPreparation.sol",
+      "sha256_lf": "7abc606e2f118782dc2f8e0511fc5dac74f7250df4a03604460949a85385ff7d"
+    },
+    {
+      "path": "contracts/ShortDrawCommitment.sol",
+      "sha256_lf": "833762ca4d98443906f493ab2a81c262327cceb6df46e01827f52cd6ff1ba259"
+    },
+    {
+      "path": "contracts/ShortOutcome.sol",
+      "sha256_lf": "2c505e215dd642abbe9db6425c7e8c185b5e165f862cb8f41a1ee5336919c534"
+    },
+    {
+      "path": "contracts/ShortPrizeBasket.sol",
+      "sha256_lf": "f2f5ee7c033a4c686f6c3133b6d6fe10e9b25171cdaec5bf83a6e594017f9c00"
+    },
+    {
+      "path": "contracts/ShortRulesEpochs.sol",
+      "sha256_lf": "265176a0ed23fda91846744119ebfdff02d6fbefaf488c9f0661ceebcd2f12ce"
+    },
+    {
+      "path": "contracts/ShortSettlement.sol",
+      "sha256_lf": "aa2ba3cb3c01e860ef887f6a129d250acebf0c0b04872aa8dc4704c1b98d3403"
+    },
+    {
+      "path": "contracts/vendor/drand/BLS.sol",
+      "sha256_lf": "887fd94553b9d6d0a247900bdb05523d3b9ef3b8ca049e2a0524a0b1a9d37e69"
+    },
+    {
+      "path": "contracts/vendor/drand/LICENSE",
+      "sha256_lf": "af36460fa628a7aca8c5b1f1b6b3615376f00212284fa0fd61a013ee982a3666"
+    },
+    {
+      "path": "contracts/vendor/drand/ModExp.sol",
+      "sha256_lf": "fd91ae9291511668914b05fece03fb9bf6e2b57f7784d2edddc82456af12b495"
+    },
+    {
+      "path": "hardhat.config.cjs",
+      "sha256_lf": "b9aafd450ccfc03c14f180733a044ec0abda43c5b8c4bb08b71bbeeccbc11c8b"
+    },
+    {
+      "path": "research/direct-buy/evidence.json",
+      "sha256_lf": "cabf873a10ed741d28a69242be21745160fb1f1af2d1d238badb01fc0e83c8af"
+    },
+    {
+      "path": "research/drand-feasibility/vector.json",
+      "sha256_lf": "3563513407d8f2188680d2e6cf694d69fb39dcbe1eb3b1bbc1a73db81a206bd7"
+    },
+    {
+      "path": "research/pair-usdg-active-reference-2026-09-23.json",
+      "sha256_lf": "35396c681605327ef9898da4efd0bdcfee1a86d8858bdaf4f04ed714c0dd219f"
+    },
+    {
+      "path": "research/permit-buy-fork-positive-2026-09-24.json",
+      "sha256_lf": "5b6c222da64992eff49db18a446b431ff7294c984f3cb718828b3025e774ff58"
+    },
+    {
+      "path": "research/permit-buy-integration-2026-09-24.json",
+      "sha256_lf": "f844d7255ab7502934a0af32a3f09b73482ab45a223b990aaae4112ffcc6f536"
+    },
+    {
+      "path": "scripts/attempt-lifecycle.cjs",
+      "sha256_lf": "12424195e5f67a79526388eb5b469331dba7f3dcf974ad2485a935db878993d5"
+    },
+    {
+      "path": "scripts/bounded-map.cjs",
+      "sha256_lf": "2570b8594198486b1e05d60be79d3880c27c92c2e81ca38076b445dfda019c19"
+    },
+    {
+      "path": "scripts/buy-policy-admission.cjs",
+      "sha256_lf": "610360c7fd9613fa4f2680e0b543f121f2c4c10ff5b2c026940e5768818b491a"
+    },
+    {
+      "path": "scripts/buy-policy-format.cjs",
+      "sha256_lf": "4497802bb0741c8880b43f3c2a0fc796a093f547a974c91ed7488bf184ace735"
+    },
+    {
+      "path": "scripts/buy-policy-runtime.cjs",
+      "sha256_lf": "8d38d1d482484560da4a1bc151affeb97f336c7c729b212a56f04867d0969f3f"
+    },
+    {
+      "path": "scripts/compile.cjs",
+      "sha256_lf": "59f8055eefe73ba611699134fd29fb25c5e3e59dec6e4b890d73f99189b2de21"
+    },
+    {
+      "path": "scripts/cutoff-checkpoint.cjs",
+      "sha256_lf": "013b357f5efd559f966192b58dd6e738d77b8b96052d9b037b5a00d0ae491cc7"
+    },
+    {
+      "path": "scripts/deployment-admission.cjs",
+      "sha256_lf": "611292b295f147083482ede14a8a97e1bde83d271e9ac41abdfe8304ff60fde7"
+    },
+    {
+      "path": "scripts/direct-buy.cjs",
+      "sha256_lf": "a61b70059bef5185c8b196059fdacbc61ee91b5566fbf75f74eb87c8175c1c04"
+    },
+    {
+      "path": "scripts/drand-binding-model.cjs",
+      "sha256_lf": "a5af89345254611ee40654661b5bc82d3f3db567651f2b926d5f642d8cdcbee4"
+    },
+    {
+      "path": "scripts/drand-delivery-worker.cjs",
+      "sha256_lf": "f8ac82a03ab59e8afb1bd6257aee841456e91c1190f2d703248b1323b2b52f4d"
+    },
+    {
+      "path": "scripts/drand-feasibility.cjs",
+      "sha256_lf": "f4e4f22adab3920918e3ccbd8a990766d243d89c44a0634c57389764cde7c83e"
+    },
+    {
+      "path": "scripts/drand-preflight.cjs",
+      "sha256_lf": "c18ceeb444a5a89a3cc60162cda4e74523d90c8b81c524cea95d3263ddcaf578"
+    },
+    {
+      "path": "scripts/drand-timing-readiness.cjs",
+      "sha256_lf": "459ee3457cfaca92c4ca9e8602759cb4c4ede6d51ddc144c65f47582030bfa59"
+    },
+    {
+      "path": "scripts/draw-id.cjs",
+      "sha256_lf": "c5e269844393fc6f4b5fb1092da0fb77aa63a5174f8bade036329d2a43488f16"
+    },
+    {
+      "path": "scripts/dual-bindings.cjs",
+      "sha256_lf": "ca87121d4d8b252193cfef399f9c65a46e7e47e53252949b0292d09330f48240"
+    },
+    {
+      "path": "scripts/index-read-rpc.cjs",
+      "sha256_lf": "1d8899d333cb13e4803cb4a4e792dccdd384adc91a8640c533d31134fddb5363"
+    },
+    {
+      "path": "scripts/indexer-checksum.cjs",
+      "sha256_lf": "c7590645ab14fe612360b7c3871a8ecf6bc0273d4870bc4c6f507cad23303d44"
+    },
+    {
+      "path": "scripts/indexer-json.cjs",
+      "sha256_lf": "ed344e91c2d8f1c0cf823f82e9bf16ebb08245d7cd0f87c2a8997cda4d8dd62b"
+    },
+    {
+      "path": "scripts/infinity-buy.cjs",
+      "sha256_lf": "e44b0d6f3b63c8fee6da8626d757c329642395090fe0c04c80f2a8f6e48bd59b"
+    },
+    {
+      "path": "scripts/integrations/pons-v2.cjs",
+      "sha256_lf": "1be573f3169f333a5db1094364949a0ad383786269b2a90ea3f4dd58266cbeec"
+    },
+    {
+      "path": "scripts/local-monthly-executor.cjs",
+      "sha256_lf": "bd1ce593511f37502d0d81945ca2a3761f187986271492c027baecc001834e4d"
+    },
+    {
+      "path": "scripts/local-prize-flow.cjs",
+      "sha256_lf": "27ebae83d8a425061fcaa83cdbabd1b8960a1fcc64cb8e8dcf842aa794737141"
+    },
+    {
+      "path": "scripts/local-promo-scheduler.cjs",
+      "sha256_lf": "4042654828732ee3e4c7702661d63256e30bf5e2d24587d6085ba501b3a32e29"
+    },
+    {
+      "path": "scripts/local-receipt.cjs",
+      "sha256_lf": "ff7c6f698aeef690052880ed4201a0e82a7b10791f18946c0529e5084508c823"
+    },
+    {
+      "path": "scripts/local-rpc-watch.cjs",
+      "sha256_lf": "1ea2b6c40c5067aec2ba0b070e18092d6b989c38b06b780f9e1ea45e737f5d48"
+    },
+    {
+      "path": "scripts/local-scheduler-state.cjs",
+      "sha256_lf": "c695f89062bb8aa9f0e000b7ddeb207454253b8dffe5b7756c71319932fe4e7b"
+    },
+    {
+      "path": "scripts/local-short-executor.cjs",
+      "sha256_lf": "0671c7214fd957fe9eb98efe517b6933f32ccb39bcecb5d4072d8b35631658af"
+    },
+    {
+      "path": "scripts/local-usdg-funding.cjs",
+      "sha256_lf": "eab3811e89c8f909f0e5439339f2cca4c3a63af5e151bf768f9147eb8e374c5f"
+    },
+    {
+      "path": "scripts/local-usdg-revenue.cjs",
+      "sha256_lf": "c3021868a283cd7734fbff6ea56f3156a20ae5eabcd40ad74aecce9b537fe0ed"
+    },
+    {
+      "path": "scripts/monthly-dataset.cjs",
+      "sha256_lf": "3db8e59a80188c03d49064c59a89ea46bb014be213b3d4b73b481f846a15cf2a"
+    },
+    {
+      "path": "scripts/monthly-outcome.cjs",
+      "sha256_lf": "44f403333493c8eb8ca65ba830a9a7c18cc3db2dc53f2cdd3ac1ddf4094e048b"
+    },
+    {
+      "path": "scripts/operational-profile.cjs",
+      "sha256_lf": "be4b13f81063df7e88d94ded4a823f9cb527205093b096bba75351c9ae33e218"
+    },
+    {
+      "path": "scripts/paged-log-read.cjs",
+      "sha256_lf": "afc413892eccec419733a682c327956fdbd16f5a3db900d12c8d909bc65cf785"
+    },
+    {
+      "path": "scripts/pair-auto-buy.cjs",
+      "sha256_lf": "bc83c4b58dc315a5fd1cfb60d0c3229fb22e21903f95bdd1e5303cc321de4ae2"
+    },
+    {
+      "path": "scripts/persistent-buy-indexer.cjs",
+      "sha256_lf": "e6b0182bf62c9bb1aa1e5e2b6a1d64b45f9cf975517a68d4aa7e370a28513f02"
+    },
+    {
+      "path": "scripts/pons-automation.cjs",
+      "sha256_lf": "372423846010ee99534d7267618836d91571808dca5611d4bc2aac2f26041925"
+    },
+    {
+      "path": "scripts/pons-batch-buy.cjs",
+      "sha256_lf": "1ad91353034e10b1bb04c362ad2f07279fc9d99738e366d689229bd5f406dc78"
+    },
+    {
+      "path": "scripts/pons-batch-funding.cjs",
+      "sha256_lf": "b36a6ab0633a0df6601a048cdeaeb218d25031e7f6c26382d235b085986bcd63"
+    },
+    {
+      "path": "scripts/pons-batch-route.cjs",
+      "sha256_lf": "9963125c0ed7be92ae4d49ede2f7e2ec239736d4a4e9190ad64696da898017d9"
+    },
+    {
+      "path": "scripts/pons-bloom-evidence.cjs",
+      "sha256_lf": "e088b0446b7f62ba17528ef5db479bc1858f3abbed6105a797af2a9ab27ed833"
+    },
+    {
+      "path": "scripts/pons-cadence.cjs",
+      "sha256_lf": "27caa170b0c29b8ab26b7640b92dabf909e5567eb9293e9535c2f580b393e51b"
+    },
+    {
+      "path": "scripts/pons-channel-attribution.cjs",
+      "sha256_lf": "5fa131b8eeb6ce268b20341cf6a0455b76275834f5924c908ae5302a8e1645ec"
+    },
+    {
+      "path": "scripts/pons-collector-manual.cjs",
+      "sha256_lf": "cd492b36dab021f23fdf8ad96ba2e5ab9757086008a390ea16766546b5943cf1"
+    },
+    {
+      "path": "scripts/pons-curve-buy.cjs",
+      "sha256_lf": "4e3f81c0f84486032d0741551b99a055cf4157cfa06d00e6b85124ffe4d0a5bc"
+    },
+    {
+      "path": "scripts/pons-entrypoint-buy.cjs",
+      "sha256_lf": "b3d52f578344ae16dc45c3b0bc77fa920359b11d6f3333a0e23bfe796eece992"
+    },
+    {
+      "path": "scripts/pons-entrypoint-codec.cjs",
+      "sha256_lf": "0087f484847e71b18d748eb5712ebfe5bfc1f4fd3d985ef938266e23c8a705f0"
+    },
+    {
+      "path": "scripts/pons-funding-pass.cjs",
+      "sha256_lf": "7abd5b5b3516f18a014875d2bd6463ad2f64b0cfa06f627c3050f56de4749d87"
+    },
+    {
+      "path": "scripts/pons-gas-budget.cjs",
+      "sha256_lf": "1f625fadbb9fcc7e027dfccb6aa572a596a66c6e391e39654337fe5ff8b56825"
+    },
+    {
+      "path": "scripts/pons-launch-buy.cjs",
+      "sha256_lf": "4ef8ceeef2c0f1f7b732c6f6e4c5dbe6341982c819015486a4f5ef14bdad3a61"
+    },
+    {
+      "path": "scripts/pons-payout-scan.cjs",
+      "sha256_lf": "302bd918aa360563faf631d39ed7c34a1dad5340cebe9325344d32d4db07b49d"
+    },
+    {
+      "path": "scripts/pons-pool-batch-buy.cjs",
+      "sha256_lf": "f3311555b6b551cdb959320b7d719e0534204b20409a350e4bd3e76e179d300d"
+    },
+    {
+      "path": "scripts/pons-profiles.cjs",
+      "sha256_lf": "919350281c4a654c5984f13724e10b4663b814674731d4f33b2ceb9c41796e4e"
+    },
+    {
+      "path": "scripts/pons-public-execution.cjs",
+      "sha256_lf": "f599ca8d044dbc337e973520c06bda25388e3741c906713f78e34cacd512037a"
+    },
+    {
+      "path": "scripts/pons-public-profile.cjs",
+      "sha256_lf": "f7fac7dc8fa21b374d63ca7dd796aff3ba0a7fc88b5a56ce4cf24eeb958f3a36"
+    },
+    {
+      "path": "scripts/pons-router-calldata-research.cjs",
+      "sha256_lf": "b60039fa3e1c1a2c34bb95b5de743b2eb44e109db169aca867e0badb03509263"
+    },
+    {
+      "path": "scripts/pons-router-trace-research.cjs",
+      "sha256_lf": "34ad38d4c1e6e16557e90b1379cfc6a532890f96a2ae724790bfd2e9be1a9e9f"
+    },
+    {
+      "path": "scripts/pons-transaction-journal.cjs",
+      "sha256_lf": "28ac0d08572c53f4b5ba285e5c059d17aacd715d400526f7fe8d848487d20941"
+    },
+    {
+      "path": "scripts/pons-v4-buy.cjs",
+      "sha256_lf": "aab8472e94e4343395da67df79331fa30a448d5a95be8ac87a0dd460d627534e"
+    },
+    {
+      "path": "scripts/pons-zeroex-buy.cjs",
+      "sha256_lf": "01be8cda82913966ed80526c2092ed48c33c67560d991bbbedd0d7d05f3858c9"
+    },
+    {
+      "path": "scripts/prepare-purchase-recognition.cjs",
+      "sha256_lf": "f2a112537c4eb76f48e8352b73b8888cafad7a40caa69a157e87134e56ce84d7"
+    },
+    {
+      "path": "scripts/project-history.cjs",
+      "sha256_lf": "1eae191f170539e5667e6dce72702936948d6758fe29d4383ddefd5ad35bdef7"
+    },
+    {
+      "path": "scripts/public-launch-plan.cjs",
+      "sha256_lf": "1063f343610c65019153a32925fd28efaa454fe580d23ebff35166ea5c61985c"
+    },
+    {
+      "path": "scripts/public-observation.cjs",
+      "sha256_lf": "eb871533078e45a136a797151049f07b615040f9cb94844c4e12bfce2ff096f8"
+    },
+    {
+      "path": "scripts/public-rpc-check.cjs",
+      "sha256_lf": "35c443cdee0819d42b6f7f9119dd33a60f0c256ef061de47020a4f7946034a91"
+    },
+    {
+      "path": "scripts/public-rpc-qualification.cjs",
+      "sha256_lf": "383c233a6389c190c85d208c2675f5d87d79c1439d16d5cd32105c43859162c0"
+    },
+    {
+      "path": "scripts/public-status.cjs",
+      "sha256_lf": "de0cdc08fdd8f6384734dedebffa1505cbc2cf38e418be2d37c17eed7a6220c0"
+    },
+    {
+      "path": "scripts/purchase-recognition.cjs",
+      "sha256_lf": "47000e2cc1e03d8776fe3b162a4c7679d415118dff084c3145ca9bc1f62da72e"
+    },
+    {
+      "path": "scripts/recognition-worker.cjs",
+      "sha256_lf": "006b845f1611fab45aeaf63f58fc8dcd6f95169c224417aac3cb8cb7c49fa144"
+    },
+    {
+      "path": "scripts/replay-direct-buy.cjs",
+      "sha256_lf": "e31da858b097ac9e68eb166ecc677e134b3de32b9793078c657670a7019b892a"
+    },
+    {
+      "path": "scripts/reward-observation.cjs",
+      "sha256_lf": "d51a4fb9b31f799a3178bd13b0876c32870d3ba6b73063c2fd6db352689b9d47"
+    },
+    {
+      "path": "scripts/run-local-promo.cjs",
+      "sha256_lf": "72cceafc485d5d4285639f04f2595f392aab7d950b38b99454f15b3054371882"
+    },
+    {
+      "path": "scripts/runtime-network.cjs",
+      "sha256_lf": "52b9e856ab5273c96860ccb3616e7d0f42e551afce3dc31418e3d7d35a947880"
+    },
+    {
+      "path": "scripts/shared-index-config.cjs",
+      "sha256_lf": "105a8aa01a5321f8dca278743e64920236a5339de37d5e15bab2825db39d31a2"
+    },
+    {
+      "path": "scripts/short-dataset.cjs",
+      "sha256_lf": "1f361f4e56ee00dffd9200690396759e5f2e1d531e184db7a597b9c3cba2b7cd"
+    },
+    {
+      "path": "scripts/short-outcome.cjs",
+      "sha256_lf": "f7a81e0fd4a52b6e30b656f95c8523c69cb211ca3a0f0625b90741025de51572"
+    },
+    {
+      "path": "scripts/short-settlement.cjs",
+      "sha256_lf": "73d58a1d6d6ecc20af5c3fe3b59a73343e62b807d9a83760f25e5c67d692c498"
+    },
+    {
+      "path": "scripts/test-artifact.cjs",
+      "sha256_lf": "559bf7ae8fd176affc119f28878fcfe9f326e843530d919727c7009b3fc0b389"
+    },
+    {
+      "path": "scripts/transaction-chain.cjs",
+      "sha256_lf": "dd247388da4c1a52a8f1cbfd64659d3aa647350651e8c012d8371084ff31db1b"
+    },
+    {
+      "path": "scripts/user-status-api.cjs",
+      "sha256_lf": "a67a03088d3be029b069145eef3470ed80c660affa851e5038b81ebae1621624"
+    },
+    {
+      "path": "scripts/user-status-worker.cjs",
+      "sha256_lf": "b436ca05828779dad1d20c4e945b08660d21a1671a5dc872650e046f04b3803f"
+    },
+    {
+      "path": "scripts/v4-market-quote.cjs",
+      "sha256_lf": "13638f24ebfcff26583fd8e7b55d07f2cfebb2f32af6905d4b468ca2400ce284"
+    },
+    {
+      "path": "scripts/verified-buy-replay.cjs",
+      "sha256_lf": "dd187aed2e28a390a79ebb5e2c9c9dcb3d9e75e78c85f85e5dbbcf5e8bc8932f"
+    },
+    {
+      "path": "scripts/verified-draw-cache.cjs",
+      "sha256_lf": "da30571e5bece551907c9d2ad91895fd0b911d63fbd3f7b4579fee001b536d79"
+    },
+    {
+      "path": "test/attempt-lifecycle-events.test.cjs",
+      "sha256_lf": "b8f8304b18ba588fb17945b5bac20b2dafaf20a580ba924c71e37698b50630a0"
+    },
+    {
+      "path": "test/attempt-lifecycle.test.cjs",
+      "sha256_lf": "73444a35982f508329e4e5fac00b3632127f98d272d64da1e03f077c93627229"
+    },
+    {
+      "path": "test/contracts/AttemptLifecycleFixture.sol",
+      "sha256_lf": "d090b43029cb48f1d928f525446ffabd5277d31977c97d1f540f2c0cbf72360c"
+    },
+    {
+      "path": "test/contracts/ChainBlocksFixture.sol",
+      "sha256_lf": "f6089a36e81407aa981f82481616705e6c3a45f4c1e0459fff7c9ce8f6fa451e"
+    },
+    {
+      "path": "test/contracts/DrandConsumerFixture.sol",
+      "sha256_lf": "2cac6407a34ed2864fc94acf1dad2b1697579574f32f6f4ace7d3cc3c2c5563c"
+    },
+    {
+      "path": "test/contracts/DrawControllerFixture.sol",
+      "sha256_lf": "d013d97fff37d8bfe6acea3d2d4225f9f7a7c330b1c06e3a55d8a45d345da02c"
+    },
+    {
+      "path": "test/contracts/Fixtures.sol",
+      "sha256_lf": "e05de6476c96ca190a6cd434b6a21626a6ba0a5e26899622ec33d942c154dfa2"
+    },
+    {
+      "path": "test/contracts/InfinityFixtures.sol",
+      "sha256_lf": "310c6316f7023ac8e25246b2a7c994f8234931435fd3bedb35429acc22c7ab50"
+    },
+    {
+      "path": "test/contracts/LocalBuyFixture.sol",
+      "sha256_lf": "64dd1cc927f0436998d2debc389436e35a4f00bee5303352eafaf33b12d77cce"
+    },
+    {
+      "path": "test/contracts/LocalRandomFixture.sol",
+      "sha256_lf": "9d7f670ace649af22669d15d53943454fd42df80cb237c0b7cab9ddad84bfb80"
+    },
+    {
+      "path": "test/contracts/MonthlyOutcomeFixture.sol",
+      "sha256_lf": "578b783702a2e18796597f603759a329315a04bc60b66904b4d4bfba415c03d2"
+    },
+    {
+      "path": "test/contracts/MonthlySettlementFixture.sol",
+      "sha256_lf": "3f060f0de9e00d01c3cb2ec1e41d860efd31cde204167817de11660cca9b4157"
+    },
+    {
+      "path": "test/contracts/PolicyWalletFixture.sol",
+      "sha256_lf": "ddb1b7331b78bbd5bb92354f9f7cf64f4e60ebc0a75ec0cdfbdab87df4be9bc8"
+    },
+    {
+      "path": "test/contracts/PonsEscrowFixture.sol",
+      "sha256_lf": "5d820ad5b026138e9144eb246efaf7dab77207c578c17e329897ed72489182d4"
+    },
+    {
+      "path": "test/contracts/PonsVenueFixture.sol",
+      "sha256_lf": "ff02ed37aa69cdc19efb47ef6712e5073ba19ad922f873bcfd4a29a413c4a0a4"
+    },
+    {
+      "path": "test/contracts/PrizePriceFixture.sol",
+      "sha256_lf": "d83a68e6af856616ebf2aa52f7dccdde9fd0b2444cf752ed3376f6c232708c17"
+    },
+    {
+      "path": "test/contracts/PrizeSwapFixture.sol",
+      "sha256_lf": "7345b4f4aef23e4db38f23f5f6ef1a1790310167bbf300546ea9fd64aa7f260a"
+    },
+    {
+      "path": "test/contracts/PublicArbSysFixture.sol",
+      "sha256_lf": "4e33eb36726799cba976c1995f530ae2a71d2e154ef73e56e2c985673907726c"
+    },
+    {
+      "path": "test/contracts/RegistrationWalletFixture.sol",
+      "sha256_lf": "e3c4b5c20cb8d45d3fc664350c758b1b86c73882f1c9b35e0766fa53e53e3880"
+    },
+    {
+      "path": "test/contracts/ShortDatasetFixture.sol",
+      "sha256_lf": "1136e203a85f00ac95c973d18dced92c2bf8d839646cfa23ecd450f5ba3f27cd"
+    },
+    {
+      "path": "test/contracts/ShortDrawCommitmentFixture.sol",
+      "sha256_lf": "67a78aef9a2313f3eefd184a5f8a38cdfbe6cad3393d7ef5aaebe868b85bd8b3"
+    },
+    {
+      "path": "test/contracts/ShortEpochFixture.sol",
+      "sha256_lf": "096971440fd1065363388f059b0a1846653bea3da0e80d2e1dd333f766336b91"
+    },
+    {
+      "path": "test/contracts/ShortOutcomeFixture.sol",
+      "sha256_lf": "1fc3581e4b21982d7e85bfdcb8c292e5b830595a741753eed27ae969b246b853"
+    },
+    {
+      "path": "test/contracts/ShortPrizeBasketFixture.sol",
+      "sha256_lf": "0836cc8335b07bc0168e82ebcdf05e508dc0cfb866f0de4270ed211f1f65896e"
+    },
+    {
+      "path": "test/contracts/ShortSettlementFixture.sol",
+      "sha256_lf": "3b89ce444a911f8342b1616622aecbb067e7315cd07b690e7a5c5ffda87a3a3b"
+    },
+    {
+      "path": "test/contracts/ShortStreamingStudy.sol",
+      "sha256_lf": "ab77404fa3f95d9a0ab1a37954f008ec6cd6a97294bc0c1c333a09df82f5c79b"
+    },
+    {
+      "path": "test/contracts/UnsupportedBuyForwarder.sol",
+      "sha256_lf": "b95a127c012fdb8acd714c8f25d9e2eb1193bc48774d1aaaa5d618912acedef5"
+    },
+    {
+      "path": "test/direct-buy.test.cjs",
+      "sha256_lf": "9bce9bd5956a892852ad0714f5f6d00059c63e69ed6703330e9ab6848af2c403"
+    },
+    {
+      "path": "test/drand-binding-model.test.cjs",
+      "sha256_lf": "2d87d284bb15705cbf89838965e2cfd1118cd9c47ac2e0a4ef50d9eba1585a2b"
+    },
+    {
+      "path": "test/drand-delivery-worker.test.cjs",
+      "sha256_lf": "115491a37b6487cef0f7cda63b2822665e822e284249e6dc2fc223a566e00993"
+    },
+    {
+      "path": "test/fixtures/attempt-history.cjs",
+      "sha256_lf": "f1ff842fbbc7de6a2a86623d2f9c5b86e93fea92e52b1e758ebd1d4f97932a1f"
+    },
+    {
+      "path": "test/fixtures/dual-controller.cjs",
+      "sha256_lf": "a7180d98e47fb3893c4683d1b8267ca94671094ae108dc7e490d8fe5be356f01"
+    },
+    {
+      "path": "test/fixtures/local-controllers.cjs",
+      "sha256_lf": "d051575b34acb30a921a13fa4c54fb2752cc03e0f7737b874f2d9150201548c8"
+    },
+    {
+      "path": "test/fixtures/pons-indexer.cjs",
+      "sha256_lf": "5fe58387691b2f4a0318f86c944f1b9f4f6c087c1a85935884f19e504eb34198"
+    },
+    {
+      "path": "test/fixtures/pons-router-research/eth.json",
+      "sha256_lf": "3679b2b68be48731e8cdf47ae882e590bb336635a3f86bb5c854208eb6f384df"
+    },
+    {
+      "path": "test/fixtures/pons-router-research/runtime-codes.json",
+      "sha256_lf": "b23f59acc0c085882bc2b6d32957e7b3a833ece3a77580e2aec44addd73930e2"
+    },
+    {
+      "path": "test/fixtures/pons-router-research/usdg.json",
+      "sha256_lf": "cd0fb7121aa201b22b2ad993f95af32fdc14ae16f63de8f0774ee5d7b36148de"
+    },
+    {
+      "path": "test/fixtures/purchase-recognition.cjs",
+      "sha256_lf": "8ba8ac171641dd874dcdf9485c4e94d003ee5faa0067beb3056b4bfd2a1ec0ec"
+    },
+    {
+      "path": "test/fixtures/short-outcome.cjs",
+      "sha256_lf": "6f4a74fa71e49e6f864c99c106c93cc847c4e75b6767350f70608d060b178939"
+    },
+    {
+      "path": "test/local-state-lock.test.cjs",
+      "sha256_lf": "3483cbcc0159aa808eb4671f904c449a2f3d1dc19001e1d35637ab696f3a0e0b"
+    },
+    {
+      "path": "test/local-transaction.test.cjs",
+      "sha256_lf": "79127fe33dba86e4d520afcdc09c2eabc077cfa7f69781f5ae1d80b54795a06f"
+    },
+    {
+      "path": "test/persistent-buy-indexer.test.cjs",
+      "sha256_lf": "327f44f7c284f9ce9a20f22dd141072beaac4daaf9d0313e52903adcc1284ab9"
+    },
+    {
+      "path": "test/purchase-recognition.test.cjs",
+      "sha256_lf": "0b3512fd240df855cb5c58c85c244e9ba229eb5339cfc5c58dd92eb0336f24fe"
+    },
+    {
+      "path": "test/shared-index-config.test.cjs",
+      "sha256_lf": "32185f948cb97450f1c440ea46af5f6e664e5135592ba328f63a9e64546e5f69"
+    },
+    {
+      "path": "web/app.js",
+      "sha256_lf": "46c76a805adf096e1a4f64013fd386b42baa95317c9fc203305623c56738f953"
+    },
+    {
+      "path": "web/claim.js",
+      "sha256_lf": "288a1bd3e3fcb2bd995efaf46ef168715a4bba6ba10c25c5878f3992b974b993"
+    },
+    {
+      "path": "web/overview.js",
+      "sha256_lf": "9c81e170fa4c0f7fec75a1ee1b32791e8a37f854ce93f0055742090ef3393fc0"
+    }
+  ],
+  "unresolved_relative_imports": []
+}
