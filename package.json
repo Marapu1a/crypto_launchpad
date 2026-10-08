@@ -2,17 +2,34 @@
   "name": "crypto-launchpad",
   "version": "0.0.0",
   "private": true,
-  "description": "Token raffle platform; initial source import and local research",
+  "description": "Pons launch integration and configurable token platform",
   "scripts": {
     "check:upstream": "node scripts/check-upstream.cjs",
-    "test": "npm run test:reference",
-    "test:reference": "node scripts/test-reference.cjs"
+    "check:rpc": "node scripts/check-rpc.mjs",
+    "test": "npm run test:unit",
+    "test:reference": "node scripts/test-reference.cjs",
+    "dev": "vite",
+    "start": "node server/app.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "fork": "node scripts/start-fork.mjs",
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:fork": "node tests/fork/pons.mjs",
+    "test:ui": "playwright test"
   },
-  "engines": { "node": ">=22" },
-  "dependencies": { "ethers": "6.17.0" },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "ethers": "6.17.0",
+    "multiformats": "14.0.5",
+    "sharp": "0.35.5"
+  },
   "devDependencies": {
     "@openzeppelin/contracts": "5.6.1",
+    "@playwright/test": "1.63.0",
     "hardhat": "2.29.1",
-    "solc": "0.8.37"
+    "solc": "0.8.37",
+    "vite": "6.4.4"
   }
 }
