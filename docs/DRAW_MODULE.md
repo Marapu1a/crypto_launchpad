@@ -132,3 +132,6 @@ reroll запрещён. Призовые результаты — расчёт,
 
 Пакет5 — локальный split комиссий: [FEE_SPLIT](FEE_SPLIT.md).
 Проверен полный путь с долями config.fees;10contract scenarios PASS.
+
+Пакет6 — [покупки→билеты](TICKET_INDEXER.md): USDG curve/opening-buy, durable state,
+cutoff snapshot и передача участников в local Short.4unit+6fork PASS.

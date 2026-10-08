@@ -86,3 +86,10 @@ Collector→fund→freeze→Solidity result→claims→следующий цик
 фиксированные получатели, cumulative округление, независимые выплаты.
 10контрактных сценариев PASS, включая escrow→collector→split→Short→claims.
 См. FEE_SPLIT. UI deployment/Monthly/realPons/indexer/RNG ещё не подключены.
+
+08.10.2026: пакет покупки→билеты выполнен для USDG curve и launchAndBuy наfork.
+Порог параметризован, остатки сохраняются, scan durable с checksum/lock/atomic save,
+freeze snapshot, расходованные билеты читаются из программы.4unit+6fork PASS,
+участники из покупок переданы в Solidity freeze/settle. См.TICKET_INDEXER.
+Pool/native/batch и production finality не реализованы; при reorg остановка.
+Далее RNG и эксплуатационное подключение, оставшиеся маршруты отдельным пакетом.

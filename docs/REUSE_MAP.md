@@ -31,3 +31,8 @@ release manifests, оформление QIANQI и архив документа�
 Browser-safe адаптация scripts/short-outcome.cjs в src/draws/short-outcome.mjs;
 reference-only vendor неизменён. Старые рекомендации 50/50 выше исторические;
 актуальные параметры и границы — DRAW_MODULE.md.
+
+08.10.2026: scripts/pons-curve-buy.cjs адаптирован в src/tickets/direct-curve.cjs;
+hardcode100USDG и старый manifest не перенесены. Durable replay и lifecycle
+послужили образцом нового scanner/ledger, не скопированы как готовый сервис.
+LaunchAndBuy decoder написан отдельно; источники и границы — TICKET_INDEXER.

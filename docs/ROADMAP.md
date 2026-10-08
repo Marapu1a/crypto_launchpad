@@ -50,3 +50,8 @@ PAIR остаётся возможной будущей интеграцией. 
 Локальный Short теперь получает заданную призовую долю; остальные доли выплачиваются
 отдельно. Дальше подключение реальных данных покупок/индексатора и RNG, затем
 production deployment; Monthly отдельный модуль.
+
+Покупки→билеты: готов локальный USDG curve/opening-buy профиль,4unit+6fork PASS,
+проверены сохранение/перезапуск/два токена/snapshot→Short. [TICKET_INDEXER](TICKET_INDEXER.md).
+До mainnet: authenticated RNG, publisher/keeper/finality и дополнительные маршруты
+после graduation; завершение единого deployment. Monthly отдельно.
