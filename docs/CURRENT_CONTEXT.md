@@ -81,3 +81,8 @@ Collector→fund→freeze→Solidity result→claims→следующий цик
 включая24Solidity/JS вектора. Только in-process31337 и mock escrow/ERC20;
 оператор вручную задаёт тестовый seed. Split/Monthly/realPons/RNG/индексатор
 не подключены; локальный бюджет не утверждает финансовые правила токена.
+
+08.10.2026: добавлен LocalFeeSplitter: настраиваемые призы/команда/обслуживание,
+фиксированные получатели, cumulative округление, независимые выплаты.
+10контрактных сценариев PASS, включая escrow→collector→split→Short→claims.
+См. FEE_SPLIT. UI deployment/Monthly/realPons/indexer/RNG ещё не подключены.

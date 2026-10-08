@@ -4,11 +4,12 @@ import assert from 'node:assert/strict';
 import solc from 'solc';
 import { BrowserProvider, ContractFactory, id } from 'ethers';
 import { compute, QIANQI_RULES } from '../../src/draws/short-outcome.mjs';
+import { qianqiPreset, validateConfig } from '../../src/draws/config.mjs';
 process.env.HARDHAT_CONFIG = resolve('tests/contracts/hardhat.config.cjs');
 const { default: hre } = await import('hardhat');
 const provider = new BrowserProvider(hre.network.provider, undefined, { cacheTimeout: -1 });
 const signer = await provider.getSigner(0), stranger = await provider.getSigner(1);
-const sources = Object.fromEntries(['contracts/draws/LocalShortProgram.sol','contracts/draws/LocalFeeCollector.sol','tests/contracts/Fixtures.sol'].map(f=>[f,{content:readFileSync(f,'utf8')}]));
+const sources = Object.fromEntries(['contracts/draws/LocalShortProgram.sol','contracts/draws/LocalFeeCollector.sol','contracts/draws/LocalFeeSplitter.sol','tests/contracts/Fixtures.sol'].map(f=>[f,{content:readFileSync(f,'utf8')}]));
 const compiled = JSON.parse(solc.compile(JSON.stringify({language:'Solidity',sources,settings:{optimizer:{enabled:true,runs:200},evmVersion:'cancun',outputSelection:{'*':{'*':['abi','evm.bytecode.object']}}}}),{import:p=>{try{return {contents:readFileSync(p.startsWith('@')?resolve('node_modules',p):resolve(p),'utf8')};}catch{return {error:'Missing '+p};}}}));
 const errors = compiled.errors?.filter(e=>e.severity==='error')||[]; assert.deepEqual(errors,[]);
 async function deploy(file,name,args=[]) { const c=compiled.contracts[file][name]; const contract=await new ContractFactory(c.abi,c.evm.bytecode.object,signer).deploy(...args); await contract.waitForDeployment(); return contract; }
@@ -94,6 +95,51 @@ await scenario('No admitted wallets returns entire frozen fund; empty list canno
   assert.ok(seed);await tx(p.settle(people,seed));
   assert.equal(await p.freeFund(),101n);assert.equal(await p.liabilities(),0n);assert.equal(await p.reserved(),0n);
   assert.equal(await p.consumedThrough(people[0].wallet),1n);
+});
+const team=await (await provider.getSigner(2)).getAddress(),ops=await (await provider.getSigner(3)).getAddress();
+const makeSplitter = shares => deploy('contracts/draws/LocalFeeSplitter.sol','LocalFeeSplitter',[token.target,program.target,team,ops,shares]);
+await scenario('Fee policy from constructor settings: escrow -> split -> Short -> all payouts',async()=>{
+  const config=qianqiPreset();config.monthly.enabled=false;validateConfig(config);
+  const p=await deploy('contracts/draws/LocalShortProgram.sol','LocalShortProgram',[token.target,await signer.getAddress(),1,100000000,5000000,config.short.basket.weights]);
+  const shares=[config.fees.prizesBps,config.fees.teamBps,config.fees.operationsBps];
+  const split=await deploy('contracts/draws/LocalFeeSplitter.sol','LocalFeeSplitter',[token.target,p.target,team,ops,shares]);
+  const c=await deploy('contracts/draws/LocalFeeCollector.sol','LocalFeeCollector',[token.target,escrow.target,split.target]);
+  await tx(token.approve(escrow.target,200000000));await tx(escrow.deposit(c.target,200000000));await tx(c.collect());await tx(c.forward());
+  assert.deepEqual(await Promise.all([0,1,2].map(i=>split.credit(i))),[180000000n,10000000n,10000000n]);
+  await tx(token.blockRecipient(team,true));await assert.rejects(split.deliver(1));assert.equal(await split.credit(1),10000000n);
+  const opsBefore=await token.balanceOf(ops);await tx(split.connect(stranger).deliver(2));assert.equal(await token.balanceOf(ops)-opsBefore,10000000n);
+  await tx(split.deliver(0));assert.equal(await p.freeFund(),180000000n);assert.equal(await token.allowance(split.target,p.target),0n);
+  await hre.network.provider.send('evm_increaseTime',[2]);await hre.network.provider.send('evm_mine');
+  await tx(p.freeze(participants));await tx(p.settle(participants,id('split-cycle')));
+  let paid=0n;for(const person of participants){const reward=await p.rewards(1,person.wallet);if(reward){await tx(p.claim(1,person.wallet));paid+=reward;}}
+  assert.equal(paid+await p.freeFund(),180000000n);assert.equal(await p.liabilities(),0n);
+  await tx(token.blockRecipient(team,false));const teamBefore=await token.balanceOf(team);await tx(split.deliver(1));assert.equal(await token.balanceOf(team)-teamBefore,10000000n);
+  await assert.rejects(split.deliver(1));assert.equal(await split.solvent(),true);
+});
+await scenario('Tiny receipts and intermittent delivery equal one lump sum for every tested split',async()=>{
+  for(const shares of [[9000,500,500],[3334,3333,3333],[10000,0,0],[1,9999,0]]){
+    const small=await makeSplitter(shares),bulk=await makeSplitter(shares);
+    await tx(token.approve(small.target,10000));await tx(token.approve(bulk.target,10000));
+    let total=0n;for(const receipt of [1n,1n,1n,7n,9n,1n,80n,9900n]){
+      await tx(small.fund(receipt));total+=receipt;
+      for(let i=0;i<3;i++)assert.equal(await small.allocated(i),total*BigInt(shares[i])/10000n);
+      assert.ok(await small.roundingReserve()<=2n);
+      for(let i=0;i<3;i++)if(await small.credit(i)>0n)await tx(small.deliver(i));
+      assert.equal(await small.solvent(),true);
+    }
+    await tx(bulk.fund(total));
+    for(let i=0;i<3;i++)assert.equal(await small.allocated(i),await bulk.allocated(i));
+    assert.equal(await small.roundingReserve(),0n);
+    assert.equal(await token.balanceOf(small.target),0n);
+  }
+});
+await scenario('Invalid policies, unsupported lanes and cross-instance spending rejected',async()=>{
+  await assert.rejects(makeSplitter([9000,500,501]));await assert.rejects(makeSplitter([0,5000,5000]));
+  const a=await makeSplitter([8000,1500,500]),b=await makeSplitter([9000,500,500]);
+  await tx(token.approve(a.target,100));await tx(a.fund(100));
+  assert.equal(await b.totalReceived(),0n);await assert.rejects(b.deliver(1));await assert.rejects(a.deliver(3));
+  assert.equal(await a.credit(1),15n);
+  await tx(token.mint(a.target,7));assert.equal(await a.totalReceived(),100n);assert.equal(await a.credit(1),15n);
 });
 mkdirSync('.local/test-results',{recursive:true});
 const path=`.local/test-results/short-cycle-${report.date.replace(/[:.]/g,'-')}.json`;

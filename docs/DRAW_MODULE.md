@@ -129,3 +129,6 @@ reroll запрещён. Призовые результаты — расчёт,
 Пакет4: локальное исполнение контрактами — [LOCAL_SHORT_EXECUTION](LOCAL_SHORT_EXECUTION.md).
 Отдельная команда `npm run test:draw-contracts`,7сценариев PASS. Интерфейс пока
 остаётся JS-симулятором; он не отправляет транзакций этих контрактов.
+
+Пакет5 — локальный split комиссий: [FEE_SPLIT](FEE_SPLIT.md).
+Проверен полный путь с долями config.fees;10contract scenarios PASS.
