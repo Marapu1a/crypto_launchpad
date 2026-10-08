@@ -140,3 +140,5 @@ Verified source действующего deployer содержит CREATE2 и `p
 экономику, factory/deployer/forwarder bindings и code hashes.
 
 Следующий документ: [предложение графа запуска](DEPLOYMENT_BLUEPRINT.md).
+
+Уточнение 08.10.2026, [сквозная репетиция](FIRST_TOKEN_REHEARSAL_REPORT.md): curve sweep нельзя вызывать обычным кошельком запуска, если recipient — collector. Добавлен LocalPonsFeeCollector с проверенной однократной привязкой к токену и permissionless sweepCurve от самого collector. На fork82000000 base1%, creator2%, protocol share30% базовой комиссии: creator получает 2% плюс 70% от базового1%. Split80/15/5 применяется ко всей полученной выручке. Исторический пример50/50 выше заменён согласованным профилем первого токена.

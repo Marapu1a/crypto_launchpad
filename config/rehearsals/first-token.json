@@ -1,0 +1,25 @@
+{
+  "name": "TOKEN Rehearsal",
+  "symbol": "TOKEN",
+  "creatorFee": "2",
+  "openingBuy": "6",
+  "draws": {
+    "version": 1,
+    "asset": "USDG",
+    "ticketPurchase": "10",
+    "fees": { "prizesBps": 8000, "teamBps": 1500, "operationsBps": 500 },
+    "short": {
+      "enabled": true,
+      "intervalSeconds": 86400,
+      "minimumFund": "50",
+      "basket": { "weights": [1], "minimumUnit": "50" }
+    },
+    "monthly": {
+      "enabled": false,
+      "intervalSeconds": 2592000,
+      "minimumFund": "50",
+      "nextReserve": "50",
+      "winnerCount": 1
+    }
+  }
+}
