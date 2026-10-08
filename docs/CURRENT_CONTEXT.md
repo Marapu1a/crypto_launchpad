@@ -99,3 +99,7 @@ freeze атомарно закрепляет будущий раунд, ручн
 4offline+4live контрактных сценария,2unit,10соседних PASS. Live round21316976.
 Подробности DRAND_SHORT. Прежний LocalShortProgram остаётся ручной тестовой
 фикстурой. Clock/finality/keeper/deployment mainnet не готовы.
+
+08.10.2026: условия первого TOKEN/USDG согласованы в [FIRST_TOKEN_REHEARSAL](FIRST_TOKEN_REHEARSAL.md). 24 часа от settle, первый отсчёт от создания программы; один призовой слот без гарантии победителя. Найден обязательный пробел: позднее распознавание QIANQI использует creditedAt, текущий индексатор платформы его ещё не поддерживает. Перенос и проверка нужны до сквозной репетиции.
+
+08.10.2026: локальный перенос позднего начисления выполнен — [LATE_RECOGNITION](LATE_RECOGNITION.md). Отдельный source/publisher, проверка исходной покупки, creditedAt, immutable originals/snapshots, durable bundles и reorg halt. 8 unit + 7 fork сценариев PASS (включая прежние 6). Проверена намеренно отложенная прямая покупка Pons; trace-adapter неизвестных роутеров ещё не перенесён. Полная репетиция первого токена с live RNG/24 часами остаётся следующим интеграционным пакетом.

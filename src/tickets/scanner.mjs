@@ -1,16 +1,17 @@
 import { readFile, mkdir, rename, open, unlink } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import { Interface, keccak256, getAddress } from 'ethers';
 import { NETWORK, FACTORY, ROUTER, readAt } from '../pons/client.mjs';
 import { assertLocalFork } from '../pons/local-execution.mjs';
 import { recognize } from './recognition.mjs';
 import { digest, replayTickets, snapshotTickets } from './ledger.mjs';
+import { RECOGNITION, MAX_BUNDLE_BYTES, bundleHash, validateRecognition, confirmationLogs, deferDecision, creditedEvents } from './late-recognition.mjs';
 const hex=n=>'0x'+BigInt(n).toString(16);
 const USDG='0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168';
 const GETTERS=new Interface(['function token() view returns(address)','function pairToken() view returns(address)','function factory() view returns(address)']);
 const PROGRAM=new Interface(['function quote() view returns(address)','function consumedThrough(address) view returns(uint128)','function pending() view returns(bool)','function cycle() view returns(uint256)','function draws(uint256) view returns(bytes32 participantsHash,bytes32 context,bytes32 resultHash,uint256 budget,uint256 awarded,bool settled)']);
 const fields=['factory','router','curve','token','quote','registry','hook'];
-export async function createProfile(provider,{token,program,launchBlock,thresholdRaw,instance}) {
+export async function createProfile(provider,{token,program,launchBlock,thresholdRaw,instance,recognition}) {
   await assertLocalFork(provider);
   if(!/^[1-9]\d*$/.test(thresholdRaw)||BigInt(thresholdRaw)>=(1n<<256n)||!Number.isSafeInteger(launchBlock)||launchBlock<1||typeof instance!=='string'||!instance)throw Error('Invalid profile parameters');
   const [record]=await readAt(provider,NETWORK.factory,FACTORY,'getLaunchedToken',[getAddress(token)],launchBlock);
@@ -22,6 +23,10 @@ export async function createProfile(provider,{token,program,launchBlock,threshol
     token:getAddress(token),curve:record.curve,quote:USDG,registry:getAddress(program),hook,quoteBasis:'wallet-net-debit-v1',thresholdRaw,
     anchor:{number:launchBlock-1,hash:anchor.hash},codeHashes:{}};
   const latest=await provider.send('eth_blockNumber',[]);
+  if(recognition){
+    const codeHash=keccak256(await provider.send('eth_getCode',[recognition.source,latest]));
+    p.recognition={...recognition,codeHash};validateRecognition(p.recognition);
+  }
   for(const field of fields){const code=await provider.send('eth_getCode',[p[field],latest]);if(code==='0x')throw Error('Missing profile contract '+field);p.codeHashes[field]=keccak256(code);}
   if(p.codeHashes.factory!==NETWORK.factoryHash)throw Error('Factory runtime drift');
   await verifyProfile(provider,p,Number(BigInt(latest)));return p;
@@ -37,6 +42,12 @@ async function verifyProfile(provider,p,cutoff){
   for(const [method,field] of [['token','token'],['pairToken','quote'],['factory','factory']])if((await readAt(provider,p.curve,GETTERS,method,[],cutoff))[0].toLowerCase()!==p[field].toLowerCase())throw Error('Curve binding changed');
   if((await readAt(provider,p.registry,PROGRAM,'quote',[],cutoff))[0].toLowerCase()!==p.quote.toLowerCase())throw Error('Program quote mismatch');
   if((await readAt(provider,p.router,ROUTER,'factory',[],cutoff))[0].toLowerCase()!==p.factory.toLowerCase())throw Error('Router binding changed');
+  if(p.recognition){
+    validateRecognition(p.recognition);
+    const r=p.recognition;
+    if(keccak256(await provider.send('eth_getCode',[r.source,hex(cutoff)]))!==r.codeHash)throw Error('Recognition runtime changed');
+    for(const method of ['instanceId','publisher'])if(String((await readAt(provider,r.source,RECOGNITION,method,[],cutoff))[0]).toLowerCase()!==r[method].toLowerCase())throw Error('Recognition binding changed');
+  }
 }
 async function load(path,profile){
   let text;try{text=await readFile(path,'utf8');}catch(e){if(e.code==='ENOENT')return {profile,head:profile.anchor,blocks:[],snapshots:{}};throw e;}
@@ -55,7 +66,7 @@ async function save(path,state){
 async function canonical(provider,state){
   if((await provider.send('eth_getBlockByNumber',[hex(state.head.number),false]))?.hash!==state.head.hash)throw Error('Indexed branch changed; halt for replay review');
 }
-export async function scanTickets(provider,profile,path,cutoff){
+export async function scanTickets(provider,profile,path,cutoff,{bundleDirectory}={}){
   return locked(path,async()=>{
     const state=await load(path,profile);
     if(!Number.isSafeInteger(cutoff)||cutoff<state.head.number||cutoff-state.head.number>500)throw Error('Invalid scan cutoff (max 500 blocks per batch)');
@@ -64,18 +75,34 @@ export async function scanTickets(provider,profile,path,cutoff){
     for(let number=state.head.number+1;number<=cutoff;number++){
       const block=await provider.send('eth_getBlockByNumber',[hex(number),true]);
       if(!block||block.parentHash!==state.head.hash)throw Error('Discontinuous history');
-      const events=[],evidence=[];
+      const events=[],evidence=[],confirmations=[];
+      let recognitionCodeHash;
       for(const transaction of block.transactions){
         const receipt=await provider.send('eth_getTransactionReceipt',[transaction.hash]);
         if(!receipt||receipt.blockHash!==block.hash||receipt.transactionHash!==transaction.hash||receipt.logs.some(l=>l.removed||l.blockHash!==block.hash||l.transactionHash!==transaction.hash))throw Error('Receipt branch mismatch');
         const recognized=recognize(profile,transaction,receipt);
         if(recognized.length)evidence.push({transaction,receipt});
-        events.push(...recognized);
+        events.push(...recognized.map(event=>deferDecision(profile,event)));
+        for(const log of confirmationLogs(profile,receipt)){
+          const key=RECOGNITION.parseLog(log).args.bundleHash;
+          if(!bundleDirectory)throw Error('Recognition bundle directory required');
+          const handle=await open(join(bundleDirectory,key+'.json'),'r');
+          let bundle;
+          try{
+            if((await handle.stat()).size>MAX_BUNDLE_BYTES)throw Error('Recognition bundle too large');
+            bundle=JSON.parse(await handle.readFile('utf8'));
+          }finally{await handle.close();}
+          if(bundleHash(bundle)!==key)throw Error('Recognition bundle hash mismatch');
+          recognitionCodeHash??=keccak256(await provider.send('eth_getCode',[profile.recognition.source,hex(number)]));
+          confirmations.push({transaction,receipt,log,bundle});
+        }
       }
-      state.blocks.push({number,hash:block.hash,events,evidence});state.head={number,hash:block.hash};
+      const saved={number,hash:block.hash,events,evidence};
+      if(confirmations.length)Object.assign(saved,{confirmations,recognitionCodeHash});
+      state.blocks.push(saved);state.head={number,hash:block.hash};
     }
     if((await provider.send('eth_getBlockByNumber',[hex(cutoff),false]))?.hash!==target.hash)throw Error('Branch changed during scan');
-    state.wallets=replayTickets(state.blocks.flatMap(b=>b.events),profile.thresholdRaw);
+    state.wallets=replayTickets(creditedEvents(state),profile.thresholdRaw);
     await save(path,state);return structuredClone(state);
   });
 }
