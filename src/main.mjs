@@ -87,7 +87,7 @@ function render() {
     <div class="stats"><div><span>Эмиссия</span><strong id="card-supply">—</strong></div><div><span>Порог graduation</span><strong id="card-graduation">—</strong></div><div><span>Creator fee</span><strong id="card-fee">0%</strong></div><div><span>Стоимость запуска</span><strong id="card-launch">—</strong></div></div>
     <div class="preview-bottom"><span id="card-destination"></span><span class="arrow">↗</span></div></div>
     <div class="side-note"><span class="eyebrow">БАЗОВЫЙ ЗАПУСК</span><p>Токен и торговая кривая создаются в Pons. Настройки берём из контракта сети.</p><small id="block-info"></small></div>
-    <button class="button text export" id="export">↓ Сохранить черновик и результаты</button><button class="button text export" id="new-draft">+ Новый запуск</button></aside></div>
+    <a class="button text export" href="/draws.html">Настроить розыгрыши →</a><button class="button text export" id="export">↓ Сохранить черновик и результаты</button><button class="button text export" id="new-draft">+ Новый запуск</button></aside></div>
     <footer>CRYPTO LAUNCHPAD <span>Рабочая версия · 01</span></footer></main>`;
   bind(); preview(); renderMessage(); paintValidation();
 }

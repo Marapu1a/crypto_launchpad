@@ -10,5 +10,5 @@ export default defineConfig({
     fs: { deny: ['.env', '.env.*', '*.{crt,pem,key}', '**/.git/**', '**/.local/**'] },
   },
   preview: { host: '127.0.0.1', port: 4173, strictPort: true },
-  build: { outDir: 'dist' },
+  build: { outDir: 'dist', rollupOptions: { input: { main: 'index.html', draws: 'draws.html' } } },
 });

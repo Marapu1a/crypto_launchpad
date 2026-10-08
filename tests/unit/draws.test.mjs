@@ -45,3 +45,21 @@ test('Invalid settings fail without inventing a Monthly multi-winner algorithm',
   assert.throws(() => previewBasket(-1n, qianqiPreset().short.basket));
   assert.throws(() => equalWeights(65));
 });
+
+test('Large exact budgets and minimum unit boundaries preserve funds for every place count', () => {
+  const max = (1n << 256n) - 1n;
+  for (let count = 1; count <= 64; count++) {
+    const weights = Array.from({ length: count }, (_, i) => Math.max(1, 8 - i));
+    const sum = weights.reduce((n, w) => n + BigInt(w), 0n);
+    const threshold = sum * 5000000n;
+    for (const budget of [0n, threshold - 1n, threshold, threshold + 1n, max]) {
+      const result = previewBasket(budget, { weights, minimumUnit: '5' });
+      assert.equal(result.ready, budget >= threshold);
+      assert.equal(result.prizes.reduce((n, p) => n + p, 0n) + result.remainder, budget);
+      if (result.ready) {
+        assert.ok(result.remainder < sum);
+        result.prizes.forEach((p, i) => assert.equal(p / BigInt(weights[i]), budget / sum));
+      }
+    }
+  }
+});

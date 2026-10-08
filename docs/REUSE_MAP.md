@@ -26,3 +26,8 @@
 Не переносились production-конфиги, секреты, кошельки, эксплуатационные журналы,
 release manifests, оформление QIANQI и архив документации. `research/` содержит
 только входные данные, нужные выбранным модулям/тестам; это исторические fixtures.
+
+Дополнение08.10.2026: ShortOutcome/ShortPrizeBasket — основа нового Short.
+Browser-safe адаптация scripts/short-outcome.cjs в src/draws/short-outcome.mjs;
+reference-only vendor неизменён. Старые рекомендации 50/50 выше исторические;
+актуальные параметры и границы — DRAW_MODULE.md.
