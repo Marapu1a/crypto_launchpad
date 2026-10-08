@@ -75,3 +75,9 @@ Collector/program/RNG и финансовые решения отложены д
 допуск/отбор/призы QIANQI, генераторы участников, тестовый seed, отдельные
 контексты проекта/цикла. 11unit+9UI+build PASS,24набора совпали с JS reference.
 Нет транзакций/RNG/истории покупок/lifecycle. Границы — DRAW_MODULE.
+
+08.10.2026: выполнен локальный денежный цикл Short, см. LOCAL_SHORT_EXECUTION.
+Collector→fund→freeze→Solidity result→claims→следующий цикл.7сценариев прошли,
+включая24Solidity/JS вектора. Только in-process31337 и mock escrow/ERC20;
+оператор вручную задаёт тестовый seed. Split/Monthly/realPons/RNG/индексатор
+не подключены; локальный бюджет не утверждает финансовые правила токена.

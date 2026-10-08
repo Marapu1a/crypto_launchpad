@@ -15,6 +15,7 @@
     "fork": "node scripts/start-fork.mjs",
     "test:unit": "node --test tests/unit/*.test.mjs",
     "test:fork": "node tests/fork/pons.mjs",
+    "test:draw-contracts": "node tests/contracts/short-cycle.mjs",
     "test:ui": "playwright test"
   },
   "engines": {
