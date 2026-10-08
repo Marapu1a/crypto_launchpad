@@ -110,3 +110,5 @@ Pool после graduation и конвертация через Pons operator с
 Источник sweep/fee policy: локальные verified sources
 `.local/research/package2-20261007T145547Z/router-sources/contracts/src/v2/PonsV2BondingCurve.sol`,
 сверенные исполнением на fork 82000000. Рабочая база пакета — commit c95ae9e.
+
+Следующий пакет 08.10.2026: [LOCAL_WORKER](LOCAL_WORKER.md) добавил восстанавливаемое локальное обслуживание и проверки прерываний полного цикла. Production finality, неизвестные маршруты и серверная эксплуатация остаются за пределами проверенного.

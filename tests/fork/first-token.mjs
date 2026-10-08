@@ -4,7 +4,8 @@ import { resolve } from 'node:path';
 import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
 import solc from 'solc';
-import { Contract, ContractFactory, id } from 'ethers';
+import { Contract, ContractFactory, id, Wallet } from 'ethers';
+import { exerciseWorker } from './worker-scenarios.mjs';
 import { providerFor, stringify, NETWORK } from '../../src/pons/client.mjs';
 import { initialDraft, preparePlan, simulatePlan } from '../../src/pons/plan.mjs';
 import { assertLocalFork, executeLocalLaunch, sendLocal } from '../../src/pons/local-execution.mjs';
@@ -16,10 +17,11 @@ import { compute, QIANQI_RULES } from '../../src/draws/short-outcome.mjs';
 import { GENESIS, PERIOD, fetchInfo, fetchLatest, fetchBeacon, deliverRequest } from '../../src/randomness/drand.mjs';
 
 const config=JSON.parse(readFileSync('config/rehearsals/first-token.json','utf8'));
+const workerMode=process.argv.includes('--worker');
 validateConfig(config.draws);
-const report={startedAt:new Date().toISOString(),config,scenarios:[],limits:[
+const report={startedAt:new Date().toISOString(),config,workerMode,scenarios:[],limits:[
   'Isolated local fork 31337, historical Pons block 82000000; synthetic buyer balances.',
-  'Live draw uses one fixed future drand round. Separate no-winner fixture uses a manual test seed.',
+  workerMode?'Live fixed-round draw with worker fault injection; no manual seed.':'Live draw uses one fixed future drand round. Separate no-winner fixture uses a manual test seed.',
   'Deferred direct buys only; no unknown router adapter or production finality/keeper.',
 ]};
 const dir='.local/test-results/first-token-'+report.startedAt.replace(/[:.]/g,'-');mkdirSync(dir,{recursive:true});
@@ -64,7 +66,9 @@ try {
   }}finally{await provider.send('hardhat_stopImpersonatingAccount',[escrow]);}
   const timing={lead:60,clockLag:5,clockAhead:5,finalizedLag:5,beaconLag:10};
   const short=config.draws.short,fees=config.draws.fees;
-  const program=await deploy('LocalDrandShortProgram',[quote.target,a,short.intervalSeconds,amount(short.minimumFund),amount(short.basket.minimumUnit),short.basket.weights,timing]);
+  const operator=workerMode?Wallet.createRandom().connect(provider):alice;
+  if(workerMode)await provider.send('hardhat_setBalance',[operator.address,'0x56bc75e2d63100000']);
+  const program=(await deploy('LocalDrandShortProgram',[quote.target,await operator.getAddress(),short.intervalSeconds,amount(short.minimumFund),amount(short.basket.minimumUnit),short.basket.weights,timing])).connect(operator);
   const activation=Number(await program.lastTerminal());
   assert.ok(activation+86400<Math.floor(Date.now()/1000),'Historical fixture must precede first deadline');
   const splitter=await deploy('LocalFeeSplitter',[quote.target,program.target,teamAddress,opsAddress,[fees.prizesBps,fees.teamBps,fees.operationsBps]]);
@@ -107,6 +111,9 @@ try {
     report.deployment={...launched,program:program.target,splitter:splitter.target,collector:collector.target,recognition:source.target,adapter:adapter.target,activation};
     report.terms={baseBps:await curve.feeBps(),creatorBps:await curve.creatorTaxBps(),protocolShareBps:await curve.protocolFeeShareBps()};
   });
+  if(workerMode){
+    await exerciseWorker({provider,signer:operator,config,profile,collector,program,quote,curve,source,alice,bob,dir,scenario,report,localUrl});
+  }else{
   await scenario('Initial cooldown and fund below 50 prevent draw without resetting timer',async()=>{
     const people=[{wallet:a,firstAttempt:1,lastAttempt:1}];
     await assert.rejects(program.freeze.staticCall(people),/schedule/);
@@ -217,6 +224,7 @@ try {
     assert.equal(await fixture.reserved(),50000000n);
     report.noWinnerFixture={program:fixture.target,seed:chosen,settledAt:time,manualTestSeed:true};
   });
+  }
   report.status='PASS';
 } catch(error){
   report.status='FAIL';report.error=String(error.shortMessage||error.message).replace(/https?:\/\/\S+/g,'[endpoint]');console.log('FAIL '+report.error);process.exitCode=1;

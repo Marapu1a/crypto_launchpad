@@ -18,6 +18,7 @@
     "test:draw-contracts": "node tests/contracts/short-cycle.mjs",
     "test:tickets:fork": "node tests/fork/tickets.mjs",
     "test:first-token": "node tests/fork/first-token.mjs",
+    "test:worker": "node tests/fork/first-token.mjs --worker",
     "test:drand": "node tests/contracts/drand-cycle.mjs",
     "test:drand:live": "node tests/contracts/drand-cycle.mjs --live",
     "test:ui": "playwright test"

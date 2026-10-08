@@ -1,5 +1,6 @@
 import { readFile, mkdir, rename, open, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { hostname } from 'node:os';
 import { Interface, keccak256, getAddress } from 'ethers';
 import { NETWORK, FACTORY, ROUTER, readAt } from '../pons/client.mjs';
 import { assertLocalFork } from '../pons/local-execution.mjs';
@@ -56,7 +57,10 @@ async function load(path,profile){
 }
 async function locked(path,fn){
   await mkdir(dirname(path),{recursive:true});const lock=await open(path+'.lock','wx');
-  try{return await fn();}finally{await lock.close();await unlink(path+'.lock');}
+  try{
+    await lock.writeFile(JSON.stringify({pid:process.pid,host:hostname(),createdAt:new Date().toISOString()}));await lock.sync();
+    return await fn();
+  }finally{await lock.close();await unlink(path+'.lock');}
 }
 async function save(path,state){
   const tmp=path+'.tmp';const handle=await open(tmp,'w');
