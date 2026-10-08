@@ -93,3 +93,9 @@ freeze snapshot, расходованные билеты читаются из �
 участники из покупок переданы в Solidity freeze/settle. См.TICKET_INDEXER.
 Pool/native/batch и production finality не реализованы; при reorg остановка.
 Далее RNG и эксплуатационное подключение, оставшиеся маршруты отдельным пакетом.
+
+08.10.2026: LocalDrandShortProgram+LocalDrandAdapter проверяют evmnet BLS;
+freeze атомарно закрепляет будущий раунд, ручной seed не принимается.
+4offline+4live контрактных сценария,2unit,10соседних PASS. Live round21316976.
+Подробности DRAND_SHORT. Прежний LocalShortProgram остаётся ручной тестовой
+фикстурой. Clock/finality/keeper/deployment mainnet не готовы.

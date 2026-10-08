@@ -135,3 +135,6 @@ reroll запрещён. Призовые результаты — расчёт,
 
 Пакет6 — [покупки→билеты](TICKET_INDEXER.md): USDG curve/opening-buy, durable state,
 cutoff snapshot и передача участников в local Short.4unit+6fork PASS.
+
+Пакет7: [drand Short](DRAND_SHORT.md),4offline/4live/2unit/10regression PASS.
+Новый local RNG-профиль, основной UI пока не подключён.

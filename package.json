@@ -17,6 +17,8 @@
     "test:fork": "node tests/fork/pons.mjs",
     "test:draw-contracts": "node tests/contracts/short-cycle.mjs",
     "test:tickets:fork": "node tests/fork/tickets.mjs",
+    "test:drand": "node tests/contracts/drand-cycle.mjs",
+    "test:drand:live": "node tests/contracts/drand-cycle.mjs --live",
     "test:ui": "playwright test"
   },
   "engines": {

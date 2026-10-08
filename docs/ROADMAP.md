@@ -55,3 +55,8 @@ production deployment; Monthly отдельный модуль.
 проверены сохранение/перезапуск/два токена/snapshot→Short. [TICKET_INDEXER](TICKET_INDEXER.md).
 До mainnet: authenticated RNG, publisher/keeper/finality и дополнительные маршруты
 после graduation; завершение единого deployment. Monthly отдельно.
+
+RNG-пакет: [DRAND_SHORT](DRAND_SHORT.md) — BLS drand, атомарный future-round request,
+prove/deliver/retry, fresh round21316976 проверен. Следом единая локальная
+репетиция launch→indexer→freeze→drand→claims и долговечная автоматика;
+production clock/finality и deployment требуют отдельной готовности.

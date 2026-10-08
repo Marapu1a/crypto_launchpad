@@ -64,8 +64,12 @@ contract LocalShortProgram is ReentrancyGuard {
         draws[cycle] = Draw(ph, context, bytes32(0), freeFund, 0, false);
         reserved = freeFund; freeFund = 0;
         emit Frozen(cycle, ph, context, reserved);
+        _onFrozen(context);
     }
-    function settle(ShortOutcome.Participant[] calldata participants, bytes32 testSeed) external onlyOperator nonReentrant {
+    function _onFrozen(bytes32) internal virtual {}
+    function _authorizeSeed(bytes32) internal view virtual { require(msg.sender==operator,"operator"); }
+    function settle(ShortOutcome.Participant[] calldata participants, bytes32 testSeed) external nonReentrant {
+        _authorizeSeed(testSeed);
         require(pending && solvent(), "not pending");
         Draw storage d = draws[cycle];
         require(ShortOutcome.participantsHash(participants) == d.participantsHash, "snapshot mismatch");
