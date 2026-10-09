@@ -36,3 +36,9 @@ reference-only vendor неизменён. Старые рекомендации 
 hardcode100USDG и старый manifest не перенесены. Durable replay и lifecycle
 послужили образцом нового scanner/ledger, не скопированы как готовый сервис.
 LaunchAndBuy decoder написан отдельно; источники и границы — TICKET_INDEXER.
+
+09.10.2026: отдельный `src/qianqi/` для существующего проекта. Accounting shadow
+переносит учёт обоих lanes, carry и creditedAt из reference-логики, не импортируя
+vendor runtime. Порог100USDG — проверяемый профиль QIANQI, не default платформы.
+Admission покупок пока приходит из API; независимый route replay ещё нужен.
+Проверки и live evidence — [QIANQI_TICKET_SHADOW](QIANQI_TICKET_SHADOW.md).
