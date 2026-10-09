@@ -56,3 +56,5 @@ late cohort из calldata/receipt/published trace. Pure route verifiers адап
 - QIANQI RNG/liabilities: src/qianqi/finance-shadow.mjs; публичные ABI/формулы из frozen vendor, read-only, отдельный код. См. [QIANQI_FINANCE_SHADOW](QIANQI_FINANCE_SHADOW.md). Не financial executor и не независимый winner-selection replay.
 
 - QIANQI live shadow: src/qianqi/live-shadow.mjs/live-transport.mjs, server/shared/qianqi-live.mjs, migration008. Общий dataset-reader выделен из history collector; CLI scripts/qianqi-live-worker.mjs. См. [QIANQI_LIVE_SHADOW](QIANQI_LIVE_SHADOW.md). Без financial execution.
+
+- QIANQI outcome: src/qianqi/outcome-replay.mjs и outcome-archive.mjs. Независимая BigInt-реализация dataset outcome/context/basket, форматы frozen vendor ae445254; runtime не импортирует vendor. См. [QIANQI_OUTCOME_REPLAY](QIANQI_OUTCOME_REPLAY.md).
