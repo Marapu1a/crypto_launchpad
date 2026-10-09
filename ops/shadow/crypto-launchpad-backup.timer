@@ -1,0 +1,10 @@
+[Unit]
+Description=Launchpad rehearsal backup every six hours
+
+[Timer]
+OnActiveSec=6h
+OnUnitActiveSec=6h
+Unit=crypto-launchpad-backup.service
+
+[Install]
+WantedBy=timers.target
