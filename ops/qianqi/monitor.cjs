@@ -36,7 +36,7 @@ async function main(){
  try{backup=JSON.parse(fs.readFileSync(STATUS));if(backup.schema!=='qianqi-backup-status-v1')backup=null;}catch{}
  await Promise.all([
   (async()=>{try{indexer=await (await fetch('http://127.0.0.1:8789/healthz',{signal:AbortSignal.timeout(5000)})).json();}catch{}})(),
-  (async()=>{try{const r=await fetch('http://127.0.0.1:4180/v1/overview?limit=1',{headers:{host:'qianqi.site'},signal:AbortSignal.timeout(5000)});if(r.ok)api=await r.json();}catch{}})()
+  (async()=>{try{const r=await fetch('https://qianqi.site/v1/overview?limit=1',{signal:AbortSignal.timeout(5000)});if(r.ok)api=await r.json();}catch{}})()
  ]);
  const services=Object.fromEntries(units.map(unit=>[unit,service(unit)]));
  const backupRunning=['active','activating'].includes(service('qianqi-public-backup.service'));
