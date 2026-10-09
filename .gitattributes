@@ -3,3 +3,7 @@
 *.cjs text eol=lf
 *.json text eol=lf
 *.sol text eol=lf
+*.sh text eol=lf
+*.service text eol=lf
+*.timer text eol=lf
+*.slice text eol=lf
