@@ -50,3 +50,5 @@ late cohort из calldata/receipt/published trace. Pure route verifiers адап
 старого токена, не универсальный route admission для новых запусков.
 
 - QIANQI history: src/qianqi/history-*.mjs и routes/ordinary-batch.cjs; источник frozen vendor ae445254, provenance BATCH_SOURCE.json. Read-only BUY/lifecycle replay и проверка Short datasets; см. [отчёт](QIANQI_HISTORY_REPLAY.md). Не financial executor.
+
+- QIANQI PostgreSQL import: server/shared/qianqi-history.mjs, migration007, src/qianqi/history-archive.mjs/history-collector.mjs. Общий verifier для online capture и offline import; отдельный immutable historical adapter, не LocalShort ledger/executor. См. [QIANQI_POSTGRES_IMPORT](QIANQI_POSTGRES_IMPORT.md).

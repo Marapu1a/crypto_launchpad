@@ -1,3 +1,4 @@
+import {exerciseQianqi} from './qianqi.mjs';
 import assert from 'node:assert/strict';
 import { mkdirSync,writeFileSync,readFileSync } from 'node:fs';
 import { resolve,join } from 'node:path';
@@ -99,6 +100,7 @@ try{
     assert.equal((await readProject(api,p1)).project.slug,'alpha');
   });
   await exerciseChainRead({admin,jobs,api,url,scenario,p1,p2,m1,m2,report});
+  if(process.argv.includes('--qianqi'))await exerciseQianqi({admin,jobs,api,url,scenario,dir,report});
   if(process.argv.includes('--tickets'))await exerciseTicketShadow({admin,jobs,api,url,scenario,dir,report});
   if(process.argv.includes('--financial'))await exerciseFinancial({admin,jobs,api,url,scenario,report});
   if(process.argv.includes('--worker'))await scenario('Full PostgreSQL worker rehearsal on an isolated Pons fork',async()=>{
@@ -142,6 +144,11 @@ try{
           assert.deepEqual(await contents(restoredJobs),await contents(jobs));
           assert.equal((await restoredJobs.query('SELECT * FROM launchpad.'+table)).rowCount,0);
         }
+      }
+      if(report.qianqi)for(const table of ['qianqi_imports','qianqi_history_rows']){
+        const rows=pool=>inProject(pool,report.qianqi.project,async c=>(await c.query('SELECT * FROM launchpad.'+table+' ORDER BY 1,2,3,4')).rows);
+        assert.deepEqual(await rows(restoredJobs),await rows(jobs));
+        assert.equal((await restoredJobs.query('SELECT * FROM launchpad.'+table)).rowCount,0);
       }
       assert.equal((await restoredJobs.query('SELECT * FROM launchpad.ticket_shadows')).rowCount,0);
       for(const table of ['financial_executors','financial_operations'])await assert.rejects(restoredJobs.query('SELECT * FROM launchpad.'+table),e=>e.code==='42501');

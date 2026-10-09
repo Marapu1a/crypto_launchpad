@@ -27,7 +27,8 @@
     "test:worker": "node tests/fork/first-token.mjs --worker",
     "test:drand": "node tests/contracts/drand-cycle.mjs",
     "test:drand:live": "node tests/contracts/drand-cycle.mjs --live",
-    "test:ui": "playwright test"
+    "test:ui": "playwright test",
+    "test:shared:qianqi": "node tests/shared/projects.mjs --qianqi"
   },
   "engines": {
     "node": ">=22"
