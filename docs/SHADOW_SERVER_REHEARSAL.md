@@ -146,3 +146,5 @@ body133012 bytes хранится один раз при неизменной и
 многопроектной нагрузки, systemd runtime/production restore, публичного API parity
 или financial handoff. Следующий пакет — изолированная серверная репетиция по плану,
 с собственным backup и измерением влияния на QIANQI.
+
+Серверный пакет начат 09.10.2026 по разрешению владельца. Установка/bootstrap/restore готовы, live остановлен из-за RPC; актуальное состояние: [SERVER_REHEARSAL_DEPLOYMENT](SERVER_REHEARSAL_DEPLOYMENT.md).
