@@ -48,3 +48,5 @@ late cohort из calldata/receipt/published trace. Pure route verifiers адап
 из текущего QIANQI11a050d отдельно в `src/qianqi/routes/`; у frozen vendor нет части
 новых native-модулей. Исходные SHA256 — SOURCE.json. Это фиксированный профиль
 старого токена, не универсальный route admission для новых запусков.
+
+- QIANQI history: src/qianqi/history-*.mjs и routes/ordinary-batch.cjs; источник frozen vendor ae445254, provenance BATCH_SOURCE.json. Read-only BUY/lifecycle replay и проверка Short datasets; см. [отчёт](QIANQI_HISTORY_REPLAY.md). Не financial executor.

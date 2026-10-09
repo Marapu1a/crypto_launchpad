@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync,readdirSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {fullReplay,verifyOrdinary,verifyDataset,datasetAbi,participantRoot} from '../../src/qianqi/history-replay.mjs';
+const dir=resolve(process.argv[2]), read=f=>JSON.parse(readFileSync(resolve(dir,f),'utf8'));
+const report=read('report.json'); assert.equal(report.status,'HISTORY_SNAPSHOTS_MATCH');
+const purchases=read('purchases.json'), evidence=read('ordinary-evidence.json');
+const shadow=JSON.parse(readFileSync(resolve(report.capture,'report.json'),'utf8')).shadow;
+const args={purchases,events:shadow.events,domain:report.publicProfile.domain,rulesHash:report.publicProfile.lifecycle.shortRules.rulesHash,anchor:report.provenance.anchor.number,head:report.provenance.head.number};
+const records=readdirSync(dir).filter(f=>/^\d+-rpc.json$/.test(f)).map(read);
+const logs=records.filter(r=>r.method==='eth_getLogs').flatMap(r=>r.result).flatMap(l=>{try{return [datasetAbi.parseLog(l)].filter(Boolean)}catch{return []}});
+const calls=records.filter(r=>r.method==='eth_getTransactionByHash').flatMap(r=>{try{return [datasetAbi.decodeFunctionData('publish',r.result.input)]}catch{return []}});
+function verify(draw){const seal=logs.find(l=>l.name==='DatasetSealed'&&l.args.drawId===draw.snapshot.drawId), pid=seal.args.proposalId;return verifyDataset(draw,logs.find(l=>l.name==='DatasetProposed'&&l.args.proposalId===pid),logs.find(l=>l.name==='DatasetReady'&&l.args.proposalId===pid),calls.filter(c=>c.id===pid).map(c=>c.data));}
+test('full history reproduces both on-chain hashes and published participant ranges',()=>{const replay=fullReplay(args);assert.equal(replay.draws.length,2);for(const d of replay.draws)assert.equal(verify(d),true);});
+test('ordinary direct/self-batch evidence admits 13 and leaves two unknown routes waiting',()=>{const rows=evidence.map(e=>verifyOrdinary(e,report.publicProfile.profile));assert.equal(rows.filter(r=>r.status==='ELIGIBLE').length,13);assert.equal(rows.filter(r=>r.status==='WAITING_RECOGNITION').length,2);});
+test('waiting purchases cannot change ticket balances',()=>{assert.deepEqual(fullReplay({...args,purchases:purchases.filter(p=>p.status==='ELIGIBLE')}),fullReplay(args));});
+test('duplicate purchase rejected',()=>assert.throws(()=>fullReplay({...args,purchases:[...purchases,purchases[0]]}),/Duplicate/));
+test('wrong domain identity fails actual frozen snapshot',()=>{const domain={...args.domain,buyManifestHash:'0x'+'11'.repeat(32)};for(const d of fullReplay({...args,domain}).draws)assert.throws(()=>verify(d),/snapshot hash/);});
+test('dropping participants or changing consumed ranges fails on-chain dataset',()=>{for(const original of fullReplay(args).draws){const d=structuredClone(original);d.snapshot.participants.pop();d.count--;d.root=participantRoot(d.snapshot.participants);assert.throws(()=>verify(d));const e=structuredClone(original);e.snapshot.participants[0].firstAttempt='999';assert.throws(()=>verify(e),/participants/);}});
+test('wrong ancestry, receipt and runtime rejected for ordinary routes',()=>{for(const e of evidence.filter(e=>e.tx.from.toLowerCase()===e.tx.to.toLowerCase()||e.tx.to.toLowerCase()===report.publicProfile.profile.curve.toLowerCase())){for(const change of [x=>x.parent.hash='0x'+'11'.repeat(32),x=>x.receipt.status='0x0',x=>x.runtimes[report.publicProfile.profile.quote.toLowerCase()].before='0x']){const x=structuredClone(e);change(x);assert.throws(()=>verifyOrdinary(x,report.publicProfile.profile));}}});
+test('self batch cannot use unreviewed account delegation',()=>{const e=structuredClone(evidence.find(e=>e.tx.from.toLowerCase()===e.tx.to.toLowerCase()));e.tx.authorizationList=[];e.runtimes[e.tx.from.toLowerCase()].before='0x';assert.throws(()=>verifyOrdinary(e,report.publicProfile.profile));});

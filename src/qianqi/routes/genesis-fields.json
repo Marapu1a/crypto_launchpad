@@ -1,0 +1,70 @@
+{
+  "source": "QIANQI ae445254 public route constants; not a deployment manifest",
+  "schema": "direct-buy-pons-launch-v4",
+  "routeVersion": "rh-pons-curve-pool-batch-zeroex-entrypoint-v1",
+  "fields": [
+    "factory",
+    "hook",
+    "curve",
+    "token",
+    "quote",
+    "registry",
+    "batchExecutor",
+    "weth",
+    "fundingRouter",
+    "fundingPool",
+    "router",
+    "manager",
+    "permit2",
+    "allowanceHolder",
+    "zeroexSettler",
+    "entryPoint",
+    "entryPointAccount"
+  ],
+  "pins": {
+    "batchExecutor": [
+      "0x63c0c19a282a1b52b07dd5a65b58948a07dae32b",
+      "0xa06befcb6f1d7b6c566a607d9d5d932f9b267f3470e55940225c6ee9c4c5e6b0"
+    ],
+    "router": [
+      "0x8876789976decbfcbbbe364623c63652db8c0904",
+      "0x2ce6aaaf9f4151f5e1cbf774668772f17f532ae11b15e9284fd0a072a8b0fbde"
+    ],
+    "manager": [
+      "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+      "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626"
+    ],
+    "permit2": [
+      "0x000000000022d473030f116ddee9f6b43ac78ba3",
+      "0x5208783f52488f7d3493e5e38311ab707c1d75457fe472a19b0b4d57d66a7fca"
+    ],
+    "weth": [
+      "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+      "0x5706be52f64875fee65a2cec0d80e47a23d8793cbe85d214b48445e2d05f5353"
+    ],
+    "fundingRouter": [
+      "0xcaf681a66d020601342297493863e78c959e5cb2",
+      "0x6f36c378e272c6324c48f045182bcb54bd8ad654cf9ebd42e8893d52c4cb25dc"
+    ],
+    "fundingPool": [
+      "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+      "0x3298b5dd4e6f115074c526a55ad05a36fd73a0034ac22ec6cbaab32cc9c1e8d2"
+    ],
+    "allowanceHolder": [
+      "0x0000000000001ff3684f28c67538d4d072c22734",
+      "0x99f5e8edaceacfdd183eb5f1da8a7757b322495b80cf7928db289a1b1a09f799"
+    ],
+    "zeroexSettler": [
+      "0x6aa80dbbed9ae5ab45fbf61f9644fada3b29326e",
+      "0xa1a2a85048dd0f8cccc5f2012ff175b88d928c87c84e66691357842ec34e572f"
+    ],
+    "entryPoint": [
+      "0x0000000071727de22e5e9d8baf0edac6f37da032",
+      "0x8db5ff695839d655407cc8490bb7a5d82337a86a6b39c3f0258aa6c3b582fc58"
+    ],
+    "entryPointAccount": [
+      "0x69007702764179f14f51cdce752f4f775d74e139",
+      "0xecfc0328ce4d953a4d452e11f54b578fa2d7f2f8126246d1120ca24d11845081"
+    ]
+  }
+}

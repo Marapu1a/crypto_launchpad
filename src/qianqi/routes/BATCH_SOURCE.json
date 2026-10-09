@@ -1,0 +1,26 @@
+{
+  "repository": "https://github.com/Marapu1a/rh_project",
+  "source": "frozen vendor/qianqi",
+  "commit": "ae445254",
+  "date": "2026-10-09",
+  "scope": "Pure decoders, authority checks and public route constants; no production configuration",
+  "adaptation": "Batch buy/funding use platform direct-curve dependency; ordinary-batch extracts decoder and authority helpers from batch-route; genesis-fields combines public field/pin constants, not a deployment manifest",
+  "files": [
+    {
+      "file": "pons-batch-buy.cjs",
+      "sha256": "1ad91353034e10b1bb04c362ad2f07279fc9d99738e366d689229bd5f406dc78"
+    },
+    {
+      "file": "pons-batch-funding.cjs",
+      "sha256": "b36a6ab0633a0df6601a048cdeaeb218d25031e7f6c26382d235b085986bcd63"
+    },
+    {
+      "file": "pons-batch-route.cjs",
+      "sha256": "9963125c0ed7be92ae4d49ede2f7e2ec239736d4a4e9190ad64696da898017d9"
+    },
+    {
+      "file": "pons-entrypoint-buy.cjs",
+      "sha256": "b3d52f578344ae16dc45c3b0bc77fa920359b11d6f3333a0e23bfe796eece992"
+    }
+  ]
+}
