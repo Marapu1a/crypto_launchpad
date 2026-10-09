@@ -1,5 +1,10 @@
 # Этапы
 
+10.10.2026: [paired native + PG recovery](QIANQI_PAIRED_RECOVERY.md) закрыт
+как read-only операторский пакет: реальная отдельная БД, блокировка старой пары,
+переиндексация копии, сверка с chain и проверка API. Автоматический финансовый
+startup не включён. Следующий предложенный пакет — single-writer inventory/тесты.
+
 10.10.2026: узкий пакет [backup failure detection + alert](QIANQI_BACKUP_SAFETY.md)
 закрыт и развёрнут. Следом предложен paired restore/runbook; внешний watchdog,
 контроль off-server freshness и расширенный single-writer audit остаются открыты.

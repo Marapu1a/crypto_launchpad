@@ -2,12 +2,20 @@
 
 Обновлено 09.10.2026. **QIANQI переведён на runtime платформы.**
 
+Актуальное дополнение 10.10.2026: [paired recovery](QIANQI_PAIRED_RECOVERY.md)
+реализован и проверен на отдельных реальных копиях. Исходный native/PG mismatch
+обнаружен; native-копия переиндексирована до PG head без изменения финансовых
+журналов или понижения PG. Итог READ_ONLY_RECONCILED, nonce 85/85/85, API копии
+честно stale. Recovery не стартует sender и не меняет production. Следующий
+предложенный пакет — inventory/тесты единственного writer; внешний watchdog
+и контроль off-server freshness остаются отдельными открытыми задачами.
+
 Дополнение 10.10.2026: [backup failure detection и операторская тревога](QIANQI_BACKUP_SAFETY.md)
 реализованы и установлены (`70b68c6`, HTTP probe fix `f1097a3`, текст тревоги `c967d00`). Проверены 6 Linux
 fault-tests и 6 monitor tests, штатные native/platform backup и реальная доставка
 тестового Telegram-сообщения. После ошибки backup нет безусловного resume:
-durable status блокирует повтор до ручной reconciliation. Следующий предложенный
-пакет — согласованный native+PG restore/preflight, после согласования владельцем.
+durable status блокирует повтор до ручной reconciliation. Предложенный тогда
+native+PG restore/preflight уже выполнен следующим пакетом (см. выше).
 
 Актуальный результат: [отчёт о переключении](QIANQI_PLATFORM_HANDOFF_REPORT.md).
 Публичный API работает через PostgreSQL и порт 4180; индексатор и единственный
