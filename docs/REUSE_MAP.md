@@ -42,3 +42,9 @@ LaunchAndBuy decoder написан отдельно; источники и гр
 vendor runtime. Порог100USDG — проверяемый профиль QIANQI, не default платформы.
 Admission покупок пока приходит из API; независимый route replay ещё нужен.
 Проверки и live evidence — [QIANQI_TICKET_SHADOW](QIANQI_TICKET_SHADOW.md).
+
+09.10.2026: [QIANQI_ROUTE_REPLAY](QIANQI_ROUTE_REPLAY.md) вычисляет payer/суммы
+late cohort из calldata/receipt/published trace. Pure route verifiers адаптированы
+из текущего QIANQI11a050d отдельно в `src/qianqi/routes/`; у frozen vendor нет части
+новых native-модулей. Исходные SHA256 — SOURCE.json. Это фиксированный профиль
+старого токена, не универсальный route admission для новых запусков.

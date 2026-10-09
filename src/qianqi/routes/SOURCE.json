@@ -1,0 +1,50 @@
+{
+  "repository": "https://github.com/Marapu1a/rh_project",
+  "commit": "11a050d995f17c2c810db1fe5c4e7a3ec1190ff3",
+  "imported_at": "2026-10-09",
+  "source_status": "These source files were clean in the otherwise dirty original checkout",
+  "scope": "Pure verifiers and public runtime/edge constants only; no deployment configs or manifests",
+  "adaptation": "CLI removed; curve ABI/decoder dependency points to platform tickets helper; only pins/verify extracted from purchase-recognition",
+  "files": [
+    {
+      "file": "pons-native-settlement.cjs",
+      "sha256": "c12062492935a9c1b24b26a3bffce510aca41488ecd0eec7f3d709afe2498423"
+    },
+    {
+      "file": "pons-native-settlement-profiles.json",
+      "sha256": "0929b5c93893a0d96857564f6906a190231d2017fc81adb7849b96ccdc6350e7"
+    },
+    {
+      "file": "pons-park-native.cjs",
+      "sha256": "a8abc351c3619a9e17c8c7ee8c16b92b7a92e4b09feab7c65e67e6afa492b1d8"
+    },
+    {
+      "file": "pons-park-native-pins.json",
+      "sha256": "a873ef3524df5da1778c852d51e85b36c3cdaaf93f0b48161370066b5c6c7649"
+    },
+    {
+      "file": "pons-park-native-edges.json",
+      "sha256": "0ac126368fac853dd8c9b97a3e1f03399008350ee78b79b8b114df1582cb1ee3"
+    },
+    {
+      "file": "pons-native-v4-funding.cjs",
+      "sha256": "335a029678455eb92d62bedef7b431eda448bac2aaf98a8bf636e74d7769bad2"
+    },
+    {
+      "file": "pons-router-calldata-research.cjs",
+      "sha256": "b60039fa3e1c1a2c34bb95b5de743b2eb44e109db169aca867e0badb03509263"
+    },
+    {
+      "file": "pons-router-trace-research.cjs",
+      "sha256": "34ad38d4c1e6e16557e90b1379cfc6a532890f96a2ae724790bfd2e9be1a9e9f"
+    },
+    {
+      "file": "pons-channel-attribution.cjs",
+      "sha256": "5fa131b8eeb6ce268b20341cf6a0455b76275834f5924c908ae5302a8e1645ec"
+    },
+    {
+      "file": "purchase-recognition.cjs",
+      "sha256": "b210517bc839632aed51d93900cc9f3d8843a98140d8b88250f79b98723cdc03"
+    }
+  ]
+}
