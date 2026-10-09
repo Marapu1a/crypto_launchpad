@@ -9,7 +9,10 @@ function evaluate({backup,backupRunning,services,api,now=Date.now()/1000}){
  const planned=!!(inProgress&&backup.stopRequested&&backupRunning&&now-backup.startedAt>=0&&now-backup.startedAt<900);
  if(!backup)alarms.push('backup status unavailable');
  else {
-  if(backup.phase==='failed')alarms.push(backup.stopRequested?'backup failed; writers require manual reconciliation':'backup preflight failed');
+  if(backup.phase==='failed'){
+   const step=['preflight','stopping','helper','copy','archive','checksum','resuming'].includes(backup.failedStep)?backup.failedStep:'unknown';
+   alarms.push(backup.stopRequested?`backup failed at ${step}; writers require manual reconciliation`:'backup preflight failed');
+  }
   if(inProgress&&(!backupRunning||now-backup.startedAt>=900||now<backup.startedAt))alarms.push('backup interrupted or overdue; inspect durable status');
   if(!backup.lastSuccess||!Number.isFinite(backup.lastSuccess.at)||now-backup.lastSuccess.at>30*3600||now<backup.lastSuccess.at)alarms.push('native verified backup older than 30h or missing');
  }
@@ -25,6 +28,7 @@ async function main(){
  const chat=fs.readFileSync(path.join(credentials,'telegram-chat'),'utf8').trim();
  if(!/^\d+:[A-Za-z0-9_-]+$/.test(token)||!/^\d+$/.test(chat))throw Error('credentials');
  const send=async text=>{
+  if(text.includes('backup'))text+='\nRunbook: https://github.com/Marapu1a/crypto_launchpad/blob/main/docs/QIANQI_BACKUP_SAFETY.md';
   const response=await fetch(`https://api.telegram.org/bot${token}/sendMessage`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat_id:chat,text}),signal:AbortSignal.timeout(10000)});
   if(!response.ok||!(await response.json()).ok)throw Error('delivery');
  };
