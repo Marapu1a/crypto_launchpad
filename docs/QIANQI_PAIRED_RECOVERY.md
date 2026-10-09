@@ -121,6 +121,14 @@ tests/unit/qianqi-adapter.test.mjs tests/unit/qianqi-native-backup.test.mjs`.
 
 ## Реальная репетиция 10.10.2026
 
+Код пакета: `0601012`. Проверенные operator tools сохранены отдельно от рабочего
+runtime: `/opt/crypto-launchpad/recovery-tools/0601012`, с `TOOL_SHA256SUMS`.
+Архив исходников: SHA256
+`c0807f0435ed9bf03c2ea49b90087acfd0772c339168921cc3db9d7ad3d167bf`.
+Tools используют зависимости/исходный runtime `d0a6840`; после восстановления
+хоста эти зависимости также должны быть восстановлены. Финансовые systemd units
+на tools не переключаются.
+
 Серверный stage: `/var/lib/postgresql/qianqi-recovery-20261010-a`, отдельная БД
 `launchpad_recovery_20261010_a`. Исходные native/archive и database.dump скопированы
 из проверенных backups. Все 11 внутренних SHA256 платформенного backup прошли,
