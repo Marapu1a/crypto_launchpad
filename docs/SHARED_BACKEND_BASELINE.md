@@ -128,3 +128,5 @@ launcher исправлен на spawn с закрытыми потоками и
 и [транзакций node-postgres](https://node-postgres.com/features/transactions).
 
 Соседние проверки после добавления зависимости: node --test tests/unit/validation.test.mjs tests/unit/plan.test.mjs — 20/20 PASS, включая существующую HTTP-валидацию Pons.
+
+Следующий пакет реализован: [SHARED_READ_PIPELINE](SHARED_READ_PIPELINE.md). Для миграции 002 дополнительно нужна роль lp_ingest (LOGIN, NOSUPERUSER, NOBYPASSRLS).
