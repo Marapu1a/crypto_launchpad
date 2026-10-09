@@ -15,6 +15,7 @@ function checkRpc(url){
 async function beforeSend({journaled=false}={}){
  const c=current();if(c===LOCAL)return;
  if(c.mode==='robinhood-public'){
+  await require('../../fence.cjs').checkFence({required:true});
   check(journaled&&typeof c.publicGuard==='function','Public send requires a guarded journal');
   checkChain((await c.provider.getNetwork()).chainId);return;
  }

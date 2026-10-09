@@ -13,6 +13,7 @@ function diagnostics(r){
  return {admission:r.admissionReasons||r.results?.fundingAdmission,failures};
 }
 async function main(){
+ await require('../../fence.cjs').checkFence({required:true});
  const args=process.argv.slice(2),o={},flags=new Set(['--watch','--drain']);
  for(let i=0;i<args.length;i++){const k=args[i];if(!['--config','--profile','--state','--keystore',...flags].includes(k)||o[k]!==undefined)throw Error('Invalid arguments');o[k]=flags.has(k)?true:args[++i];if(o[k]===undefined)throw Error('Missing value');}
  for(const k of ['--config','--profile','--state','--keystore'])if(typeof o[k]!=='string')throw Error('Required config, profile, state and encrypted keystore');

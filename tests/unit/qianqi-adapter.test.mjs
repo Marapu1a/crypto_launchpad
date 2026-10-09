@@ -51,6 +51,30 @@ test('lease failure after signing leaves durable same-hash intent and prevents b
  const state={pending:{target,data:'0x',value:'0'}},saved=[];let broadcasts=0;
  const signer={populateTransaction:async x=>x,signTransaction:x=>wallet.signTransaction(x)};
  const boundary=createBoundary({state,save:s=>saved.push(structuredClone(s)),provider:{broadcastTransaction:async()=>{broadcasts++;}},sender:wallet.address,signer});
- await assert.rejects(withFence(async()=>{throw Error('lease lost');},()=>boundary.broadcast(request)),/lease lost/);
+ let checks=0;
+ await assert.rejects(withFence(async()=>{if(++checks===2)throw Error('lease lost');},()=>boundary.broadcast(request)),/lease lost/);
  assert.equal(broadcasts,0);assert.equal(saved.length,1);assert.equal(keccak256(saved[0].pending.signedTransaction),saved[0].pending.transactionHash);
+});
+
+test('missing public fence rejects direct journal entry before signing or saving',async()=>{
+ const network=require('../../server/adapters/qianqi/runtime/scripts/runtime-network.cjs'),original=network.current;
+ let effects=0;
+ network.current=()=>({mode:'robinhood-public'});
+ try{
+  const boundary=createBoundary({state:{pending:{}},save:()=>effects++,provider:{broadcastTransaction:()=>effects++},signer:{populateTransaction:()=>effects++,signTransaction:()=>effects++}});
+  await assert.rejects(boundary.broadcast({}),/fence missing/);
+  assert.equal(effects,0);
+ }finally{network.current=original;}
+});
+
+test('lost lease before signing creates no signed intent',async()=>{
+ let effects=0;
+ const state={pending:{target:'unchanged'}};
+ const boundary=createBoundary({state,save:()=>effects++,provider:{broadcastTransaction:()=>effects++},signer:{populateTransaction:()=>effects++,signTransaction:()=>effects++}});
+ await assert.rejects(withFence(async()=>{throw Error('lease lost');},()=>boundary.broadcast({})),/lease lost/);
+ assert.equal(effects,0);assert.deepEqual(state,{pending:{target:'unchanged'}});
+});
+
+test('direct public CLI refuses before parsing arguments or loading custody',async()=>{
+ await assert.rejects(require('../../server/adapters/qianqi/runtime/scripts/run-pons-public.cjs').main(),/fence missing/);
 });

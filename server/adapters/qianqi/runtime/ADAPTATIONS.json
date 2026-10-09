@@ -4,8 +4,8 @@
     "reason": "Check project execution fence before preparing and broadcasting."
   },
   "scripts/pons-transaction-journal.cjs": {
-    "sha256": "6dcc4f050d90dc9f35040f96631a7b3971bf0032976bdf4069c542e46518482c",
-    "reason": "Recheck fence after durable signed intent and before broadcast."
+    "sha256": "78774c57993578ec0d6aa3a7eb17db58c8620ea10fe7942c8face806ebfbaf6a",
+    "reason": "Check fence before signing and after durable signed intent; public mode rejects missing fence."
   },
   "scripts/compile.cjs": {
     "sha256": "8bfe453ea3730529a6b2d656ee7d3305fd4098b36384e3d842786d8b0fbdb17c",
@@ -30,5 +30,13 @@
   "test/fixtures/robinhood-runtime.cjs": {
     "sha256": "3dc060d730b9ebe20bcb7533dcfeb957ad8952652ce8910a20f27c73fff3d71f",
     "reason": "Inline test gas action names; omit unrelated operations market modules."
+  },
+  "scripts/runtime-network.cjs": {
+    "sha256": "1f3266a25ace4a8f87d00da694dd5e329fc90d66522ba5f7009156a67289259a",
+    "reason": "Require an active executor fence for public sends; local and fork modes retain their existing guards."
+  },
+  "scripts/run-pons-public.cjs": {
+    "sha256": "02bfe053a5d64480969832e147f840a65c4b36007829fea3d95d829c6e243337",
+    "reason": "Reject direct public CLI invocation without executor lease before reading custody."
   }
 }

@@ -13,13 +13,15 @@ async function reconcilePending(state,save,provider,sender){
 }
 function createBoundary({state,save,provider,sender,guard,onConfirmed,signer}){
  return {...(signer?{broadcast:async request=>{
+  const required=require('./runtime-network.cjs').current().mode==='robinhood-public';
+  await require('../../fence.cjs').checkFence({required});
   check(state.pending&&!state.pending.transactionHash,'Missing unsigned intent');
   const tx=await signer.populateTransaction(request),raw=await signer.signTransaction(tx);
   const {keccak256,Transaction}=require('ethers'),signed=Transaction.from(raw),p=state.pending;
   check(same(signed.from,sender)&&same(signed.to,p.target)&&same(signed.data,p.data)&&signed.value===BigInt(p.value||0)&&signed.nonce===tx.nonce,'Signed transaction differs from intent');
   const hash=keccak256(raw);
   state.pending={...state.pending,nonce:tx.nonce,transactionHash:hash,signedTransaction:raw};save(state);
-  await require('../../fence.cjs').checkFence();
+  await require('../../fence.cjs').checkFence({required});
   const sent=await provider.broadcastTransaction(raw);check(same(sent.hash,hash),'Broadcast hash mismatch');return sent;
  }}:{}),preflight:guard,before:async(request,action)=>{await guard(request,action);check(!state.pending,'Unresolved intent');state.pending={action,target:request.to,data:request.data,value:String(request.value||0),from:sender};save(state);},sent:async tx=>{state.pending={...state.pending,transactionHash:tx.hash,nonce:tx.nonce};save(state);},confirmed:async r=>{
   check(state.pending&&same(r.hash,state.pending.transactionHash)&&same((await provider.getBlock(r.blockNumber))?.hash,r.blockHash),'Noncanonical receipt');

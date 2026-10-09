@@ -4,6 +4,7 @@ import { createPool } from '../server/shared/store.mjs';
 import { withQianqiExecutor } from '../server/adapters/qianqi/executor.mjs';
 import { inspectAdoption } from '../server/adapters/qianqi/adoption.mjs';
 const require=createRequire(import.meta.url);
+require('../server/adapters/qianqi/fence.cjs').requireFence();
 let pool;
 try{
  const binding=JSON.parse(fs.readFileSync(process.env.SHARED_QIANQI_EXECUTOR_BINDING,'utf8'));

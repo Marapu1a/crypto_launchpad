@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
+import {fork} from 'node:child_process';
+import {once} from 'node:events';
+import {Wallet} from 'ethers';
 import {createPool,inProject} from '../../server/shared/store.mjs';
 import {withQianqiExecutor} from '../../server/adapters/qianqi/executor.mjs';
 import {loadQianqiApiAdapters} from '../../server/adapters/qianqi/api.mjs';
@@ -12,6 +15,30 @@ export async function exerciseQianqiAdapter({admin,api,jobs,url,scenario,report}
  await admin.query('INSERT INTO launchpad.qianqi_executors VALUES($1,4663,$2,$3)',[p,sender,hash(binding)]);
  const pool=createPool(url('lp_executor'));
  try{
+  await scenario('Independent processes cannot sign competing payloads for the same sender and nonce',async()=>{
+   const wallet=Wallet.createRandom(),b={...binding,sender:wallet.address.toLowerCase()};
+   await admin.query('UPDATE launchpad.qianqi_executors SET sender=$2,binding_hash=$3 WHERE project_id=$1',[p,b.sender,hash(b)]);
+   const children=[];
+   const start=data=>{
+    const child=fork(new URL('./qianqi-writer-child.mjs',import.meta.url),[],{stdio:['ignore','ignore','inherit','ipc'],windowsHide:true});
+    children.push(child);
+    const result=once(child,'message',{signal:AbortSignal.timeout(15000)});
+    child.send({url:url('lp_executor'),binding:b,key:wallet.privateKey,data});
+    return {child,result};
+   };
+   try{
+    const first=start('0x01');assert.equal((await first.result)[0].status,'signed');
+    const second=start('0x02'),refused=(await second.result)[0];
+    assert.equal(refused.status,'refused');assert.match(refused.reason,/already running/);
+    const exited=once(first.child,'exit');first.child.send('release');await exited;
+    // A clean successor is admitted only after the first process exits.
+    const successor=start('0x01');assert.equal((await successor.result)[0].status,'signed');
+    const done=once(successor.child,'exit');successor.child.send('release');await done;
+   }finally{
+    await Promise.all(children.filter(c=>c.exitCode===null&&c.signalCode===null).map(async c=>{const done=once(c,'exit');c.kill();await done;}));
+    await admin.query('UPDATE launchpad.qianqi_executors SET sender=$2,binding_hash=$3 WHERE project_id=$1',[p,sender,hash(binding)]);
+   }
+  });
   await scenario('QIANQI signer lease excludes a second executor, rejects foreign binding and survives normal restart',async()=>{
    await withQianqiExecutor(pool,binding,async check=>{
     await check();await assert.rejects(withQianqiExecutor(pool,binding,async()=>assert.fail('second executor')),/already running/);
