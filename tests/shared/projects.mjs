@@ -11,6 +11,7 @@ import { createPool,verifyRole,inProject,readProject,claimViewJob } from '../../
 import { sharedApi } from '../../server/shared/api.mjs';
 import { exerciseChainRead } from './chain-read.mjs';
 import { exerciseTicketShadow } from './tickets.mjs';
+import { exerciseFinancial } from './financial.mjs';
 
 const run=promisify(execFile),dir=resolve('.local/test-results/shared-'+new Date().toISOString().replace(/[:.]/g,'-'));
 mkdirSync(dir,{recursive:true});
@@ -24,8 +25,8 @@ const command=(name,args)=>{
   });
   return run(executable,args,{windowsHide:true,maxBuffer:1024*1024});
 };
-const report={startedAt:new Date().toISOString(),scenarios:[],scope:process.argv.includes('--tickets')
-  ?'Isolated PostgreSQL plus local chain31337 fork ticket shadow; test-only transactions; no production operations'
+const report={startedAt:new Date().toISOString(),scenarios:[],scope:process.argv.includes('--tickets')||process.argv.includes('--financial')
+  ?'Isolated PostgreSQL plus local chain31337 fork; test-only transactions; no production operations'
   :'Isolated local PostgreSQL; synthetic projects; no chain or financial operations'};
 const scenario=async(name,fn)=>{await fn();report.scenarios.push({name,status:'PASS'});console.log('PASS '+name);};
 const p1='11111111-1111-4111-8111-111111111111',p2='22222222-2222-4222-8222-222222222222';
@@ -40,7 +41,7 @@ try{
   await command('pg_ctl',['-D',data,'-l',join(dir,'postgres.log'),'-o',`-h 127.0.0.1 -p ${port}`,'-w','start']);started=true;
   const url=(user,db='launchpad')=>`postgresql://${user}@127.0.0.1:${port}/${db}`;
   admin=new pg.Client({connectionString:url('postgres','postgres')});await admin.connect();
-  await admin.query('CREATE ROLE lp_owner NOLOGIN NOSUPERUSER NOBYPASSRLS; CREATE ROLE lp_api LOGIN NOSUPERUSER NOBYPASSRLS; CREATE ROLE lp_jobs LOGIN NOSUPERUSER NOBYPASSRLS; CREATE ROLE lp_ingest LOGIN NOSUPERUSER NOBYPASSRLS');
+  await admin.query('CREATE ROLE lp_owner NOLOGIN NOSUPERUSER NOBYPASSRLS; CREATE ROLE lp_api LOGIN NOSUPERUSER NOBYPASSRLS; CREATE ROLE lp_jobs LOGIN NOSUPERUSER NOBYPASSRLS; CREATE ROLE lp_ingest LOGIN NOSUPERUSER NOBYPASSRLS; CREATE ROLE lp_executor LOGIN NOSUPERUSER NOBYPASSRLS');
   await admin.query('CREATE DATABASE launchpad OWNER lp_owner');await admin.end();
   admin=new pg.Client({connectionString:url('postgres')});await admin.connect();
   await admin.query('REVOKE CREATE ON SCHEMA public FROM PUBLIC');
@@ -99,6 +100,7 @@ try{
   });
   await exerciseChainRead({admin,jobs,api,url,scenario,p1,p2,m1,m2,report});
   if(process.argv.includes('--tickets'))await exerciseTicketShadow({admin,jobs,api,url,scenario,dir,report});
+  if(process.argv.includes('--financial'))await exerciseFinancial({admin,jobs,api,url,scenario,report});
   await scenario('Backup restores schema, project data and role restrictions in another database',async()=>{
     const backup=join(dir,'launchpad.dump');
     await command('pg_dump',['-h','127.0.0.1','-p',String(port),'-U','postgres','-d','launchpad','-Fc','-f',backup]);
@@ -131,6 +133,15 @@ try{
         }
       }
       assert.equal((await restoredJobs.query('SELECT * FROM launchpad.ticket_shadows')).rowCount,0);
+      for(const table of ['financial_executors','financial_operations'])await assert.rejects(restoredJobs.query('SELECT * FROM launchpad.'+table),e=>e.code==='42501');
+      const financial=createPool(url('lp_executor')),restoredFinancial=createPool(url('lp_executor','launchpad_restored'));
+      try{
+        for(const project of report.financial?.projects??[])for(const table of ['financial_executors','financial_operations']){
+          const read=pool=>inProject(pool,project,async c=>(await c.query('SELECT * FROM launchpad.'+table+' ORDER BY 1,2,3')).rows);
+          assert.deepEqual(await read(restoredFinancial),await read(financial));
+        }
+        assert.equal((await restoredFinancial.query('SELECT * FROM launchpad.financial_operations')).rowCount,0);
+      }finally{await financial.end();await restoredFinancial.end();}
     }finally{await restoredJobs.end();}
   });
   report.status='PASS';report.postgres=(await admin.query('SHOW server_version')).rows[0].server_version;

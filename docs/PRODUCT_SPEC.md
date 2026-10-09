@@ -92,3 +92,5 @@ QIANQI тоже планируется подключить к общему бэ
 09.10.2026: [SHARED_TICKET_SHADOW](SHARED_TICKET_SHADOW.md) сохраняет независимые пороги/остатки/late credits каждого модуля в PostgreSQL. Снимки используются только для сравнения, не для финансового исполнения.
 
 09.10.2026: [INCREMENTAL_TICKET_LEDGER](INCREMENTAL_TICKET_LEDGER.md) отделяет неизменные исходные покупки от первого начисления и хранит snapshots отдельно. Прежние правила threshold/carry/creditedAt сохранены; это пока локальный путь сравнения без финансового cutover.
+
+09.10.2026: [POSTGRES_FINANCIAL_JOURNAL](POSTGRES_FINANCIAL_JOURNAL.md) изолирует подписанные намерения от обычного API/jobs и закрепляет повтор за прежним operation ID/hash. Реальные ключи, production и полный worker не переключались.

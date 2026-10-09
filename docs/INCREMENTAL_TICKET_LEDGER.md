@@ -101,3 +101,5 @@ no-op retry — 0 новых блоков/старых доказательст�
 локальной репетиции. QIANQI production и реальные отправки этим пакетом не затронуты.
 
 Итог проверки 09.10.2026: **16/16 интеграционных +8/8 ticket unit PASS**, PostgreSQL17.2. Отчёт: .local/test-results/shared-2026-10-09T11-10-43-996Z/report.json. Local31337, fork4663@83388335, confirmation block 83388563. Backup/restore сравнивает содержимое всех шести таблиц обоих ticket-проектов и отсутствие unscoped доступа.
+
+Следующий транспортный пакет выполнен: [POSTGRES_FINANCIAL_JOURNAL](POSTGRES_FINANCIAL_JOURNAL.md). Интеграция полного worker с этим журналом остаётся отдельной задачей.
