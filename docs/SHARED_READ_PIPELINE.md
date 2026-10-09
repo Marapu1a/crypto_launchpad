@@ -78,3 +78,5 @@ creditedAt, carry, повторные подтверждения и неизме
 Это регрессия старого пути, не проверка ещё не подключённого DB ticket adapter.
 Первый прогон выявил отсутствие прав для SQL FOR SHARE у read-only роли;
 заменено координацией через shared/exclusive advisory locks без выдачи UPDATE.
+
+Следующий этап выполнен: [SHARED_TICKET_SHADOW](SHARED_TICKET_SHADOW.md). Ticket adapter использует полную raw историю, не token-only inbox; сохранены отдельные RPC-проверки профиля.

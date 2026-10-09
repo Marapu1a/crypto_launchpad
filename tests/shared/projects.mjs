@@ -10,6 +10,7 @@ import { migrate } from '../../db/migrate.mjs';
 import { createPool,verifyRole,inProject,readProject,claimViewJob } from '../../server/shared/store.mjs';
 import { sharedApi } from '../../server/shared/api.mjs';
 import { exerciseChainRead } from './chain-read.mjs';
+import { exerciseTicketShadow } from './tickets.mjs';
 
 const run=promisify(execFile),dir=resolve('.local/test-results/shared-'+new Date().toISOString().replace(/[:.]/g,'-'));
 mkdirSync(dir,{recursive:true});
@@ -23,7 +24,9 @@ const command=(name,args)=>{
   });
   return run(executable,args,{windowsHide:true,maxBuffer:1024*1024});
 };
-const report={startedAt:new Date().toISOString(),scenarios:[],scope:'Isolated local PostgreSQL; synthetic projects; no chain or financial operations'};
+const report={startedAt:new Date().toISOString(),scenarios:[],scope:process.argv.includes('--tickets')
+  ?'Isolated PostgreSQL plus local chain31337 fork ticket shadow; test-only transactions; no production operations'
+  :'Isolated local PostgreSQL; synthetic projects; no chain or financial operations'};
 const scenario=async(name,fn)=>{await fn();report.scenarios.push({name,status:'PASS'});console.log('PASS '+name);};
 const p1='11111111-1111-4111-8111-111111111111',p2='22222222-2222-4222-8222-222222222222';
 const m1='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',m2='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -95,6 +98,7 @@ try{
     assert.equal((await readProject(api,p1)).project.slug,'alpha');
   });
   await exerciseChainRead({admin,jobs,api,url,scenario,p1,p2,m1,m2,report});
+  if(process.argv.includes('--tickets'))await exerciseTicketShadow({admin,jobs,api,url,scenario,dir,report});
   await scenario('Backup restores schema, project data and role restrictions in another database',async()=>{
     const backup=join(dir,'launchpad.dump');
     await command('pg_dump',['-h','127.0.0.1','-p',String(port),'-U','postgres','-d','launchpad','-Fc','-f',backup]);
@@ -117,6 +121,11 @@ try{
       assert.deepEqual((await restoredJobs.query('SELECT * FROM launchpad.chain_sources ORDER BY id')).rows,(await jobs.query('SELECT * FROM launchpad.chain_sources ORDER BY id')).rows);
       assert.deepEqual((await restoredJobs.query('SELECT * FROM launchpad.chain_blocks ORDER BY source_id,number')).rows,(await jobs.query('SELECT * FROM launchpad.chain_blocks ORDER BY source_id,number')).rows);
       assert.equal((await restoredJobs.query('SELECT * FROM launchpad.project_evidence')).rowCount,0);
+      for(const project of report.ticketShadow?.projects??[]){
+        const read=pool=>inProject(pool,project,async c=>(await c.query('SELECT * FROM launchpad.ticket_shadows ORDER BY module_id')).rows);
+        assert.deepEqual(await read(restoredJobs),await read(jobs));
+      }
+      assert.equal((await restoredJobs.query('SELECT * FROM launchpad.ticket_shadows')).rowCount,0);
     }finally{await restoredJobs.end();}
   });
   report.status='PASS';report.postgres=(await admin.query('SHOW server_version')).rows[0].server_version;

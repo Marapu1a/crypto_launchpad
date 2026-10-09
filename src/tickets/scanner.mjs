@@ -32,7 +32,7 @@ export async function createProfile(provider,{token,program,launchBlock,threshol
   if(p.codeHashes.factory!==NETWORK.factoryHash)throw Error('Factory runtime drift');
   await verifyProfile(provider,p,Number(BigInt(latest)));return p;
 }
-async function verifyProfile(provider,p,cutoff){
+export async function verifyProfile(provider,p,cutoff){
   await assertLocalFork(provider);
   if((await provider.send('hardhat_metadata',[])).instanceId!==p.localInstance)throw Error('Different fork instance');
   if((await provider.send('eth_getBlockByNumber',[hex(p.anchor.number),false]))?.hash!==p.anchor.hash)throw Error('Anchor branch changed');

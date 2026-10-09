@@ -13,6 +13,7 @@
     "start:shared": "node server/shared/start.mjs",
     "migrate:shared": "node scripts/migrate-shared.mjs",
     "test:shared": "node tests/shared/projects.mjs",
+    "test:shared:tickets": "node tests/shared/projects.mjs --tickets",
     "build": "vite build",
     "preview": "vite preview",
     "fork": "node scripts/start-fork.mjs",
