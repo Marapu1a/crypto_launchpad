@@ -39,7 +39,7 @@ export async function createWorkerConfig(provider,{profile,collector,executor,li
   for(const [kind,address] of Object.entries(addresses))config.codeHashes[kind]=keccak256(await provider.getCode(address));
   await verifyConfig(provider,config);return config;
 }
-async function verifyConfig(provider,c) {
+export async function verifyConfig(provider,c) {
   check(c.schema==='local-short-worker-v1'&&isAddress(c.executor),'Invalid worker config');
   const metadata=await assertLocalFork(provider);
   check(metadata.instanceId===c.profile.localInstance,'Worker fork instance changed');
@@ -59,39 +59,45 @@ async function verifyConfig(provider,c) {
   }
 }
 
-export async function runLocalWorker({provider,signer,config,root,bundleDirectory,getBeacon=fetchBeacon,hook}) {
-  root=resolve(root);await verifyConfig(provider,config);
+export async function runLocalWorker({provider,signer,config,root,bundleDirectory,getBeacon=fetchBeacon,hook,backend}) {
+  root=resolve(root??'.');await verifyConfig(provider,config);
   check(same(await signer.getAddress(),config.executor)&&signer.provider===provider,'Wrong worker signer');
   const base=join(root,config.addresses.program.toLowerCase()),statePath=base+'.worker.json',ticketsPath=base+'.tickets.json';
   // One root per host and a dedicated executor wallet: no independent nonce writers.
   const senderLock=join(root,'senders',config.profile.localInstance+'-'+config.executor.toLowerCase()+'.lock');
-  return withLock(senderLock,()=>withLock(statePath+'.lock',async()=>{
-    let state=await loadState(statePath,config);
+  const execute=async()=>{
+    let state=backend?await backend.load():await loadState(statePath,config);
     const c=Object.fromEntries(Object.entries(config.addresses).map(([kind,address])=>[kind,contract(provider,kind,address)]));
     if(!state){
       check(await c.program.cycle()===0n,'Missing worker history for active program');
-      state={schema:'local-worker-v1',identity:digest(config),history:[],cycles:{}};await saveState(statePath,state);
+      state={schema:'local-worker-v1',identity:digest(config),history:[],cycles:{}};
+      if(backend)await backend.save(state);else await saveState(statePath,state);
     }
-    const save=()=>saveState(statePath,state);
+    const save=()=>backend?backend.save(state):saveState(statePath,state);
     const guard=async()=>{
       await verifyConfig(provider,config);
       const anchor=config.profile.anchor;
       check((await provider.getBlock(anchor.number))?.hash===anchor.hash,'Worker anchor changed');
       const last=state.history.at(-1);
       if(last)check((await provider.getBlock(last.blockNumber))?.hash===last.blockHash,'Worker confirmed history reorg');
+      if(backend)await backend.guard();
     };
     await guard();
-    const transact=(request,action)=>advanceTransaction({provider,signer,state,save,request,action,limits:config.limits,guard,hook});
+    const transact=(request,action)=>backend?backend.transact({state,save,request,action,guard,hook}):advanceTransaction({provider,signer,state,save,request,action,limits:config.limits,guard,hook});
     if(state.failure)return {status:'blocked',reason:'reverted-transaction',hash:state.failure.hash};
-    if(state.pending)return transact();
+    if(state.pending||state.operation)return transact();
     const tip=await provider.getBlock('latest');
     // Scanner owns its separate atomic journal. Recover an existing snapshot if a crash
     // occurred after its save but before saving the worker's cycle reference.
+    let indexed;
+    if(backend)indexed=await backend.index(tip.number);
+    else{
     const {readFile}=await import('node:fs/promises');
     let indexedHead=config.profile.anchor.number;
     try{indexedHead=JSON.parse(await readFile(ticketsPath,'utf8')).head.number;}catch(e){if(e.code!=='ENOENT')throw e;}
     check(Number.isSafeInteger(indexedHead)&&indexedHead<=tip.number,'Invalid index head');
-    const indexed=await scanTickets(provider,config.profile,ticketsPath,Math.min(tip.number,indexedHead+500),{bundleDirectory});
+    indexed=await scanTickets(provider,config.profile,ticketsPath,Math.min(tip.number,indexedHead+500),{bundleDirectory});
+    }
     if(indexed.head.number<tip.number)return {status:'waiting',reason:'index-catchup',head:indexed.head.number};
     const request=(kind,method,args=[])=>({request:{to:c[kind].target,data:c[kind].interface.encodeFunctionData(method,args),value:0},action:kind+'.'+method});
     let plan,waiting='conditions';
@@ -109,6 +115,7 @@ export async function runLocalWorker({provider,signer,config,root,bundleDirector
       const snapshot=state.cycles[String(cycle)];check(snapshot,'Missing pending cycle snapshot');
       const id=await c.program.requestForCycle(cycle),r=await c.adapter.requests(id),draw=await c.program.draws(cycle);
       check(same(r.consumer,c.program.target)&&same(r.context,draw.context),'RNG context mismatch');
+      if(backend)await backend.rememberRng(state,String(cycle),{id:String(id),round:String(r.round),context:r.context},save);
       if(!r.proven){
         if(tip.timestamp<GENESIS+(Number(r.round)-1)*PERIOD)waiting='beacon-time';
         else{
@@ -121,11 +128,13 @@ export async function runLocalWorker({provider,signer,config,root,bundleDirector
     }
     if(!plan&&!pending&&BigInt(tip.timestamp)>=await c.program.lastTerminal()+await c.program.interval()&&await c.program.freeFund()>=await c.program.minimumFund()){
       const id=String(cycle+1n),label='worker-cycle-'+id;
-      let snapshot=state.cycles[id]??indexed.snapshots[label];
+      let snapshot=state.cycles[id]??(backend?await backend.recoverSnapshot(state,label,id):indexed.snapshots[label]);
       if(!snapshot){
         const consumed={};for(const wallet of Object.keys(indexed.wallets??{}))consumed[wallet]=String(await c.program.consumedThrough(wallet));
-        if(snapshotTickets(indexed,indexed.head.number,consumed).participants.length){
-          snapshot=await freezeTicketSnapshot(provider,config.profile,ticketsPath,label,indexed.head.number);
+        if(backend)for(const [wallet,value] of Object.entries(indexed.wallets))check(BigInt(consumed[wallet])<=BigInt(value.tickets),'Consumed attempts exceed indexed history');
+        const eligible=backend?Object.entries(indexed.wallets).some(([wallet,value])=>BigInt(value.tickets)>BigInt(consumed[wallet]??0)):snapshotTickets(indexed,indexed.head.number,consumed).participants.length;
+        if(eligible){
+          snapshot=backend?await backend.freeze(state,label,id,indexed.head.number):await freezeTicketSnapshot(provider,config.profile,ticketsPath,label,indexed.head.number);
         }
       }
       if(snapshot){
@@ -140,7 +149,8 @@ export async function runLocalWorker({provider,signer,config,root,bundleDirector
     if(!plan&&!await c.curve.graduated()&&(await c.curve.quoteFeeBalance()>0n||await c.curve.creatorTaxBalance()>0n))plan=request('collector','sweepCurve');
     if(!plan)return {status:'waiting',reason:waiting,cycle:String(cycle)};
     return transact(plan.request,plan.action);
-  }));
+  };
+  return backend?backend.exclusive(execute):withLock(senderLock,()=>withLock(statePath+'.lock',execute));
 }
 
 export async function recoverLocalWorkerLocks(provider,config,root) {

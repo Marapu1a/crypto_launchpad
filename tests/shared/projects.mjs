@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync,writeFileSync } from 'node:fs';
+import { mkdirSync,writeFileSync,readFileSync } from 'node:fs';
 import { resolve,join } from 'node:path';
 import { execFile,spawn } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -25,7 +25,7 @@ const command=(name,args)=>{
   });
   return run(executable,args,{windowsHide:true,maxBuffer:1024*1024});
 };
-const report={startedAt:new Date().toISOString(),scenarios:[],scope:process.argv.includes('--tickets')||process.argv.includes('--financial')
+const report={startedAt:new Date().toISOString(),scenarios:[],scope:process.argv.includes('--tickets')||process.argv.includes('--financial')||process.argv.includes('--worker')
   ?'Isolated PostgreSQL plus local chain31337 fork; test-only transactions; no production operations'
   :'Isolated local PostgreSQL; synthetic projects; no chain or financial operations'};
 const scenario=async(name,fn)=>{await fn();report.scenarios.push({name,status:'PASS'});console.log('PASS '+name);};
@@ -101,6 +101,17 @@ try{
   await exerciseChainRead({admin,jobs,api,url,scenario,p1,p2,m1,m2,report});
   if(process.argv.includes('--tickets'))await exerciseTicketShadow({admin,jobs,api,url,scenario,dir,report});
   if(process.argv.includes('--financial'))await exerciseFinancial({admin,jobs,api,url,scenario,report});
+  if(process.argv.includes('--worker'))await scenario('Full PostgreSQL worker rehearsal on an isolated Pons fork',async()=>{
+    let output='';
+    await new Promise((ok,bad)=>{
+      const child=spawn(process.execPath,['tests/fork/first-token.mjs','--postgres-worker'],{windowsHide:true,
+        env:{...process.env,SHARED_TEST_DATABASES:JSON.stringify({admin:url('postgres'),executor:url('lp_executor'),jobs:url('lp_jobs'),ingest:url('lp_ingest')})},stdio:['ignore','pipe','pipe']});
+      child.stdout.on('data',chunk=>{output+=chunk;process.stdout.write(chunk);});child.stderr.on('data',chunk=>process.stderr.write(chunk));
+      child.once('error',bad);child.once('exit',code=>code===0?ok():bad(Error('Postgres worker rehearsal exited '+code)));
+    });
+    const path=output.trim().split(/\r?\n/).at(-1),result=JSON.parse(readFileSync(path,'utf8'));
+    assert.equal(result.status,'PASS');report.postgresWorker=result.postgresWorker;report.workerReport=path;report.workerScenarios=result.scenarios;
+  });
   await scenario('Backup restores schema, project data and role restrictions in another database',async()=>{
     const backup=join(dir,'launchpad.dump');
     await command('pg_dump',['-h','127.0.0.1','-p',String(port),'-U','postgres','-d','launchpad','-Fc','-f',backup]);
@@ -123,7 +134,7 @@ try{
       assert.deepEqual((await restoredJobs.query('SELECT * FROM launchpad.chain_sources ORDER BY id')).rows,(await jobs.query('SELECT * FROM launchpad.chain_sources ORDER BY id')).rows);
       assert.deepEqual((await restoredJobs.query('SELECT * FROM launchpad.chain_blocks ORDER BY source_id,number')).rows,(await jobs.query('SELECT * FROM launchpad.chain_blocks ORDER BY source_id,number')).rows);
       assert.equal((await restoredJobs.query('SELECT * FROM launchpad.project_evidence')).rowCount,0);
-      for(const project of report.ticketShadow?.projects??[]){
+      for(const project of [...(report.ticketShadow?.projects??[]),...(report.postgresWorker?.projects??[])]){
         const read=pool=>inProject(pool,project,async c=>(await c.query('SELECT * FROM launchpad.ticket_shadows ORDER BY module_id')).rows);
         assert.deepEqual(await read(restoredJobs),await read(jobs));
         for(const table of ['ticket_ledgers','ticket_events','ticket_credits','ticket_wallets','ticket_commitments','ticket_snapshots']){
@@ -136,11 +147,12 @@ try{
       for(const table of ['financial_executors','financial_operations'])await assert.rejects(restoredJobs.query('SELECT * FROM launchpad.'+table),e=>e.code==='42501');
       const financial=createPool(url('lp_executor')),restoredFinancial=createPool(url('lp_executor','launchpad_restored'));
       try{
-        for(const project of report.financial?.projects??[])for(const table of ['financial_executors','financial_operations']){
+        for(const project of [...(report.financial?.projects??[]),...(report.postgresWorker?.projects??[])])for(const table of ['financial_executors','financial_operations','worker_states']){
           const read=pool=>inProject(pool,project,async c=>(await c.query('SELECT * FROM launchpad.'+table+' ORDER BY 1,2,3')).rows);
           assert.deepEqual(await read(restoredFinancial),await read(financial));
         }
         assert.equal((await restoredFinancial.query('SELECT * FROM launchpad.financial_operations')).rowCount,0);
+        assert.equal((await restoredFinancial.query('SELECT * FROM launchpad.worker_states')).rowCount,0);
       }finally{await financial.end();await restoredFinancial.end();}
     }finally{await restoredJobs.end();}
   });

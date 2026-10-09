@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import solc from 'solc';
 import { Contract, ContractFactory, id, Wallet } from 'ethers';
 import { exerciseWorker } from './worker-scenarios.mjs';
+import { exercisePostgresWorker } from './postgres-worker-scenarios.mjs';
 import { providerFor, stringify, NETWORK } from '../../src/pons/client.mjs';
 import { initialDraft, preparePlan, simulatePlan } from '../../src/pons/plan.mjs';
 import { assertLocalFork, executeLocalLaunch, sendLocal } from '../../src/pons/local-execution.mjs';
@@ -17,7 +18,8 @@ import { compute, QIANQI_RULES } from '../../src/draws/short-outcome.mjs';
 import { GENESIS, PERIOD, fetchInfo, fetchLatest, fetchBeacon, deliverRequest } from '../../src/randomness/drand.mjs';
 
 const config=JSON.parse(readFileSync('config/rehearsals/first-token.json','utf8'));
-const workerMode=process.argv.includes('--worker');
+const postgresMode=process.argv.includes('--postgres-worker');
+const workerMode=process.argv.includes('--worker')||postgresMode;
 validateConfig(config.draws);
 const report={startedAt:new Date().toISOString(),config,workerMode,scenarios:[],limits:[
   'Isolated local fork 31337, historical Pons block 82000000; synthetic buyer balances.',
@@ -112,7 +114,7 @@ try {
     report.terms={baseBps:await curve.feeBps(),creatorBps:await curve.creatorTaxBps(),protocolShareBps:await curve.protocolFeeShareBps()};
   });
   if(workerMode){
-    await exerciseWorker({provider,signer:operator,config,profile,collector,program,quote,curve,source,alice,bob,dir,scenario,report,localUrl});
+    await (postgresMode?exercisePostgresWorker:exerciseWorker)({provider,signer:operator,config,profile,collector,program,quote,curve,source,alice,bob,dir,scenario,report,localUrl});
   }else{
   await scenario('Initial cooldown and fund below 50 prevent draw without resetting timer',async()=>{
     const people=[{wallet:a,firstAttempt:1,lastAttempt:1}];

@@ -106,3 +106,5 @@ worker: стабильные ID шагов, привязки всех его к�
 на cycle/snapshot/RNG и сквозная репетиция восстановления. QIANQI не переключался.
 
 Итог 09.10.2026: **17/17 интеграционных сценариев и 4/4 worker-journal unit PASS**, PostgreSQL17.2. Отчёт: .local/test-results/shared-2026-10-09T11-20-12-844Z/report.json. Local31337, fork4663@83388335. Исходный generic scope отчёта ещё содержит слова ticket shadow, детальный financial.scope описывает именно тестовые ERC20 payouts; шаблон scope уточнён для последующих запусков.
+
+Следующий этап выполнен: [POSTGRES_LOCAL_WORKER](POSTGRES_LOCAL_WORKER.md). Добавлен отдельный многоконтрактный профиль и полный локальный worker с PostgreSQL; прежний одноконтрактный transport сохранён.

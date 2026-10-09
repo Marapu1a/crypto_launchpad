@@ -15,6 +15,7 @@
     "test:shared": "node tests/shared/projects.mjs",
     "test:shared:tickets": "node tests/shared/projects.mjs --tickets",
     "test:shared:financial": "node tests/shared/projects.mjs --financial",
+    "test:shared:worker": "node tests/shared/projects.mjs --worker",
     "build": "vite build",
     "preview": "vite preview",
     "fork": "node scripts/start-fork.mjs",
