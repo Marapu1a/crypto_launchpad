@@ -42,10 +42,16 @@ if test -f /etc/crypto-launchpad/continuous-backup; then
   qianqi-public-automation.service.d/zz-launchpad.conf
  tar -czf "$dest/postgres-config.tar.gz" -C /etc/postgresql/18/main \
   pg_hba.conf pg_ident.conf conf.d/launchpad.conf
+ qianqi_release=$(readlink -f /opt/crypto-launchpad/qianqi-current)
+ case "$qianqi_release" in /opt/crypto-launchpad/releases/*) ;; *) exit 1 ;; esac
+ tar --exclude=./node_modules -czf "$dest/qianqi-runtime.tar.gz" -C "$qianqi_release" .
+ tar -czf "$dest/platform-ops.tar.gz" -C /opt/crypto-launchpad/ops \
+  verify-release.mjs backup.sh monitor.py
 fi
 date -u +%FT%TZ > "$dest/captured-at.txt"
 (cd "$dest" && for file in database.dump evidence.tar.gz release.txt captured-at.txt \
- qianqi-release.txt platform-config.tar.gz platform-units.tar.gz postgres-config.tar.gz; do
+ qianqi-release.txt platform-config.tar.gz platform-units.tar.gz postgres-config.tar.gz \
+ qianqi-runtime.tar.gz platform-ops.tar.gz; do
  if test -f "$file"; then sha256sum "$file"; fi
 done > SHA256SUMS)
 tar -czf "$root/$stamp.tar.gz" -C "$root" "$stamp"
