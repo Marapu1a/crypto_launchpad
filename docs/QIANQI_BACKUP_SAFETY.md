@@ -85,5 +85,42 @@ metrics collector остаётся сборщиком JSON; operator alerts ид
 При post-stop failure сначала выполнить reconciliation выше; старый backup
 не содержит нового предохранителя, поэтому его timer нельзя включать до решения.
 
-Результат live-развёртывания дописывается после проверки; локальные fault-tests
-не являются доказательством сбоев/выплат на production.
+## Развёртывание и результат
+
+10.10.2026 по Москве (09.10, 21:34–21:38 UTC): код `70b68c6`, исправление
+HTTP probe `f1097a3` установлены на сервер. Дополнение `c967d00` добавляет этап
+отказа и ссылку на runbook прямо в тревогу. Финансовый runtime остался `d0a6840`.
+Исходные ops и unit сохранены в
+`/var/lib/crypto-launchpad/admin/backup-safety-20261010`.
+
+- 6 Linux-тестов под `nobody` прошли, включая подслучаи пяти post-stop failures,
+  реальные SIGTERM/SIGKILL, partial resume и сохранение предыдущего lastSuccess.
+  6 Node-тестов мониторинга/доставки прошли. Config preflight на сервере PASS.
+- Реальный native backup: `20261009T213451Z.tar.gz`, SHA256
+  `cf050689fc8ae66a22c98ee7e2cf8bc1acac45159160bd2263d9f87dce02343c`.
+  Unit success/exit 0; durable status success, обе ранее активные службы запущены.
+- При первой live-проверке Node fetch не передал Host для loopback API,
+  получился 421 и ложная тревога. Probe исправлен на публичный HTTPS hostname.
+  После исправления monitor success, recovery доставлен. Этот эпизод не был
+  недоступностью публичного сайта. Старый observer также успел сообщить
+  об остановке во время первого backup до установки нового drop-in.
+- Отдельное явно помеченное тестовое сообщение: Telegram API подтвердил
+  `TEST_DELIVERY_CONFIRMED`, systemd transient test unit success/exit 0.
+  Затем штатный minute timer: `suppressed; operational checks healthy`.
+  Это подтверждение доставки API, не утверждение, что человек прочитал сообщение.
+- Platform backup `20261009T213742Z.tar.gz`, SHA256
+  `da3edca4ffbb60502f034df77268ae4f0efce32fede911d9f8f171c353d2c363`.
+  Все 11 внутренних SHA256 PASS. Включены новые ops, monitor drop-in и durable
+  backup status; custody/credentials не добавлялись.
+  Архив соответствует ops до дополнения текста тревоги `c967d00`; оно сохранено
+  в Git и попадёт в следующий штатный platform backup.
+- Platform off-server pull: `VERIFIED`, 21:38:49 UTC, SHA256 совпадает.
+- Native off-server pull: `verified`, 21:40:36 UTC, скачан новый архив,
+  всего 8 архивов; задача вернулась в Ready. Старые копии сохранены.
+- На контрольной проверке API/indexer/executor active; indexer ready,
+  lag 0, 12 успешных проходов / 0 ошибок, processedBlock 84470690.
+
+Fault-injection выполнялся только на изолированных временных файлах, с
+подменённым systemctl. Production ошибки не инсценировались, реальные
+финансовые действия не форсировались. Полный paired restore этим пакетом
+не проверялся и остаётся следующим отдельным этапом.

@@ -2,6 +2,13 @@
 
 Обновлено 09.10.2026. **QIANQI переведён на runtime платформы.**
 
+Дополнение 10.10.2026: [backup failure detection и операторская тревога](QIANQI_BACKUP_SAFETY.md)
+реализованы и установлены (`70b68c6`, HTTP probe fix `f1097a3`, текст тревоги `c967d00`). Проверены 6 Linux
+fault-tests и 6 monitor tests, штатные native/platform backup и реальная доставка
+тестового Telegram-сообщения. После ошибки backup нет безусловного resume:
+durable status блокирует повтор до ручной reconciliation. Следующий предложенный
+пакет — согласованный native+PG restore/preflight, после согласования владельцем.
+
 Актуальный результат: [отчёт о переключении](QIANQI_PLATFORM_HANDOFF_REPORT.md).
 Публичный API работает через PostgreSQL и порт 4180; индексатор и единственный
 финансовый исполнитель используют runtime `d0a6840`, операционные исправления —

@@ -1,5 +1,9 @@
 # Этапы
 
+10.10.2026: узкий пакет [backup failure detection + alert](QIANQI_BACKUP_SAFETY.md)
+закрыт и развёрнут. Следом предложен paired restore/runbook; внешний watchdog,
+контроль off-server freshness и расширенный single-writer audit остаются открыты.
+
 Актуально на 09.10.2026: **переключение QIANQI выполнено** —
 [результаты, проверки и оставшиеся границы](QIANQI_PLATFORM_HANDOFF_REPORT.md).
 Публичный API и исполнитель работают на платформе; backup/restore проверены.
