@@ -32,10 +32,22 @@ fi
 readlink -f /opt/crypto-launchpad/current > "$dest/release.txt"
 if test -L /opt/crypto-launchpad/qianqi-current; then
  readlink -f /opt/crypto-launchpad/qianqi-current > "$dest/qianqi-release.txt"
- (cd "$dest" && sha256sum qianqi-release.txt > QIANQI_SHA256SUMS)
+fi
+if test -f /etc/crypto-launchpad/continuous-backup; then
+ # Explicit non-secret platform bindings only; RPC credentials/keystores are excluded.
+ tar -czf "$dest/platform-config.tar.gz" -C /etc/crypto-launchpad \
+  existing-qianqi/executor.json existing-qianqi/indexer.json qianqi-api-registry.json
+ tar -czf "$dest/platform-units.tar.gz" -C /etc/systemd/system \
+  crypto-launchpad-api.service qianqi-public-indexer.service.d/zz-launchpad.conf \
+  qianqi-public-automation.service.d/zz-launchpad.conf
+ tar -czf "$dest/postgres-config.tar.gz" -C /etc/postgresql/18/main \
+  pg_hba.conf pg_ident.conf conf.d/launchpad.conf
 fi
 date -u +%FT%TZ > "$dest/captured-at.txt"
-(cd "$dest" && sha256sum database.dump evidence.tar.gz release.txt captured-at.txt > SHA256SUMS)
+(cd "$dest" && for file in database.dump evidence.tar.gz release.txt captured-at.txt \
+ qianqi-release.txt platform-config.tar.gz platform-units.tar.gz postgres-config.tar.gz; do
+ if test -f "$file"; then sha256sum "$file"; fi
+done > SHA256SUMS)
 tar -czf "$root/$stamp.tar.gz" -C "$root" "$stamp"
 (cd "$root" && sha256sum "$stamp.tar.gz" > "$stamp.tar.gz.sha256")
 printf '%s\n' "$stamp.tar.gz" > "$root/latest.tmp"
