@@ -1,0 +1,764 @@
+{
+  "commit": "11a050d995f17c2c810db1fe5c4e7a3ec1190ff3",
+  "reviewedOverrides": {
+    "scripts/prepare-purchase-recognition.cjs": "2bfdb151f3f0540f01f1f527153ccf9c8b0bb7fc3a8e08590fe7572da15f549f",
+    "scripts/pons-delay-status.cjs": "55a3856a2ff843366177a824748a2207258de87d6ed204d94a98022bcec95b05",
+    "test/purchase-recognition.test.cjs": "902db37a5a7ec290a34b55c0438c937a430cd3f0556c6358ac6540a087112d8a"
+  },
+  "seeds": [
+    "scripts/run-pons-public.cjs",
+    "scripts/run-indexer-service.cjs",
+    "scripts/indexer-service-child.cjs",
+    "scripts/user-status-worker.cjs",
+    "test/purchase-recognition.test.cjs",
+    "test/local-transaction.test.cjs",
+    "test/local-state-lock.test.cjs",
+    "test/pons-public-profile.test.cjs",
+    "test/pons-public-execution.test.cjs",
+    "test/public-status.test.cjs",
+    "test/fixtures/pons-router-research/usdg.json",
+    "test/fixtures/pons-router-research/eth.json",
+    "contracts/vendor/drand/LICENSE",
+    "research/direct-buy/evidence.json",
+    "scripts/inspect-pons-public.cjs",
+    "test/pons-public-runtime.test.cjs"
+  ],
+  "files": [
+    {
+      "file": "scripts/run-pons-public.cjs",
+      "sha256": "41235374ac1b69b41a8dddf25f92b3021ef27aad1a67982ad72d99dc230c30b8"
+    },
+    {
+      "file": "scripts/pons-public-execution.cjs",
+      "sha256": "2b602a3a0d54b5b85d6b3d7c52c86480fd59ce60e97b7bf23c2e9e1949208f5a"
+    },
+    {
+      "file": "scripts/pons-public-profile.cjs",
+      "sha256": "f7fac7dc8fa21b374d63ca7dd796aff3ba0a7fc88b5a56ce4cf24eeb958f3a36"
+    },
+    {
+      "file": "scripts/direct-buy.cjs",
+      "sha256": "a61b70059bef5185c8b196059fdacbc61ee91b5566fbf75f74eb87c8175c1c04"
+    },
+    {
+      "file": "scripts/pair-auto-buy.cjs",
+      "sha256": "bc83c4b58dc315a5fd1cfb60d0c3229fb22e21903f95bdd1e5303cc321de4ae2"
+    },
+    {
+      "file": "scripts/infinity-buy.cjs",
+      "sha256": "e44b0d6f3b63c8fee6da8626d757c329642395090fe0c04c80f2a8f6e48bd59b"
+    },
+    {
+      "file": "scripts/pons-profiles.cjs",
+      "sha256": "919350281c4a654c5984f13724e10b4663b814674731d4f33b2ceb9c41796e4e"
+    },
+    {
+      "file": "scripts/pons-curve-buy.cjs",
+      "sha256": "4e3f81c0f84486032d0741551b99a055cf4157cfa06d00e6b85124ffe4d0a5bc"
+    },
+    {
+      "file": "scripts/integrations/pons-v2.cjs",
+      "sha256": "1be573f3169f333a5db1094364949a0ad383786269b2a90ea3f4dd58266cbeec"
+    },
+    {
+      "file": "scripts/pons-v4-buy.cjs",
+      "sha256": "aab8472e94e4343395da67df79331fa30a448d5a95be8ac87a0dd460d627534e"
+    },
+    {
+      "file": "scripts/pons-batch-route.cjs",
+      "sha256": "9963125c0ed7be92ae4d49ede2f7e2ec239736d4a4e9190ad64696da898017d9"
+    },
+    {
+      "file": "scripts/pons-batch-buy.cjs",
+      "sha256": "1ad91353034e10b1bb04c362ad2f07279fc9d99738e366d689229bd5f406dc78"
+    },
+    {
+      "file": "scripts/pons-channel-attribution.cjs",
+      "sha256": "5fa131b8eeb6ce268b20341cf6a0455b76275834f5924c908ae5302a8e1645ec"
+    },
+    {
+      "file": "scripts/pons-batch-funding.cjs",
+      "sha256": "b36a6ab0633a0df6601a048cdeaeb218d25031e7f6c26382d235b085986bcd63"
+    },
+    {
+      "file": "scripts/pons-launch-buy.cjs",
+      "sha256": "4ef8ceeef2c0f1f7b732c6f6e4c5dbe6341982c819015486a4f5ef14bdad3a61"
+    },
+    {
+      "file": "scripts/pons-pool-batch-buy.cjs",
+      "sha256": "f3311555b6b551cdb959320b7d719e0534204b20409a350e4bd3e76e179d300d"
+    },
+    {
+      "file": "scripts/pons-zeroex-buy.cjs",
+      "sha256": "01be8cda82913966ed80526c2092ed48c33c67560d991bbbedd0d7d05f3858c9"
+    },
+    {
+      "file": "scripts/pons-entrypoint-buy.cjs",
+      "sha256": "b3d52f578344ae16dc45c3b0bc77fa920359b11d6f3333a0e23bfe796eece992"
+    },
+    {
+      "file": "scripts/pons-entrypoint-codec.cjs",
+      "sha256": "0087f484847e71b18d748eb5712ebfe5bfc1f4fd3d985ef938266e23c8a705f0"
+    },
+    {
+      "file": "scripts/project-history.cjs",
+      "sha256": "1eae191f170539e5667e6dce72702936948d6758fe29d4383ddefd5ad35bdef7"
+    },
+    {
+      "file": "scripts/attempt-lifecycle.cjs",
+      "sha256": "12424195e5f67a79526388eb5b469331dba7f3dcf974ad2485a935db878993d5"
+    },
+    {
+      "file": "scripts/draw-id.cjs",
+      "sha256": "c5e269844393fc6f4b5fb1092da0fb77aa63a5174f8bade036329d2a43488f16"
+    },
+    {
+      "file": "scripts/verified-buy-replay.cjs",
+      "sha256": "dd187aed2e28a390a79ebb5e2c9c9dcb3d9e75e78c85f85e5dbbcf5e8bc8932f"
+    },
+    {
+      "file": "scripts/pons-bloom-evidence.cjs",
+      "sha256": "e088b0446b7f62ba17528ef5db479bc1858f3abbed6105a797af2a9ab27ed833"
+    },
+    {
+      "file": "scripts/purchase-recognition.cjs",
+      "sha256": "7ff4976e9ed2ebfca7dc4463b27f9048a295d79a1a94d67f1e8ec562adb1dd92"
+    },
+    {
+      "file": "scripts/pons-park-native.cjs",
+      "sha256": "4f3573844899f8c55058b11b7811aae817b223af30054bccae079cc8060588fb"
+    },
+    {
+      "file": "scripts/pons-park-native-pins.json",
+      "sha256": "a873ef3524df5da1778c852d51e85b36c3cdaaf93f0b48161370066b5c6c7649"
+    },
+    {
+      "file": "scripts/pons-park-native-edges.json",
+      "sha256": "0ac126368fac853dd8c9b97a3e1f03399008350ee78b79b8b114df1582cb1ee3"
+    },
+    {
+      "file": "scripts/pons-native-settlement.cjs",
+      "sha256": "07146a8e5d3ec15cfcfb2183c7842aaf884321f91100300f8f6fd326f98c25d0"
+    },
+    {
+      "file": "scripts/pons-native-settlement-profiles.json",
+      "sha256": "0929b5c93893a0d96857564f6906a190231d2017fc81adb7849b96ccdc6350e7"
+    },
+    {
+      "file": "scripts/pons-native-v4-funding.cjs",
+      "sha256": "619e342a6afff06d06a138aeac7ed28b33e60991b2e49226f9b153c17b3ac636"
+    },
+    {
+      "file": "scripts/pons-router-calldata-research.cjs",
+      "sha256": "b60039fa3e1c1a2c34bb95b5de743b2eb44e109db169aca867e0badb03509263"
+    },
+    {
+      "file": "scripts/pons-router-trace-research.cjs",
+      "sha256": "34ad38d4c1e6e16557e90b1379cfc6a532890f96a2ae724790bfd2e9be1a9e9f"
+    },
+    {
+      "file": "scripts/transaction-chain.cjs",
+      "sha256": "dd247388da4c1a52a8f1cbfd64659d3aa647350651e8c012d8371084ff31db1b"
+    },
+    {
+      "file": "scripts/deployment-admission.cjs",
+      "sha256": "611292b295f147083482ede14a8a97e1bde83d271e9ac41abdfe8304ff60fde7"
+    },
+    {
+      "file": "scripts/drand-preflight.cjs",
+      "sha256": "c18ceeb444a5a89a3cc60162cda4e74523d90c8b81c524cea95d3263ddcaf578"
+    },
+    {
+      "file": "scripts/drand-timing-readiness.cjs",
+      "sha256": "459ee3457cfaca92c4ca9e8602759cb4c4ede6d51ddc144c65f47582030bfa59"
+    },
+    {
+      "file": "scripts/operational-profile.cjs",
+      "sha256": "be4b13f81063df7e88d94ded4a823f9cb527205093b096bba75351c9ae33e218"
+    },
+    {
+      "file": "scripts/short-dataset.cjs",
+      "sha256": "1f361f4e56ee00dffd9200690396759e5f2e1d531e184db7a597b9c3cba2b7cd"
+    },
+    {
+      "file": "scripts/paged-log-read.cjs",
+      "sha256": "afc413892eccec419733a682c327956fdbd16f5a3db900d12c8d909bc65cf785"
+    },
+    {
+      "file": "scripts/short-outcome.cjs",
+      "sha256": "f7a81e0fd4a52b6e30b656f95c8523c69cb211ca3a0f0625b90741025de51572"
+    },
+    {
+      "file": "scripts/dual-bindings.cjs",
+      "sha256": "ca87121d4d8b252193cfef399f9c65a46e7e47e53252949b0292d09330f48240"
+    },
+    {
+      "file": "scripts/monthly-outcome.cjs",
+      "sha256": "44f403333493c8eb8ca65ba830a9a7c18cc3db2dc53f2cdd3ac1ddf4094e048b"
+    },
+    {
+      "file": "scripts/public-launch-plan.cjs",
+      "sha256": "1063f343610c65019153a32925fd28efaa454fe580d23ebff35166ea5c61985c"
+    },
+    {
+      "file": "scripts/local-rpc-watch.cjs",
+      "sha256": "1ea2b6c40c5067aec2ba0b070e18092d6b989c38b06b780f9e1ea45e737f5d48"
+    },
+    {
+      "file": "scripts/pons-automation.cjs",
+      "sha256": "86b33c1443f033d097998b4698a9a9ac04f364738b619835d38a53572ad5b3d1"
+    },
+    {
+      "file": "scripts/runtime-network.cjs",
+      "sha256": "52b9e856ab5273c96860ccb3616e7d0f42e551afce3dc31418e3d7d35a947880"
+    },
+    {
+      "file": "scripts/local-scheduler-state.cjs",
+      "sha256": "c695f89062bb8aa9f0e000b7ddeb207454253b8dffe5b7756c71319932fe4e7b"
+    },
+    {
+      "file": "scripts/indexer-checksum.cjs",
+      "sha256": "c7590645ab14fe612360b7c3871a8ecf6bc0273d4870bc4c6f507cad23303d44"
+    },
+    {
+      "file": "scripts/indexer-json.cjs",
+      "sha256": "ed344e91c2d8f1c0cf823f82e9bf16ebb08245d7cd0f87c2a8997cda4d8dd62b"
+    },
+    {
+      "file": "scripts/local-receipt.cjs",
+      "sha256": "53f50bfa3238edc87268dfb1b3523cec1efe139c27f63fde9473d32f76781ca1"
+    },
+    {
+      "file": "scripts/local-promo-scheduler.cjs",
+      "sha256": "3bd7ee38b622ccd7a9ab3ac6cbad59d76c849987010d744d43e6e816bf902234"
+    },
+    {
+      "file": "scripts/replay-direct-buy.cjs",
+      "sha256": "e31da858b097ac9e68eb166ecc677e134b3de32b9793078c657670a7019b892a"
+    },
+    {
+      "file": "scripts/bounded-map.cjs",
+      "sha256": "2570b8594198486b1e05d60be79d3880c27c92c2e81ca38076b445dfda019c19"
+    },
+    {
+      "file": "scripts/buy-policy-runtime.cjs",
+      "sha256": "8d38d1d482484560da4a1bc151affeb97f336c7c729b212a56f04867d0969f3f"
+    },
+    {
+      "file": "scripts/buy-policy-admission.cjs",
+      "sha256": "610360c7fd9613fa4f2680e0b543f121f2c4c10ff5b2c026940e5768818b491a"
+    },
+    {
+      "file": "scripts/buy-policy-format.cjs",
+      "sha256": "4497802bb0741c8880b43f3c2a0fc796a093f547a974c91ed7488bf184ace735"
+    },
+    {
+      "file": "scripts/monthly-dataset.cjs",
+      "sha256": "3db8e59a80188c03d49064c59a89ea46bb014be213b3d4b73b481f846a15cf2a"
+    },
+    {
+      "file": "scripts/local-short-executor.cjs",
+      "sha256": "9d35dec4d5e8da90b9bee9b808dd14952f0ba9da60ea69d111b4d5fed7df0de2"
+    },
+    {
+      "file": "scripts/short-settlement.cjs",
+      "sha256": "73d58a1d6d6ecc20af5c3fe3b59a73343e62b807d9a83760f25e5c67d692c498"
+    },
+    {
+      "file": "scripts/verified-draw-cache.cjs",
+      "sha256": "da30571e5bece551907c9d2ad91895fd0b911d63fbd3f7b4579fee001b536d79"
+    },
+    {
+      "file": "scripts/execution-readiness.cjs",
+      "sha256": "b5bfd99e8e927b77611ba7be74a51d2a262f1483d1d994ca1a35f46a0c462430"
+    },
+    {
+      "file": "scripts/local-monthly-executor.cjs",
+      "sha256": "dd5b236ff570556d2c1d706972de0d570ddbc99e7ecdd0cee8757b3a869a99f2"
+    },
+    {
+      "file": "scripts/shared-index-config.cjs",
+      "sha256": "105a8aa01a5321f8dca278743e64920236a5339de37d5e15bab2825db39d31a2"
+    },
+    {
+      "file": "scripts/persistent-buy-indexer.cjs",
+      "sha256": "e6b0182bf62c9bb1aa1e5e2b6a1d64b45f9cf975517a68d4aa7e370a28513f02"
+    },
+    {
+      "file": "scripts/index-read-rpc.cjs",
+      "sha256": "1d8899d333cb13e4803cb4a4e792dccdd384adc91a8640c533d31134fddb5363"
+    },
+    {
+      "file": "scripts/reward-observation.cjs",
+      "sha256": "d51a4fb9b31f799a3178bd13b0876c32870d3ba6b73063c2fd6db352689b9d47"
+    },
+    {
+      "file": "scripts/public-observation.cjs",
+      "sha256": "eb871533078e45a136a797151049f07b615040f9cb94844c4e12bfce2ff096f8"
+    },
+    {
+      "file": "scripts/public-rpc-qualification.cjs",
+      "sha256": "383c233a6389c190c85d208c2675f5d87d79c1439d16d5cd32105c43859162c0"
+    },
+    {
+      "file": "scripts/public-rpc-check.cjs",
+      "sha256": "35c443cdee0819d42b6f7f9119dd33a60f0c256ef061de47020a4f7946034a91"
+    },
+    {
+      "file": "scripts/cutoff-checkpoint.cjs",
+      "sha256": "dca2a112112b3edde985c64dbbe48ee8af99eb2ae1c281189cb9b4ce404fc1ab"
+    },
+    {
+      "file": "scripts/drand-delivery-worker.cjs",
+      "sha256": "b26b05c6e5fb3d21e131f938c0161a8315982338a7144ba3c10c01a7d601e1eb"
+    },
+    {
+      "file": "scripts/pons-collector-manual.cjs",
+      "sha256": "cd492b36dab021f23fdf8ad96ba2e5ab9757086008a390ea16766546b5943cf1"
+    },
+    {
+      "file": "scripts/pons-transaction-journal.cjs",
+      "sha256": "28ac0d08572c53f4b5ba285e5c059d17aacd715d400526f7fe8d848487d20941"
+    },
+    {
+      "file": "scripts/pons-cadence.cjs",
+      "sha256": "27caa170b0c29b8ab26b7640b92dabf909e5567eb9293e9535c2f580b393e51b"
+    },
+    {
+      "file": "scripts/compile.cjs",
+      "sha256": "59f8055eefe73ba611699134fd29fb25c5e3e59dec6e4b890d73f99189b2de21"
+    },
+    {
+      "file": "scripts/test-artifact.cjs",
+      "sha256": "559bf7ae8fd176affc119f28878fcfe9f326e843530d919727c7009b3fc0b389"
+    },
+    {
+      "file": "scripts/pons-gas-budget.cjs",
+      "sha256": "1f625fadbb9fcc7e027dfccb6aa572a596a66c6e391e39654337fe5ff8b56825"
+    },
+    {
+      "file": "scripts/pons-payout-scan.cjs",
+      "sha256": "302bd918aa360563faf631d39ed7c34a1dad5340cebe9325344d32d4db07b49d"
+    },
+    {
+      "file": "scripts/recognition-worker.cjs",
+      "sha256": "3f8c7aa9356227849108e1517f1525c87f300627a6f997032512cc2a2ebb2e7e"
+    },
+    {
+      "file": "scripts/prepare-purchase-recognition.cjs",
+      "sha256": "2bfdb151f3f0540f01f1f527153ccf9c8b0bb7fc3a8e08590fe7572da15f549f"
+    },
+    {
+      "file": "scripts/pons-funding-pass.cjs",
+      "sha256": "7abd5b5b3516f18a014875d2bd6463ad2f64b0cfa06f627c3050f56de4749d87"
+    },
+    {
+      "file": "scripts/service-credentials.cjs",
+      "sha256": "77792b318da6ce1237e71710920e1499b01f4066c78ebe3f4fecf1a49e2455e3"
+    },
+    {
+      "file": "scripts/pace-public-rpc.cjs",
+      "sha256": "7954376dc4852f5962e441fd45d82f62f2052cb43c01f8ce028e92fdeaa3aab4"
+    },
+    {
+      "file": "scripts/ops-session.cjs",
+      "sha256": "9f35769327429a18676f194dc2aa4358c00f2d086927705b52f09d2dbaa34bba"
+    },
+    {
+      "file": "scripts/pons-delay-status.cjs",
+      "sha256": "55a3856a2ff843366177a824748a2207258de87d6ed204d94a98022bcec95b05"
+    },
+    {
+      "file": "scripts/run-indexer-service.cjs",
+      "sha256": "7c2afbd772394fb5a9db60374f9f1d7d6b5e62fc99d9278955cebacd8a152fc2"
+    },
+    {
+      "file": "scripts/user-status-api.cjs",
+      "sha256": "a67a03088d3be029b069145eef3470ed80c660affa851e5038b81ebae1621624"
+    },
+    {
+      "file": "scripts/public-status.cjs",
+      "sha256": "927ffd2bb24e3feeea0e9a08b58c3a98ca03e1fe488dab81b8cc6d15e7b57005"
+    },
+    {
+      "file": "scripts/indexer-service-child.cjs",
+      "sha256": "b50ae54f39bab4e6f5325ef441b8f29b80be040eed2d701bf89bd6084da35856"
+    },
+    {
+      "file": "scripts/user-status-worker.cjs",
+      "sha256": "b436ca05828779dad1d20c4e945b08660d21a1671a5dc872650e046f04b3803f"
+    },
+    {
+      "file": "test/purchase-recognition.test.cjs",
+      "sha256": "902db37a5a7ec290a34b55c0438c937a430cd3f0556c6358ac6540a087112d8a"
+    },
+    {
+      "file": "test/fixtures/purchase-recognition.cjs",
+      "sha256": "8ba8ac171641dd874dcdf9485c4e94d003ee5faa0067beb3056b4bfd2a1ec0ec"
+    },
+    {
+      "file": "test/fixtures/pons-router-research/runtime-codes.json",
+      "sha256": "b23f59acc0c085882bc2b6d32957e7b3a833ece3a77580e2aec44addd73930e2"
+    },
+    {
+      "file": "test/fixtures/pons-indexer.cjs",
+      "sha256": "5fe58387691b2f4a0318f86c944f1b9f4f6c087c1a85935884f19e504eb34198"
+    },
+    {
+      "file": "test/local-transaction.test.cjs",
+      "sha256": "79127fe33dba86e4d520afcdc09c2eabc077cfa7f69781f5ae1d80b54795a06f"
+    },
+    {
+      "file": "scripts/run-local-promo.cjs",
+      "sha256": "72cceafc485d5d4285639f04f2595f392aab7d950b38b99454f15b3054371882"
+    },
+    {
+      "file": "scripts/local-usdg-funding.cjs",
+      "sha256": "eab3811e89c8f909f0e5439339f2cca4c3a63af5e151bf768f9147eb8e374c5f"
+    },
+    {
+      "file": "scripts/local-usdg-revenue.cjs",
+      "sha256": "c3021868a283cd7734fbff6ea56f3156a20ae5eabcd40ad74aecce9b537fe0ed"
+    },
+    {
+      "file": "scripts/local-prize-flow.cjs",
+      "sha256": "27ebae83d8a425061fcaa83cdbabd1b8960a1fcc64cb8e8dcf842aa794737141"
+    },
+    {
+      "file": "scripts/v4-market-quote.cjs",
+      "sha256": "13638f24ebfcff26583fd8e7b55d07f2cfebb2f32af6905d4b468ca2400ce284"
+    },
+    {
+      "file": "test/local-state-lock.test.cjs",
+      "sha256": "3483cbcc0159aa808eb4671f904c449a2f3d1dc19001e1d35637ab696f3a0e0b"
+    },
+    {
+      "file": "test/pons-public-profile.test.cjs",
+      "sha256": "a57d31d32b6c1e183d9b57b8a76b0e0d8f87edf3d23e2026f03713ec0e1343f4"
+    },
+    {
+      "file": "test/fixtures/pons-public-profile.cjs",
+      "sha256": "b10f3bc1ec65f414df8a38388273eae9dc9b36f9decffa4bbb9a8674ad07eed9"
+    },
+    {
+      "file": "test/fixtures/pons-public-config.json",
+      "sha256": "2b830a69657b36f5f1c72b11e3e724fe08a336f79043957c977a430b2813a501"
+    },
+    {
+      "file": "test/fixtures/pons-public-venue-code.json",
+      "sha256": "1557723e3ca918369d3422f17bb20c197973b88ef4c85dd13d98715c469df846"
+    },
+    {
+      "file": "scripts/inspect-pons-dependencies.cjs",
+      "sha256": "7c62f3887a8a04cf0eb1f7a336b847630ceea78fff2cca48812bf6cd3ffc5cf1"
+    },
+    {
+      "file": "test/pons-public-execution.test.cjs",
+      "sha256": "e7e253b287ad0a60cc4fe994149f87961ff08cdcf0bab17a26abc394e38c7e44"
+    },
+    {
+      "file": "test/public-status.test.cjs",
+      "sha256": "806dca5751f33a1e929a8aaf611dea0e229d7e6f8a3b38bbdd20c234c6661c79"
+    },
+    {
+      "file": "test/fixtures/attempt-history.cjs",
+      "sha256": "f1ff842fbbc7de6a2a86623d2f9c5b86e93fea92e52b1e758ebd1d4f97932a1f"
+    },
+    {
+      "file": "test/fixtures/pons-router-research/usdg.json",
+      "sha256": "cd0fb7121aa201b22b2ad993f95af32fdc14ae16f63de8f0774ee5d7b36148de"
+    },
+    {
+      "file": "test/fixtures/pons-router-research/eth.json",
+      "sha256": "3679b2b68be48731e8cdf47ae882e590bb336635a3f86bb5c854208eb6f384df"
+    },
+    {
+      "file": "contracts/vendor/drand/LICENSE",
+      "sha256": "af36460fa628a7aca8c5b1f1b6b3615376f00212284fa0fd61a013ee982a3666"
+    },
+    {
+      "file": "research/direct-buy/evidence.json",
+      "sha256": "cabf873a10ed741d28a69242be21745160fb1f1af2d1d238badb01fc0e83c8af"
+    },
+    {
+      "file": "scripts/inspect-pons-public.cjs",
+      "sha256": "c5c55b2dc0d2b4ddadbf70c1d5f267c6f1036cc88bcb1a28447ec7c6156b9106"
+    },
+    {
+      "file": "test/pons-public-runtime.test.cjs",
+      "sha256": "35840aface8133331019a7716546a4798d67538c30425fefe90258b80c696514"
+    },
+    {
+      "file": "test/fixtures/public-hardhat.config.cjs",
+      "sha256": "88cbf3cb4d75c605d0f3c9ef57758f2feb4c47e8344c009cab427e07c0a07466"
+    },
+    {
+      "file": "test/fixtures/robinhood-obligations.cjs",
+      "sha256": "43e319bedefdb9d00f8ae5f19dfd22de14bf331d664c5118640d2571d0e40121"
+    },
+    {
+      "file": "test/fixtures/public-controllers.cjs",
+      "sha256": "f4e3f8462373d3827c354b7a0492f2b578755954ca9557269aa88c6f7550da54"
+    },
+    {
+      "file": "test/fixtures/short-outcome.cjs",
+      "sha256": "6f4a74fa71e49e6f864c99c106c93cc847c4e75b6767350f70608d060b178939"
+    },
+    {
+      "file": "research/drand-feasibility/vector.json",
+      "sha256": "3563513407d8f2188680d2e6cf694d69fb39dcbe1eb3b1bbc1a73db81a206bd7"
+    },
+    {
+      "file": "test/fixtures/robinhood-runtime.cjs",
+      "sha256": "b15cfbac11c1c4e64f077f82461794f9c5a8cef9a558058b93ce29f453ca146d"
+    },
+    {
+      "file": "research/public-deployment/infinity-rpc-test-runtimes.json",
+      "sha256": "8d8ae59128c1dd885b10be6b9bd321c77f237b14b684defead7fede798fe38b3"
+    },
+    {
+      "file": "contracts/BuyPolicySource.sol",
+      "sha256": "ff636a1e4d01bbe93d7463ff70c304c72f35a7fcdf0d3da19de1c6df2f81986f"
+    },
+    {
+      "file": "contracts/ChainBlocks.sol",
+      "sha256": "83883a3c0b6dbca40ba9dbbf2f985a0b85b56ac11b533144aa17e1ab0e9d605b"
+    },
+    {
+      "file": "contracts/CutoffHistory.sol",
+      "sha256": "3e39f79b16228cab5e5669563e0b2c8446a1710f132a2b8153d9e1b686fcacb0"
+    },
+    {
+      "file": "contracts/DrandRandomAdapter.sol",
+      "sha256": "1abc8c0a7d1af4ea601102e19516e47fcab5ade8f165e0b2c60335db77843baa"
+    },
+    {
+      "file": "contracts/DualControllerPromoVault.sol",
+      "sha256": "31e66724289b458ed0d5852f1e6db6ac1b785b8aa14463545092548a827aefed"
+    },
+    {
+      "file": "contracts/FeeRouter.sol",
+      "sha256": "f0cd29684d653d16ed52b4ee5ec2c78ac523940f5bfb67540c33591ba09caa5e"
+    },
+    {
+      "file": "contracts/ILocalRandom.sol",
+      "sha256": "64c6ee18452d4a5ded24a7aac9c4fda0d5511831a3d80219884e956a89b87b55"
+    },
+    {
+      "file": "contracts/IPonsVenue.sol",
+      "sha256": "bfcaa5cf01e49bb6a73bfd780f008ed80b62ac8687409b7037d17b2b33330b43"
+    },
+    {
+      "file": "contracts/IPrizePriceSource.sol",
+      "sha256": "4f02c261f5f326a70ddb65b45f9f03b76d73399edb12c000cb869cd0db285ccd"
+    },
+    {
+      "file": "contracts/IPrizeSwapAdapter.sol",
+      "sha256": "5df9db6cbeda70d3c174810288dd21b93d11259a6e156a24f5237c041c6b9483"
+    },
+    {
+      "file": "contracts/InfinityCollector.sol",
+      "sha256": "f06331e809b968065c1a596aeed5581083b42bb8a411275c3f62d76d66423998"
+    },
+    {
+      "file": "contracts/LocalMarketPrizeConverter.sol",
+      "sha256": "9e3faa3350835e0a03d2dd2109cdaa6c0f2d54449d22373cb03bfcc3a3563b7e"
+    },
+    {
+      "file": "contracts/LocalMonthlyController.sol",
+      "sha256": "07669b0f2d70fe8fec78ce6ecf736fe21e242cd6aaca923fd583d9b7935bad11"
+    },
+    {
+      "file": "contracts/LocalPonsCollector.sol",
+      "sha256": "af61949f7d3651cced9dc7d6a3b2f66f4c89cc1d27706c5e60012d455c02029e"
+    },
+    {
+      "file": "contracts/LocalPrizeConverter.sol",
+      "sha256": "8346b7dc03ceceaaf9764bcdb14ee3623174c0fbc5ab27f986fc94642e577e40"
+    },
+    {
+      "file": "contracts/LocalScheduledPrizeConverter.sol",
+      "sha256": "0a38fe7f7e8867e5da6a8f28221a801d75ec4084a5fef593756759d1cdd069d0"
+    },
+    {
+      "file": "contracts/LocalShortController.sol",
+      "sha256": "ac55ed2fbc2a1c5b6422341426e7724afa9673ac675b6095f720e7a594974a91"
+    },
+    {
+      "file": "contracts/LocalV4PrizeAdapter.sol",
+      "sha256": "643cf212d38df1ec06e0f1b50b070d7edbf92752b093617c38319dcd69dd2782"
+    },
+    {
+      "file": "contracts/MonthlyControllerBase.sol",
+      "sha256": "c80c898d800691d4a01d2e69482605ea75b5da417ec4360cd90f6562c1e0e112"
+    },
+    {
+      "file": "contracts/MonthlyOutcome.sol",
+      "sha256": "edbfef546db35754e6b0f4436c5ced59e541a446023c5e0b1fb5f640bf6faa1e"
+    },
+    {
+      "file": "contracts/MonthlySettlement.sol",
+      "sha256": "86416b3fdd250e103673125c6c254d3bc8d8a9d6700976a5d1f4aa403af6deec"
+    },
+    {
+      "file": "contracts/ParticipantRegistry.sol",
+      "sha256": "7244a4ede035e46de118114e10edf2e3d96cf27caacedc9c9e540d345a6f0e49"
+    },
+    {
+      "file": "contracts/PromoVault.sol",
+      "sha256": "7c813a1a35f4accbd67316450f8e87be0ea67a01686cd4e01dc90433bec12bcb"
+    },
+    {
+      "file": "contracts/PurchaseRecognitionSource.sol",
+      "sha256": "762c0c036fa2df83675de249064a426bcbe7c476cc89e335109156f0c2375c4c"
+    },
+    {
+      "file": "contracts/RobinhoodControllerChecks.sol",
+      "sha256": "efc53c40e746699e86f09c4fbe14f82114e590dceb2698bc52b4ea8d2e9b558a"
+    },
+    {
+      "file": "contracts/RobinhoodMonthlyController.sol",
+      "sha256": "053f12fd8e4a3b452bf2e9085fab3dca132181385eeccc2ea945cfb5421fe580"
+    },
+    {
+      "file": "contracts/RobinhoodShortController.sol",
+      "sha256": "54098a1cfeeb428ca0acb5e8ab0b77abb32c32273084c05ba2995d8c4cbe28f1"
+    },
+    {
+      "file": "contracts/ShortControllerBase.sol",
+      "sha256": "e5225b851894e3e3236d3a253ec8bc7e02be8268575ef97b9bce42cfecaa3785"
+    },
+    {
+      "file": "contracts/ShortDatasetPreparation.sol",
+      "sha256": "7abc606e2f118782dc2f8e0511fc5dac74f7250df4a03604460949a85385ff7d"
+    },
+    {
+      "file": "contracts/ShortDrawCommitment.sol",
+      "sha256": "833762ca4d98443906f493ab2a81c262327cceb6df46e01827f52cd6ff1ba259"
+    },
+    {
+      "file": "contracts/ShortOutcome.sol",
+      "sha256": "2c505e215dd642abbe9db6425c7e8c185b5e165f862cb8f41a1ee5336919c534"
+    },
+    {
+      "file": "contracts/ShortPrizeBasket.sol",
+      "sha256": "f2f5ee7c033a4c686f6c3133b6d6fe10e9b25171cdaec5bf83a6e594017f9c00"
+    },
+    {
+      "file": "contracts/ShortRulesEpochs.sol",
+      "sha256": "265176a0ed23fda91846744119ebfdff02d6fbefaf488c9f0661ceebcd2f12ce"
+    },
+    {
+      "file": "contracts/ShortSettlement.sol",
+      "sha256": "aa2ba3cb3c01e860ef887f6a129d250acebf0c0b04872aa8dc4704c1b98d3403"
+    },
+    {
+      "file": "contracts/vendor/drand/BLS.sol",
+      "sha256": "887fd94553b9d6d0a247900bdb05523d3b9ef3b8ca049e2a0524a0b1a9d37e69"
+    },
+    {
+      "file": "contracts/vendor/drand/ModExp.sol",
+      "sha256": "fd91ae9291511668914b05fece03fb9bf6e2b57f7784d2edddc82456af12b495"
+    },
+    {
+      "file": "test/contracts/AttemptLifecycleFixture.sol",
+      "sha256": "d090b43029cb48f1d928f525446ffabd5277d31977c97d1f540f2c0cbf72360c"
+    },
+    {
+      "file": "test/contracts/ChainBlocksFixture.sol",
+      "sha256": "f6089a36e81407aa981f82481616705e6c3a45f4c1e0459fff7c9ce8f6fa451e"
+    },
+    {
+      "file": "test/contracts/DrandConsumerFixture.sol",
+      "sha256": "2cac6407a34ed2864fc94acf1dad2b1697579574f32f6f4ace7d3cc3c2c5563c"
+    },
+    {
+      "file": "test/contracts/DrawControllerFixture.sol",
+      "sha256": "d013d97fff37d8bfe6acea3d2d4225f9f7a7c330b1c06e3a55d8a45d345da02c"
+    },
+    {
+      "file": "test/contracts/Fixtures.sol",
+      "sha256": "e05de6476c96ca190a6cd434b6a21626a6ba0a5e26899622ec33d942c154dfa2"
+    },
+    {
+      "file": "test/contracts/InfinityFixtures.sol",
+      "sha256": "310c6316f7023ac8e25246b2a7c994f8234931435fd3bedb35429acc22c7ab50"
+    },
+    {
+      "file": "test/contracts/LocalBuyFixture.sol",
+      "sha256": "64dd1cc927f0436998d2debc389436e35a4f00bee5303352eafaf33b12d77cce"
+    },
+    {
+      "file": "test/contracts/LocalRandomFixture.sol",
+      "sha256": "9d7f670ace649af22669d15d53943454fd42df80cb237c0b7cab9ddad84bfb80"
+    },
+    {
+      "file": "test/contracts/MonthlyOutcomeFixture.sol",
+      "sha256": "578b783702a2e18796597f603759a329315a04bc60b66904b4d4bfba415c03d2"
+    },
+    {
+      "file": "test/contracts/MonthlySettlementFixture.sol",
+      "sha256": "3f060f0de9e00d01c3cb2ec1e41d860efd31cde204167817de11660cca9b4157"
+    },
+    {
+      "file": "test/contracts/PolicyWalletFixture.sol",
+      "sha256": "ddb1b7331b78bbd5bb92354f9f7cf64f4e60ebc0a75ec0cdfbdab87df4be9bc8"
+    },
+    {
+      "file": "test/contracts/PonsEscrowFixture.sol",
+      "sha256": "5d820ad5b026138e9144eb246efaf7dab77207c578c17e329897ed72489182d4"
+    },
+    {
+      "file": "test/contracts/PonsVenueFixture.sol",
+      "sha256": "ff02ed37aa69cdc19efb47ef6712e5073ba19ad922f873bcfd4a29a413c4a0a4"
+    },
+    {
+      "file": "test/contracts/PrizePriceFixture.sol",
+      "sha256": "d83a68e6af856616ebf2aa52f7dccdde9fd0b2444cf752ed3376f6c232708c17"
+    },
+    {
+      "file": "test/contracts/PrizeSwapFixture.sol",
+      "sha256": "7345b4f4aef23e4db38f23f5f6ef1a1790310167bbf300546ea9fd64aa7f260a"
+    },
+    {
+      "file": "test/contracts/PublicArbSysFixture.sol",
+      "sha256": "4e33eb36726799cba976c1995f530ae2a71d2e154ef73e56e2c985673907726c"
+    },
+    {
+      "file": "test/contracts/RegistrationWalletFixture.sol",
+      "sha256": "e3c4b5c20cb8d45d3fc664350c758b1b86c73882f1c9b35e0766fa53e53e3880"
+    },
+    {
+      "file": "test/contracts/ShortDatasetFixture.sol",
+      "sha256": "1136e203a85f00ac95c973d18dced92c2bf8d839646cfa23ecd450f5ba3f27cd"
+    },
+    {
+      "file": "test/contracts/ShortDrawCommitmentFixture.sol",
+      "sha256": "67a78aef9a2313f3eefd184a5f8a38cdfbe6cad3393d7ef5aaebe868b85bd8b3"
+    },
+    {
+      "file": "test/contracts/ShortEpochFixture.sol",
+      "sha256": "096971440fd1065363388f059b0a1846653bea3da0e80d2e1dd333f766336b91"
+    },
+    {
+      "file": "test/contracts/ShortOutcomeFixture.sol",
+      "sha256": "1fc3581e4b21982d7e85bfdcb8c292e5b830595a741753eed27ae969b246b853"
+    },
+    {
+      "file": "test/contracts/ShortPrizeBasketFixture.sol",
+      "sha256": "0836cc8335b07bc0168e82ebcdf05e508dc0cfb866f0de4270ed211f1f65896e"
+    },
+    {
+      "file": "test/contracts/ShortSettlementFixture.sol",
+      "sha256": "3b89ce444a911f8342b1616622aecbb067e7315cd07b690e7a5c5ffda87a3a3b"
+    },
+    {
+      "file": "test/contracts/ShortStreamingStudy.sol",
+      "sha256": "ab77404fa3f95d9a0ab1a37954f008ec6cd6a97294bc0c1c333a09df82f5c79b"
+    },
+    {
+      "file": "test/contracts/UnsupportedBuyForwarder.sol",
+      "sha256": "b95a127c012fdb8acd714c8f25d9e2eb1193bc48774d1aaaa5d618912acedef5"
+    }
+  ]
+}

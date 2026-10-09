@@ -1,0 +1,34 @@
+{
+  "scripts/local-receipt.cjs": {
+    "sha256": "f050c4a52a8ec6977c7749dff798494d398b53913266d5c3556c51011fd03ae6",
+    "reason": "Check project execution fence before preparing and broadcasting."
+  },
+  "scripts/pons-transaction-journal.cjs": {
+    "sha256": "6dcc4f050d90dc9f35040f96631a7b3971bf0032976bdf4069c542e46518482c",
+    "reason": "Recheck fence after durable signed intent and before broadcast."
+  },
+  "scripts/compile.cjs": {
+    "sha256": "8bfe453ea3730529a6b2d656ee7d3305fd4098b36384e3d842786d8b0fbdb17c",
+    "reason": "Resolve source paths independently of cwd; verify/cache production artifact."
+  },
+  "scripts/user-status-api.cjs": {
+    "sha256": "790b80cc248a8fd94147e926548c31cc868a61db7293c0a4d438f3466ae1f0fd",
+    "reason": "Expose HTTP handler and prepared public projection for shared API."
+  },
+  "scripts/indexer-service-child.cjs": {
+    "sha256": "1122470918b25a411e319d14d341aaa20d0ef2ed4c4396a1a569c663d4364780",
+    "reason": "Publish verified public view into project-scoped PostgreSQL."
+  },
+  "test/fixtures/attempt-history.cjs": {
+    "sha256": "45c55af754532c8b7f29519ce6f9db35534df564cc9ccf16c8fec23b0b8404f6",
+    "reason": "Resolve public test evidence relative to fixture."
+  },
+  "test/fixtures/public-controllers.cjs": {
+    "sha256": "b611f4d1abad3babfac8e26df1327d0dc2215d7183b3714a117be3aee8fc2736",
+    "reason": "Inline numeric test rules; do not import operator configuration."
+  },
+  "test/fixtures/robinhood-runtime.cjs": {
+    "sha256": "3dc060d730b9ebe20bcb7533dcfeb957ad8952652ce8910a20f27c73fff3d71f",
+    "reason": "Inline test gas action names; omit unrelated operations market modules."
+  }
+}

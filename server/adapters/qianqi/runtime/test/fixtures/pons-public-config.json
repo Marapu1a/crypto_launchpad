@@ -1,0 +1,126 @@
+{
+  "schema": "pons-rehearsal-automation-v1",
+  "instanceId": "0x5732ec6376436a54fd0fce49782235f2999dc221cd6853b7c1e2f4a9455bbafe",
+  "manifest": {
+    "schema": "direct-buy-pons-v2",
+    "routeVersion": "rh-pons-curve-ur-v1",
+    "eligibility": "automatic-buy-v1",
+    "quoteBasis": "wallet-net-debit-v1",
+    "chainId": 4663,
+    "quoteDecimals": 6,
+    "entryThresholdRaw": "100000000",
+    "anchor": {
+      "number": 79076346,
+      "hash": "0xa92e59275a559c6cc3f225e5795f1d7a3c45338dcaf73fd079eff3b4d3e49b77"
+    },
+    "factory": "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e",
+    "hook": "0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044",
+    "curve": "0x17cbFacF73aCB1093A24B9b70E5BAe435E32051A",
+    "token": "0x68930b563ecA90A2C1E5dCC596CD90E6f0f61fDE",
+    "quote": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    "registry": "0x53c0D6F3E22fa34CE59daaBC6327ad10732B14CF",
+    "codeHashes": {
+      "factory": "0x89a27da6f703e0a7cdd4f233e7cb57604ff75b164530962d3ff7cf8483a67d84",
+      "hook": "0xc21b1e6c1b45403e81a581f22ed6d9c747997af1cfdac1b1dc9f4b1d346a10db",
+      "curve": "0x04c54edc72bb61f00c21c7d4aff6b0688f7414659ca05d1d1dc044b029bc239a",
+      "token": "0x8477e5689ec3115def243a583d0a55f3e1e3a7305c0cb0ac3033054ca03b5e71",
+      "quote": "0x864cc9ad53b338b82da1f7cab85ab0b3d5c8861acb422b6fec63cf36234f36a6",
+      "registry": "0xf9416c95d49ff972b9b3ddc93d74a7cc96890efbd413960689c9470866300bc6",
+      "router": "0x2ce6aaaf9f4151f5e1cbf774668772f17f532ae11b15e9284fd0a072a8b0fbde",
+      "manager": "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+      "permit2": "0x5208783f52488f7d3493e5e38311ab707c1d75457fe472a19b0b4d57d66a7fca"
+    },
+    "poolKey": [
+      "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "0x68930b563ecA90A2C1E5dCC596CD90E6f0f61fDE",
+      "0",
+      "200",
+      "0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044"
+    ],
+    "hookFeeBps": 100,
+    "creatorTaxBps": 300,
+    "poolId": "0x06a73b19a7079688d5d4135f60b113864b684d13f8e8b7f050c13e1bcb6c0002",
+    "router": "0x8876789976decbfcbbbe364623c63652db8c0904",
+    "manager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+    "permit2": "0x000000000022d473030f116ddee9f6b43ac78ba3"
+  },
+  "lifecycle": {
+    "schema": "attempt-lifecycle-v4",
+    "source": "0x3EE0c608815Ec5a621F330Fb8899ED31Fe682393",
+    "sourceCodeHash": "0xd665f9291028fe6a5667abd2f4c46352c8ad333db82d751314a6bbd228598d84",
+    "instanceId": "0xfb3741d54920c85c2431daecd29ed922a6323d242dd900f81fe802eb2f97aed2",
+    "monthlySource": "0x2E9e7412e19497b60f25D05b68717067A6B743D4",
+    "monthlySourceCodeHash": "0x093574ef001b7f0c05af62ad4b333b0dcbb4817fd7ca907fcf75f842124f107a",
+    "monthlyInstanceId": "0xb6f9997302a4fa351b637ae02b9973916ddfd4af0939e529eeff9ae884d5c30c",
+    "vault": "0xE1d3976951d1C145854a6eA994D269c9F9515b6f",
+    "vaultCodeHash": "0x11285341ed975a795b8064396068a2b9c768f5fbb23225b540257cbf06cff10e",
+    "shortRules": {
+      "rulesHash": "0xc3e677a4bf6150a309c48a3b3aded3bb04116c495fae0932dfca91dd9c1d018a",
+      "noticeSeconds": "3600",
+      "startedAt": "1791008185",
+      "firstBlock": "79076341"
+    },
+    "monthlyPolicy": {
+      "rulesHash": "0xbb9ada4f36d634fd406cf18e3858a4c5a5ef76707d196511fbb413da4f34d8f7",
+      "interval": "2592000",
+      "startedAt": "1788437785"
+    },
+    "monthlyRules": {
+      "noticeSeconds": "3600",
+      "firstBlock": "79076342"
+    }
+  },
+  "collector": "0xF55755a2433cFdDdcc3949824Fae6C951B138f20",
+  "escrow": "0xd3AFEB2a57f70eF218Aa82451c51B2fb0416Ac9e",
+  "vault": "0xE1d3976951d1C145854a6eA994D269c9F9515b6f",
+  "executor": "0x098afa6731239a00ce0aff669aaefd16b7c72114",
+  "campaignId": "1",
+  "recipients": [
+    "0xE1d3976951d1C145854a6eA994D269c9F9515b6f",
+    "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+  ],
+  "codeHashes": {
+    "collector": "0x8b4709a67aaf3e74ff2fe5fe4621d42db8975c4fc3a93f70f9e4ec2cc2781cf5",
+    "escrow": "0xf25f75cfbc1637ba068dc34f69098fa4e8a80f8ee8fe7bf7820594e0b3fed2f1"
+  },
+  "maxGasPrice": "10000000000",
+  "nativeFloor": "1000000000000000",
+  "gasLimit": "3000000",
+  "maxTransactions": 2,
+  "pollSeconds": 10,
+  "deliveryJob": {
+    "schema": "robinhood-drand-delivery-v1",
+    "chainId": 4663,
+    "adapter": "0xa631f7845af257daEe0b9f6Ff744334294cE6846",
+    "short": "0x3EE0c608815Ec5a621F330Fb8899ED31Fe682393",
+    "monthly": "0x2E9e7412e19497b60f25D05b68717067A6B743D4",
+    "adapterCodeHash": "0xf43565eb41c8cccd1259d222287503b3fdfe0e7839e144c4cf5bfb99fa40e8d5",
+    "shortCodeHash": "0xd665f9291028fe6a5667abd2f4c46352c8ad333db82d751314a6bbd228598d84",
+    "monthlyCodeHash": "0x093574ef001b7f0c05af62ad4b333b0dcbb4817fd7ca907fcf75f842124f107a",
+    "anchor": {
+      "number": 79077147,
+      "hash": "0x0a8afd375d47520b76cdc67e89e4c9666df31cbb8b6496b56a20cbba406ccc4f"
+    },
+    "maxGasPrice": "10000000000",
+    "nativeFloor": "1000000000000000",
+    "gasUnits": {
+      "prove": "500000",
+      "deliver": "500000"
+    },
+    "pollSeconds": 10
+  },
+  "buyPolicy": {
+    "source": "0x19d791062686167D8D9b50B76AF744C84c733f1c",
+    "publisher": "0x098afa6731239a00ce0aff669aaefd16b7c72114",
+    "instanceId": "0xfb3741d54920c85c2431daecd29ed922a6323d242dd900f81fe802eb2f97aed2",
+    "genesisHash": "0xbf1c3b159e0676468a0b2581a5af93add48e0b1c7d562f3c169621ce3df0a8ff",
+    "sourceCodeHash": "0x2e3aa67389440e4936b8162df057945c41699a15a94a03967c64f9fa24ecd21f",
+    "chainId": 4663,
+    "noticeBlocks": 20
+  },
+  "indexer": {
+    "statePath": "/synthetic/index.json",
+    "maxAgeSeconds": 120
+  }
+}

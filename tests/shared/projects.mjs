@@ -100,6 +100,7 @@ try{
     assert.equal((await readProject(api,p1)).project.slug,'alpha');
   });
   await exerciseChainRead({admin,jobs,api,url,scenario,p1,p2,m1,m2,report});
+  if(process.argv.includes('--qianqi-adapter'))await (await import('./qianqi-adapter.mjs')).exerciseQianqiAdapter({admin,jobs,api,url,scenario,dir,report});
   if(process.argv.includes('--qianqi')||process.argv.includes('--qianqi-live'))await exerciseQianqi({admin,jobs,api,url,scenario,dir,report});
   if(process.argv.includes('--qianqi-live'))await (await import('./qianqi-live.mjs')).exerciseQianqiLive({admin,jobs,api,url,scenario,report});
   if(process.argv.includes('--tickets'))await exerciseTicketShadow({admin,jobs,api,url,scenario,dir,report});
@@ -158,6 +159,13 @@ try{
       assert.equal((await restoredJobs.query('SELECT * FROM launchpad.ticket_shadows')).rowCount,0);
       for(const table of ['financial_executors','financial_operations'])await assert.rejects(restoredJobs.query('SELECT * FROM launchpad.'+table),e=>e.code==='42501');
       const financial=createPool(url('lp_executor')),restoredFinancial=createPool(url('lp_executor','launchpad_restored'));
+      if(report.qianqiAdapter){
+        const {executorProject,viewProject}=report.qianqiAdapter;
+        const bindings=p=>inProject(p,executorProject,async c=>(await c.query('SELECT * FROM launchpad.qianqi_executors')).rows);
+        assert.deepEqual(await bindings(restoredFinancial),await bindings(financial));
+        const views=p=>inProject(p,viewProject,async c=>(await c.query('SELECT * FROM launchpad.qianqi_api_views')).rows);
+        assert.deepEqual(await views(restoredJobs),await views(jobs));
+      }
       try{
         for(const project of [...(report.financial?.projects??[]),...(report.postgresWorker?.projects??[])])for(const table of ['financial_executors','financial_operations','worker_states']){
           const read=pool=>inProject(pool,project,async c=>(await c.query('SELECT * FROM launchpad.'+table+' ORDER BY 1,2,3')).rows);

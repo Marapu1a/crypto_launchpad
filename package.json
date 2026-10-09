@@ -29,7 +29,11 @@
     "test:drand:live": "node tests/contracts/drand-cycle.mjs --live",
     "test:ui": "playwright test",
     "test:shared:qianqi": "node tests/shared/projects.mjs --qianqi",
-    "test:shared:qianqi-live": "node tests/shared/projects.mjs --qianqi-live"
+    "test:shared:qianqi-live": "node tests/shared/projects.mjs --qianqi-live",
+    "check:qianqi-runtime": "node scripts/check-qianqi-runtime.mjs",
+    "test:qianqi-runtime": "node scripts/test-qianqi-runtime.mjs",
+    "test:qianqi-adapter": "node tests/shared/projects.mjs --qianqi-adapter",
+    "build:qianqi-runtime": "node scripts/build-qianqi-runtime.mjs"
   },
   "engines": {
     "node": ">=22"
