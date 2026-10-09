@@ -1,0 +1,38 @@
+[Unit]
+Description=QIANQI read-only bounded shadow rehearsal
+After=network-online.target postgresql.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=launchpad-shadow
+Group=launchpad-shadow
+WorkingDirectory=/opt/crypto-launchpad/current
+EnvironmentFile=/etc/crypto-launchpad/shadow.env
+ExecStart=/usr/bin/node /opt/crypto-launchpad/current/scripts/qianqi-live-worker.mjs --watch
+Slice=crypto-launchpad.slice
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/var/lib/crypto-launchpad/shadow
+InaccessiblePaths=-/opt/qianqi -/opt/qianqi-api -/var/lib/qianqi-public -/var/lib/qianqi-stage -/var/backups/qianqi-public -/etc/qianqi
+Restart=on-failure
+RestartSec=30
+RestartPreventExitStatus=78
+TimeoutStopSec=330
+LogRateLimitIntervalSec=60
+LogRateLimitBurst=10
+
+[Install]
+WantedBy=multi-user.target

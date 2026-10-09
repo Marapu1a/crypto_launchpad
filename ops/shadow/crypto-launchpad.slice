@@ -1,0 +1,8 @@
+[Unit]
+Description=Crypto launchpad rehearsal Node processes
+
+[Slice]
+MemoryHigh=768M
+MemoryMax=1G
+CPUQuota=50%
+TasksMax=128

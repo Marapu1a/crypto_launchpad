@@ -58,3 +58,5 @@ late cohort из calldata/receipt/published trace. Pure route verifiers адап
 - QIANQI live shadow: src/qianqi/live-shadow.mjs/live-transport.mjs, server/shared/qianqi-live.mjs, migration008. Общий dataset-reader выделен из history collector; CLI scripts/qianqi-live-worker.mjs. См. [QIANQI_LIVE_SHADOW](QIANQI_LIVE_SHADOW.md). Без financial execution.
 
 - QIANQI outcome: src/qianqi/outcome-replay.mjs и outcome-archive.mjs. Независимая BigInt-реализация dataset outcome/context/basket, форматы frozen vendor ae445254; runtime не импортирует vendor. См. [QIANQI_OUTCOME_REPLAY](QIANQI_OUTCOME_REPLAY.md).
+
+- Shadow server preparation: server/shared/shadow-storage.mjs, shadow-runner.mjs, migration009, scripts/qianqi-import-shadow.mjs и ops/shadow. Новая реализация, без production config/keys QIANQI; [SHADOW_SERVER_REHEARSAL](SHADOW_SERVER_REHEARSAL.md).

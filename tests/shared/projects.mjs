@@ -146,10 +146,14 @@ try{
           assert.equal((await restoredJobs.query('SELECT * FROM launchpad.'+table)).rowCount,0);
         }
       }
-      if(report.qianqi)for(const table of ['qianqi_imports','qianqi_history_rows','qianqi_live_heads','qianqi_live_halts']){
+      if(report.qianqi)for(const table of ['qianqi_imports','qianqi_history_rows','qianqi_live_heads','qianqi_live_halts','qianqi_live_bodies']){
         const rows=pool=>inProject(pool,report.qianqi.project,async c=>(await c.query('SELECT * FROM launchpad.'+table+(table==='qianqi_live_halts'?' ORDER BY 1,2,3':' ORDER BY 1,2,3,4'))).rows);
         assert.deepEqual(await rows(restoredJobs),await rows(jobs));
         assert.equal((await restoredJobs.query('SELECT * FROM launchpad.'+table)).rowCount,0);
+      }
+      if(report.qianqiLive){
+        const {readQianqiLive}=await import('../../server/shared/qianqi-live.mjs');
+        assert.deepEqual(await readQianqiLive(restoredJobs,report.qianqi.project,report.qianqi.module),await readQianqiLive(jobs,report.qianqi.project,report.qianqi.module));
       }
       assert.equal((await restoredJobs.query('SELECT * FROM launchpad.ticket_shadows')).rowCount,0);
       for(const table of ['financial_executors','financial_operations'])await assert.rejects(restoredJobs.query('SELECT * FROM launchpad.'+table),e=>e.code==='42501');

@@ -6,6 +6,7 @@ import {importQianqiHistory,readQianqiHistory,adapter} from '../../server/shared
 import {verifyHistoryArchive} from '../../src/qianqi/history-archive.mjs';
 import {contentHash} from '../../src/qianqi/ticket-shadow.mjs';
 import {inProject} from '../../server/shared/store.mjs';
+import {exerciseImportCli} from '../qianqi/import-cli.mjs';
 export async function exerciseQianqi({admin,jobs,api,url,scenario,dir,report}){
  const archive={history:resolve('.local/test-results/qianqi-history-2026-10-09T13-19-20-045Z'),capture:resolve('.local/test-results/qianqi-shadow-2026-10-09T12-12-21-030Z'),routes:resolve('.local/test-results/qianqi-routes-2026-10-09T12-33-18-288Z')};
  const expected=await verifyHistoryArchive(archive),p='33333333-3333-4333-8333-333333333333',m='dddddddd-dddd-4ddd-8ddd-dddddddddddd',bad='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',other='22222222-2222-4222-8222-222222222222';
@@ -19,6 +20,9 @@ export async function exerciseQianqi({admin,jobs,api,url,scenario,dir,report}){
  await scenario('QIANQI verified history imports exactly once under concurrent delivery',async()=>{
   const results=await Promise.all([importIt(),importIt()]);assert.equal(results.filter(r=>r.inserted).length,1);
   assert.deepEqual(await read(),expected);assert.equal(expected.payload.purchases.length,68);assert.equal(expected.payload.replay.wallets.length,52);assert.equal(expected.payload.replay.draws.length,2);
+ });
+ await scenario('Portable import CLI revalidates explicit evidence paths from an unrelated working directory',async()=>{
+  await exerciseImportCli({url:url('lp_jobs'),project:p,module:m,dir,archive});
  });
  await scenario('QIANQI RLS, immutable rows and project binding reject cross-project access',async()=>{
   assert.equal((await jobs.query('SELECT * FROM launchpad.qianqi_history_rows')).rowCount,0);

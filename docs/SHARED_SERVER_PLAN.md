@@ -132,3 +132,5 @@ release платформы при совместимой схеме. При не
 Связанные ограничения: [live shadow](QIANQI_LIVE_SHADOW.md),
 [общий backend](SHARED_BACKEND_BASELINE.md),
 [локальный финансовый worker](POSTGRES_LOCAL_WORKER.md).
+
+Локальная подготовка выполнена 09.10.2026: [SHADOW_SERVER_REHEARSAL](SHADOW_SERVER_REHEARSAL.md). PG18.6 проверен, storage guard/portable paths и templates реализованы; серверная установка и суточное наблюдение ещё не выполнялись.
