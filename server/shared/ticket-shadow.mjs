@@ -12,16 +12,16 @@ const hex=n=>'0x'+BigInt(n).toString(16);
 const same=(a,b)=>String(a).toLowerCase()===String(b).toLowerCase();
 const check=(ok,message)=>{if(!ok)throw Error(message);};
 
-async function sourceFor(c,id){
+export async function sourceFor(c,id){
   await c.query('SELECT pg_advisory_xact_lock_shared(hashtextextended($1,49173))',[id]);
   const {rows:[source]}=await c.query('SELECT * FROM launchpad.chain_sources WHERE id=$1',[id]);
   check(source&&!source.halted,'Ticket source missing or halted');return source;
 }
-async function hashAt(c,source,number){
+export async function hashAt(c,source,number){
   if(number===Number(source.anchor_number))return source.anchor_hash;
   return (await c.query('SELECT hash FROM launchpad.chain_blocks WHERE source_id=$1 AND number=$2',[source.id,number])).rows[0]?.hash;
 }
-async function bindings(c,projectId,moduleId,source,profile){
+export async function bindings(c,projectId,moduleId,source,profile){
   const {rows:[m]}=await c.query(`SELECT p.chain_id,p.token_address,m.program_address,m.adapter_version FROM launchpad.projects p
     JOIN launchpad.module_instances m ON m.project_id=p.id WHERE p.id=$1 AND m.id=$2`,[projectId,moduleId]);
   check(m&&m.chain_id===source.chain_id&&profile.chainId===m.chain_id&&same(profile.token,m.token_address)
@@ -35,7 +35,7 @@ async function bindings(c,projectId,moduleId,source,profile){
     &&profile.anchor.number<=Number(source.head_number),'Ticket anchor outside source');
   check(await hashAt(c,source,profile.anchor.number)===profile.anchor.hash,'Ticket anchor branch mismatch');
 }
-async function canonical(provider,number,hash){
+export async function canonical(provider,number,hash){
   check((await provider.send('eth_getBlockByNumber',[hex(number),false]))?.hash===hash,'Ticket branch changed');
 }
 function unpack(row){
@@ -48,7 +48,7 @@ async function save(c,projectId,moduleId,state){
   await c.query(`UPDATE launchpad.ticket_shadows SET state_text=$3,state_hash=$4,cursor_number=$5,cursor_hash=$6
     WHERE project_id=$1 AND module_id=$2`,[projectId,moduleId,JSON.stringify(state),digest(state),state.head.number,state.head.hash]);
 }
-async function bundleFrom(directory,key){
+export async function bundleFrom(directory,key){
   check(directory,'Recognition bundle directory required');
   check(/^0x[0-9a-f]{64}$/.test(key),'Invalid bundle key');
   const file=await open(join(directory,key+'.json'),'r');

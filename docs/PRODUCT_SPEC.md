@@ -90,3 +90,5 @@ QIANQI тоже планируется подключить к общему бэ
 09.10.2026: добавлен транспорт общего чтения цепочки — [SHARED_READ_PIPELINE](SHARED_READ_PIPELINE.md). Проектные inbox изолированы; raw ingestion не равен начислению билетов или finality. Финансовое исполнение сохраняет прежний путь.
 
 09.10.2026: [SHARED_TICKET_SHADOW](SHARED_TICKET_SHADOW.md) сохраняет независимые пороги/остатки/late credits каждого модуля в PostgreSQL. Снимки используются только для сравнения, не для финансового исполнения.
+
+09.10.2026: [INCREMENTAL_TICKET_LEDGER](INCREMENTAL_TICKET_LEDGER.md) отделяет неизменные исходные покупки от первого начисления и хранит snapshots отдельно. Прежние правила threshold/carry/creditedAt сохранены; это пока локальный путь сравнения без финансового cutover.

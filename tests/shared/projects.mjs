@@ -124,6 +124,11 @@ try{
       for(const project of report.ticketShadow?.projects??[]){
         const read=pool=>inProject(pool,project,async c=>(await c.query('SELECT * FROM launchpad.ticket_shadows ORDER BY module_id')).rows);
         assert.deepEqual(await read(restoredJobs),await read(jobs));
+        for(const table of ['ticket_ledgers','ticket_events','ticket_credits','ticket_wallets','ticket_commitments','ticket_snapshots']){
+          const contents=pool=>inProject(pool,project,async c=>(await c.query('SELECT * FROM launchpad.'+table+' ORDER BY 1,2,3')).rows);
+          assert.deepEqual(await contents(restoredJobs),await contents(jobs));
+          assert.equal((await restoredJobs.query('SELECT * FROM launchpad.'+table)).rowCount,0);
+        }
       }
       assert.equal((await restoredJobs.query('SELECT * FROM launchpad.ticket_shadows')).rowCount,0);
     }finally{await restoredJobs.end();}

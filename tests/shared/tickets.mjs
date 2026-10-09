@@ -12,6 +12,7 @@ import { bundleHash,creditedEvents } from '../../src/tickets/late-recognition.mj
 import { createPool,inProject } from '../../server/shared/store.mjs';
 import { ingestNext } from '../../server/shared/chain-read.mjs';
 import { registerTicketShadow,applyTicketShadow,freezeShadowSnapshot,readTicketShadow } from '../../server/shared/ticket-shadow.mjs';
+import { registerTicketLedger,applyTicketLedger,freezeLedgerSnapshot,readTicketLedger } from '../../server/shared/ticket-ledger.mjs';
 
 export async function exerciseTicketShadow({admin,jobs,api,url,scenario,dir,report}){
   const provider=providerFor('http://127.0.0.1:8545'),ingest=createPool(url('lp_ingest'));
@@ -72,19 +73,27 @@ export async function exerciseTicketShadow({admin,jobs,api,url,scenario,dir,repo
     const oldPath=join(dir,'legacy-alpha.json'),otherPath=join(dir,'legacy-beta.json');
     const comparable=s=>({profile:s.profile,head:s.head,blocks:s.blocks,wallets:s.wallets});
     let old,shadow,frozen,bundle,key;
+    const ledgerStats=[];
+    const compareLedger=async(p,m,reference)=>{
+      const result=await readTicketLedger(jobs,p,m);
+      assert.deepEqual(result,{profile:reference.profile,head:reference.head,wallets:reference.wallets});
+    };
     await scenario('Ticket shadow verifies project bindings and matches legacy scanner on real fork receipts',async()=>{
       await assert.rejects(registerTicketShadow(jobs,provider,p2,m2,source,profile),/binding mismatch/);
       await registerTicketShadow(jobs,provider,p1,m1,source,profile);await registerTicketShadow(jobs,provider,p2,m2,source,other);
+      await registerTicketLedger(jobs,provider,p1,m1,source,profile);await registerTicketLedger(jobs,provider,p2,m2,source,other);
       await assert.rejects(registerTicketShadow(jobs,provider,p1,m1,source,{...profile,thresholdRaw:'0'}),/threshold/);
       old=await scanTickets(provider,profile,oldPath,beforeCredit);
       shadow=await applyTicketShadow(jobs,counted,p1,m1,beforeCredit);
       assert.deepEqual(comparable(shadow),comparable(old));
+      ledgerStats.push(await applyTicketLedger(jobs,counted,p1,m1,beforeCredit));await compareLedger(p1,m1,old);
       assert.equal(shadow.wallets[a].tickets,'0');assert.equal(shadow.wallets[a].remainder,'6000000');
       assert.equal(counts.eth_getTransactionReceipt??0,0);
       const original=shadow.blocks.flatMap(block=>block.events).find(e=>e.status==='WAITING_RECOGNITION'&&e.netQuoteDebitRaw==='4000000');assert.ok(original);
       bundle={schema:'launchpad-local-recognition-v1',profileHash:digest(profile),candidates:[original.candidateId]};key=bundleHash(bundle);
       frozen=await freezeShadowSnapshot(jobs,provider,p1,m1,'before-credit',beforeCredit);
       assert.deepEqual(frozen,snapshotTickets(old,beforeCredit));assert.deepEqual(frozen.participants,[]);
+      assert.deepEqual(await freezeLedgerSnapshot(jobs,provider,p1,m1,'before-credit',beforeCredit),frozen);
       const foreign=await readTicketShadow(jobs,p2,m1);assert.equal(foreign,null);
       assert.equal((await jobs.query('SELECT * FROM launchpad.ticket_shadows')).rowCount,0);
       await assert.rejects(api.query('SELECT * FROM launchpad.ticket_shadows'),e=>e.code==='42501');
@@ -93,14 +102,20 @@ export async function exerciseTicketShadow({admin,jobs,api,url,scenario,dir,repo
     const confirmation=await tx(recognition.confirm(key,1));await ingestThrough(await head());
     await scenario('Missing/corrupt late bundle rolls back A while B progresses with its own threshold',async()=>{
       const before=await readTicketShadow(jobs,p1,m1);
+      const ledgerBefore=await readTicketLedger(jobs,p1,m1);
+      await assert.rejects(applyTicketLedger(jobs,provider,p1,m1,await head(),{bundleDirectory}),/ENOENT/);
+      assert.deepEqual(await readTicketLedger(jobs,p1,m1),ledgerBefore);
       await assert.rejects(applyTicketShadow(jobs,provider,p1,m1,await head(),{bundleDirectory}),/ENOENT/);
       assert.deepEqual(await readTicketShadow(jobs,p1,m1),before);
       writeFileSync(join(bundleDirectory,key+'.json'),JSON.stringify({...bundle,profileHash:'wrong'}));
       await assert.rejects(applyTicketShadow(jobs,provider,p1,m1,await head(),{bundleDirectory}),/hash mismatch/);
+      await assert.rejects(applyTicketLedger(jobs,provider,p1,m1,await head(),{bundleDirectory}),/hash mismatch/);
+      assert.deepEqual(await readTicketLedger(jobs,p1,m1),ledgerBefore);
       assert.deepEqual(await readTicketShadow(jobs,p1,m1),before);
       const beta=await applyTicketShadow(jobs,counted,p2,m2,await head());
       assert.deepEqual(comparable(beta),comparable(await scanTickets(provider,other,otherPath,await head())));
       assert.equal(beta.wallets[a].tickets,'1');assert.equal(beta.wallets[a].remainder,'0');
+      await applyTicketLedger(jobs,counted,p2,m2,await head());await compareLedger(p2,m2,beta);
       writeFileSync(join(bundleDirectory,key+'.json'),JSON.stringify(bundle));
     });
     await scenario('Late creditedAt, exact profile JSON, frozen cutoff and concurrent retries match legacy',async()=>{
@@ -108,9 +123,15 @@ export async function exerciseTicketShadow({admin,jobs,api,url,scenario,dir,repo
       const states=await Promise.all([applyTicketShadow(jobs,counted,p1,m1,cutoff,{bundleDirectory}),applyTicketShadow(jobs,counted,p1,m1,cutoff,{bundleDirectory})]);
       assert.deepEqual(states[0],states[1]);shadow=states[0];old=await scanTickets(provider,profile,oldPath,cutoff,{bundleDirectory});
       assert.deepEqual(comparable(shadow),comparable(old));
+      const applied=await Promise.all([applyTicketLedger(jobs,counted,p1,m1,cutoff,{bundleDirectory}),applyTicketLedger(jobs,counted,p1,m1,cutoff,{bundleDirectory})]);
+      assert.deepEqual(applied.map(x=>x.blocksRead).sort(),[0,1]);
+      assert.equal(applied.reduce((n,x)=>n+x.creditsAdded,0),1);ledgerStats.push(...applied);await compareLedger(p1,m1,old);
       assert.equal(shadow.wallets[a].tickets,'1');assert.equal(shadow.wallets[a].remainder,'0');
       const credit=creditedEvents(shadow).find(e=>e.candidateId===bundle.candidates[0]);assert.equal(credit.creditedAt.blockNumber,confirmation.blockNumber);
       assert.deepEqual(snapshotTickets(shadow,beforeCredit),frozen);
+      assert.deepEqual(await freezeLedgerSnapshot(jobs,provider,p1,m1,'old-cutoff-again',beforeCredit),frozen);
+      assert.deepEqual(await freezeLedgerSnapshot(jobs,provider,p1,m1,'after-credit',cutoff,{[a]:'1'}),snapshotTickets(old,cutoff,{[a]:'1'}));
+      await assert.rejects(freezeLedgerSnapshot(jobs,provider,p1,m1,'before-credit',cutoff),/already frozen/);
       assert.deepEqual(await freezeShadowSnapshot(jobs,provider,p1,m1,'before-credit',beforeCredit),frozen);
       await assert.rejects(freezeShadowSnapshot(jobs,provider,p1,m1,'before-credit',cutoff),/already frozen/);
       await assert.rejects(freezeShadowSnapshot(jobs,provider,p1,m1,'before-credit',beforeCredit,{[a]:'0'}),/already frozen/);
@@ -121,22 +142,59 @@ export async function exerciseTicketShadow({admin,jobs,api,url,scenario,dir,repo
     await scenario('Restart needs no old bundle files; a new delivery does not double-credit',async()=>{
       unlinkSync(join(bundleDirectory,key+'.json'));
       const restarted=createPool(url('lp_jobs'));
-      try{assert.deepEqual(await applyTicketShadow(restarted,provider,p1,m1,await head()),shadow);}finally{await restarted.end();}
+      try{
+        assert.deepEqual(await applyTicketShadow(restarted,provider,p1,m1,await head()),shadow);
+        const retry=await applyTicketLedger(restarted,counted,p1,m1,await head());
+        assert.equal(retry.blocksRead,0);assert.equal(retry.proofRowsRead,0);assert.equal(retry.creditsAdded,0);
+      }finally{await restarted.end();}
       const repeat={...bundle,delivery:'retry'},repeatKey=bundleHash(repeat);
       writeFileSync(join(bundleDirectory,repeatKey+'.json'),JSON.stringify(repeat));
       await tx(recognition.confirm(repeatKey,1));await ingestThrough(await head());
       shadow=await applyTicketShadow(jobs,counted,p1,m1,await head(),{bundleDirectory});
       old=await scanTickets(provider,profile,oldPath,await head(),{bundleDirectory});
+      const repeated=await applyTicketLedger(jobs,counted,p1,m1,await head(),{bundleDirectory});
+      assert.equal(repeated.blocksRead,1);assert.equal(repeated.proofRowsRead,1);assert.equal(repeated.creditsAdded,0);ledgerStats.push(repeated);
+      await compareLedger(p1,m1,old);
       assert.deepEqual(comparable(shadow),comparable(old));assert.equal(shadow.wallets[a].tickets,'1');
       assert.equal(creditedEvents(shadow).find(e=>e.candidateId===bundle.candidates[0]).creditedAt.blockNumber,confirmation.blockNumber);
       assert.deepEqual(await freezeShadowSnapshot(jobs,provider,p1,m1,'before-credit',beforeCredit),frozen);
+    });
+    await scenario('Normalized ledger keeps originals/credits immutable, scopes rows and rejects partial writes',async()=>{
+      for(const table of ['ticket_ledgers','ticket_events','ticket_credits','ticket_wallets','ticket_commitments','ticket_snapshots']){
+        assert.equal((await jobs.query('SELECT * FROM launchpad.'+table)).rowCount,0);
+        await assert.rejects(api.query('SELECT * FROM launchpad.'+table),e=>e.code==='42501');
+      }
+      for(const table of ['ticket_events','ticket_credits','ticket_commitments','ticket_snapshots']){
+        await assert.rejects(inProject(jobs,p1,c=>c.query('DELETE FROM launchpad.'+table),{readOnly:false}),e=>e.code==='42501');
+      }
+      const {rows}=await inProject(jobs,p1,c=>c.query(`SELECT e.payload_text,c.event_text,c.credited_block FROM launchpad.ticket_events e
+        JOIN launchpad.ticket_credits c USING(project_id,module_id,candidate_id) WHERE e.candidate_id=$1`,[bundle.candidates[0]]));
+      assert.equal(rows.length,1);assert.equal(JSON.parse(rows[0].payload_text).event.status,'WAITING_RECOGNITION');
+      assert.equal(JSON.parse(rows[0].event_text).creditedAt.blockNumber,confirmation.blockNumber);
+      assert.equal(Number(rows[0].credited_block),confirmation.blockNumber);
+      assert.equal(await readTicketLedger(jobs,p2,m1),null);
+      // Failure after inserting an eligible event/credit must roll back wallet and cursor too.
+      const before=await readTicketLedger(jobs,p2,m2);
+      const otherCurve=new Contract(second.curve,['function buy(uint256,uint256,address) returns(uint256)'],alice);
+      await tx(quote.approve(otherCurve.target,1000000));await tx(otherCurve.buy(1000000,1,a));await ingestThrough(await head());
+      const countsBefore=await inProject(jobs,p2,c=>c.query('SELECT (SELECT count(*) FROM launchpad.ticket_events) AS events,(SELECT count(*) FROM launchpad.ticket_credits) AS credits'));
+      await admin.query(`CREATE FUNCTION launchpad.test_reject_cursor() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected ledger failure'; END $$;
+        CREATE TRIGGER test_reject_cursor BEFORE UPDATE ON launchpad.ticket_ledgers FOR EACH ROW EXECUTE FUNCTION launchpad.test_reject_cursor()`);
+      try{await assert.rejects(applyTicketLedger(jobs,provider,p2,m2,await head()),/injected ledger failure/);}finally{await admin.query('DROP TRIGGER test_reject_cursor ON launchpad.ticket_ledgers; DROP FUNCTION launchpad.test_reject_cursor()');}
+      assert.deepEqual(await readTicketLedger(jobs,p2,m2),before);
+      assert.deepEqual((await inProject(jobs,p2,c=>c.query('SELECT (SELECT count(*) FROM launchpad.ticket_events) AS events,(SELECT count(*) FROM launchpad.ticket_credits) AS credits'))).rows,countsBefore.rows);
+      await applyTicketLedger(jobs,provider,p2,m2,await head());
+      await compareLedger(p2,m2,await scanTickets(provider,other,otherPath,await head()));
+      await applyTicketLedger(jobs,provider,p1,m1,await head());
     });
     await scenario('Runtime/profile drift and reorg cannot advance tickets or replace frozen snapshots',async()=>{
       const before=await readTicketShadow(jobs,p1,m1);
       const wrong={...counted,send:(method,args)=>method==='hardhat_metadata'?Promise.resolve({...report.ticketFork,instanceId:id('wrong')}):counted.send(method,args)};
       await assert.rejects(applyTicketShadow(jobs,wrong,p1,m1,await head()),/Different fork/);
+      await assert.rejects(applyTicketLedger(jobs,wrong,p1,m1,await head()),/Different fork/);
       const drift={...counted,send:(method,args)=>method==='eth_getCode'&&args[0].toLowerCase()===recognition.target.toLowerCase()?Promise.resolve('0x'):counted.send(method,args)};
       await assert.rejects(applyTicketShadow(jobs,drift,p1,m1,await head()),/Recognition runtime changed/);
+      await assert.rejects(applyTicketLedger(jobs,drift,p1,m1,await head()),/Recognition runtime changed/);
       assert.deepEqual(await readTicketShadow(jobs,p1,m1),before);
       const {rows:[stored]}=await inProject(jobs,p1,c=>c.query('SELECT state_text FROM launchpad.ticket_shadows'));
       await admin.query("UPDATE launchpad.ticket_shadows SET state_text='{}' WHERE project_id=$1",[p1]);
@@ -151,11 +209,15 @@ export async function exerciseTicketShadow({admin,jobs,api,url,scenario,dir,repo
       // Mine a distinct replacement at the same height so the shared reader records halt.
       await provider.send('evm_mine',[]);
       assert.equal((await ingestNext(ingest,provider,source,await head())).status,'HALTED_REORG');
+      const ledgerBefore=await readTicketLedger(jobs,p1,m1);
+      await assert.rejects(applyTicketLedger(jobs,provider,p1,m1,await head()),/halted/);
+      await assert.rejects(freezeLedgerSnapshot(jobs,provider,p1,m1,'before-credit',beforeCredit),/halted/);
+      assert.deepEqual(await readTicketLedger(jobs,p1,m1),ledgerBefore);
       await assert.rejects(applyTicketShadow(jobs,provider,p1,m1,await head()),/halted/);
       await assert.rejects(freezeShadowSnapshot(jobs,provider,p1,m1,'before-credit',beforeCredit),/halted/);
       assert.deepEqual(await readTicketShadow(jobs,p1,m1),orphan);
       assert.deepEqual(orphan.snapshots['before-credit'].snapshot,frozen);
     });
-    report.ticketShadow={projects:[p1,p2],source,token:first.token,secondToken:second.token,beforeCredit,confirmationBlock:confirmation.blockNumber,rpcVerificationCalls:counts,scope:'Local fork only; full raw receipts shared, per-profile read-only verification RPC retained; no production or financial worker switch'};
+    report.ticketShadow={projects:[p1,p2],source,token:first.token,secondToken:second.token,beforeCredit,confirmationBlock:confirmation.blockNumber,rpcVerificationCalls:counts,ledgerStats,scope:'Local fork only; full raw receipts shared, per-profile read-only verification RPC retained; no production or financial worker switch'};
   }finally{await ingest.end();provider.destroy();}
 }
