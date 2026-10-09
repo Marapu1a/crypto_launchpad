@@ -54,3 +54,5 @@ late cohort из calldata/receipt/published trace. Pure route verifiers адап
 - QIANQI PostgreSQL import: server/shared/qianqi-history.mjs, migration007, src/qianqi/history-archive.mjs/history-collector.mjs. Общий verifier для online capture и offline import; отдельный immutable historical adapter, не LocalShort ledger/executor. См. [QIANQI_POSTGRES_IMPORT](QIANQI_POSTGRES_IMPORT.md).
 
 - QIANQI RNG/liabilities: src/qianqi/finance-shadow.mjs; публичные ABI/формулы из frozen vendor, read-only, отдельный код. См. [QIANQI_FINANCE_SHADOW](QIANQI_FINANCE_SHADOW.md). Не financial executor и не независимый winner-selection replay.
+
+- QIANQI live shadow: src/qianqi/live-shadow.mjs/live-transport.mjs, server/shared/qianqi-live.mjs, migration008. Общий dataset-reader выделен из history collector; CLI scripts/qianqi-live-worker.mjs. См. [QIANQI_LIVE_SHADOW](QIANQI_LIVE_SHADOW.md). Без financial execution.

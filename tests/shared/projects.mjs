@@ -100,7 +100,8 @@ try{
     assert.equal((await readProject(api,p1)).project.slug,'alpha');
   });
   await exerciseChainRead({admin,jobs,api,url,scenario,p1,p2,m1,m2,report});
-  if(process.argv.includes('--qianqi'))await exerciseQianqi({admin,jobs,api,url,scenario,dir,report});
+  if(process.argv.includes('--qianqi')||process.argv.includes('--qianqi-live'))await exerciseQianqi({admin,jobs,api,url,scenario,dir,report});
+  if(process.argv.includes('--qianqi-live'))await (await import('./qianqi-live.mjs')).exerciseQianqiLive({admin,jobs,api,url,scenario,report});
   if(process.argv.includes('--tickets'))await exerciseTicketShadow({admin,jobs,api,url,scenario,dir,report});
   if(process.argv.includes('--financial'))await exerciseFinancial({admin,jobs,api,url,scenario,report});
   if(process.argv.includes('--worker'))await scenario('Full PostgreSQL worker rehearsal on an isolated Pons fork',async()=>{
@@ -145,8 +146,8 @@ try{
           assert.equal((await restoredJobs.query('SELECT * FROM launchpad.'+table)).rowCount,0);
         }
       }
-      if(report.qianqi)for(const table of ['qianqi_imports','qianqi_history_rows']){
-        const rows=pool=>inProject(pool,report.qianqi.project,async c=>(await c.query('SELECT * FROM launchpad.'+table+' ORDER BY 1,2,3,4')).rows);
+      if(report.qianqi)for(const table of ['qianqi_imports','qianqi_history_rows','qianqi_live_heads','qianqi_live_halts']){
+        const rows=pool=>inProject(pool,report.qianqi.project,async c=>(await c.query('SELECT * FROM launchpad.'+table+(table==='qianqi_live_halts'?' ORDER BY 1,2,3':' ORDER BY 1,2,3,4'))).rows);
         assert.deepEqual(await rows(restoredJobs),await rows(jobs));
         assert.equal((await restoredJobs.query('SELECT * FROM launchpad.'+table)).rowCount,0);
       }

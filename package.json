@@ -28,7 +28,8 @@
     "test:drand": "node tests/contracts/drand-cycle.mjs",
     "test:drand:live": "node tests/contracts/drand-cycle.mjs --live",
     "test:ui": "playwright test",
-    "test:shared:qianqi": "node tests/shared/projects.mjs --qianqi"
+    "test:shared:qianqi": "node tests/shared/projects.mjs --qianqi",
+    "test:shared:qianqi-live": "node tests/shared/projects.mjs --qianqi-live"
   },
   "engines": {
     "node": ">=22"
