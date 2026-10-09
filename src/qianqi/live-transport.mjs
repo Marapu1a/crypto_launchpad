@@ -4,6 +4,8 @@ import {check} from './ticket-shadow.mjs';
 export function liveReads(save=()=>{},{env=process.env,fetchImpl=fetch}={}){
  const {url}=config.resolveRpc({env});
  const logsUrl=env.PONS_LOGS_RPC?.trim()||config.PUBLIC_RPC;
+ const logRange=Number(env.PONS_LOGS_MAX_BLOCKS??90000);
+ check(Number.isSafeInteger(logRange)&&logRange>=1&&logRange<=90000,'Invalid log RPC block limit');
  try{const parsed=new URL(logsUrl);if(!['https:','http:'].includes(parsed.protocol)||/\s/.test(logsUrl))throw Error();}
  catch{throw Error('Invalid PONS_LOGS_RPC configuration');}
  let calls=0,next=0,logsChecked=false;const deadline=Date.now()+300000;
@@ -17,6 +19,23 @@ export function liveReads(save=()=>{},{env=process.env,fetchImpl=fetch}={}){
   rpc:async(method,params)=>{
    check(['eth_chainId','eth_call','eth_getCode','eth_getLogs','eth_getBlockByNumber','eth_getTransactionReceipt','eth_getTransactionByHash'].includes(method),'Read-only method rejected');
    if(method==='eth_getLogs'&&!logsChecked){check(BigInt(await read('eth_chainId',[],logsUrl))===4663n,'Wrong log RPC chain');logsChecked=true;}
+   if(method==='eth_getLogs'){
+    const filter=params[0];
+    check(params.length===1&&/^0x[0-9a-f]+$/i.test(filter?.fromBlock)&&/^0x[0-9a-f]+$/i.test(filter?.toBlock),'Explicit log block range required');
+    const from=BigInt(filter.fromBlock),to=BigInt(filter.toBlock),step=BigInt(logRange);
+    check(to>=from&&to-from<1000000n,'Invalid log block range');
+    if(to-from+1n>step){
+     const result=[];
+     for(let start=from;start<=to;start+=step){
+      const end=start+step-1n<to?start+step-1n:to;
+      const rows=await read(method,[{...filter,fromBlock:'0x'+start.toString(16),toBlock:'0x'+end.toString(16)}],logsUrl);
+      check(Array.isArray(rows),'Invalid log RPC response');result.push(...rows);
+      check(result.length<=500,'Live event budget exceeded');
+     }
+     // Preserve the logical request too, so existing offline replay can reproduce it.
+     save('rpc',{method,params,result});return result;
+    }
+   }
    return read(method,params,method==='eth_getLogs'?logsUrl:url);
   },
   getJson:async path=>{
