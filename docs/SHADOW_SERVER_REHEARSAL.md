@@ -148,3 +148,5 @@ body133012 bytes хранится один раз при неизменной и
 с собственным backup и измерением влияния на QIANQI.
 
 Серверный пакет начат 09.10.2026 по разрешению владельца. Установка/bootstrap/restore готовы, live остановлен из-за RPC; актуальное состояние: [SERVER_REHEARSAL_DEPLOYMENT](SERVER_REHEARSAL_DEPLOYMENT.md).
+
+Обновление после получения QuickNode: [наблюдение запущено](SERVER_REHEARSAL_RUNNING.md), deadline10.10.2026 20:55МСК. Окончательный суточный отчёт ещё впереди.
