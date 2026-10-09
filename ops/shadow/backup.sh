@@ -24,7 +24,11 @@ stamp=$(date -u +%Y%m%dT%H%M%SZ)
 dest="$root/$stamp"
 mkdir -m 0700 "$dest"
 runuser -u postgres -- pg_dump -Fc launchpad_shadow > "$dest/database.dump"
-tar -czf "$dest/evidence.tar.gz" -C "$state" bootstrap shadow
+if test -d "$state/metrics"; then
+ tar -czf "$dest/evidence.tar.gz" -C "$state" bootstrap shadow metrics
+else
+ tar -czf "$dest/evidence.tar.gz" -C "$state" bootstrap shadow
+fi
 readlink -f /opt/crypto-launchpad/current > "$dest/release.txt"
 date -u +%FT%TZ > "$dest/captured-at.txt"
 (cd "$dest" && sha256sum database.dump evidence.tar.gz release.txt captured-at.txt > SHA256SUMS)

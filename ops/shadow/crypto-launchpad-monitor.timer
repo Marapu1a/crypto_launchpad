@@ -1,0 +1,10 @@
+[Unit]
+Description=Observe launchpad rehearsal every five minutes until deadline
+
+[Timer]
+OnActiveSec=1min
+OnUnitActiveSec=5min
+Unit=crypto-launchpad-monitor.service
+
+[Install]
+WantedBy=timers.target
