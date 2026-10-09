@@ -11,6 +11,7 @@ User=launchpad-api
 Group=launchpad-api
 WorkingDirectory=/opt/crypto-launchpad/qianqi-current
 ExecStart=/usr/bin/node server/shared/start.mjs
+ExecStartPre=/usr/bin/node /opt/crypto-launchpad/ops/verify-release.mjs /opt/crypto-launchpad/qianqi-current RELEASE_MANIFEST_SHA256
 Environment=SHARED_PORT=4180
 Environment=SHARED_DATABASE_URL=postgresql://lp_api@localhost/launchpad_shadow?host=/var/run/postgresql
 Environment=SHARED_QIANQI_API_REGISTRY=/etc/crypto-launchpad/qianqi-api-registry.json
