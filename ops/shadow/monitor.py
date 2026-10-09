@@ -11,9 +11,10 @@ import urllib.request
 root = Path('/var/lib/crypto-launchpad')
 marker = json.loads((root / 'shadow/rehearsal.json').read_text())
 now = time.time()
+continuous = Path('/etc/crypto-launchpad/continuous-backup').exists()
 record = {'atUtc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
           'deadline': marker['deadline'], 'executionEligible': False, 'services': {}}
-for name in ['crypto-launchpad-shadow', 'postgresql@18-main',
+for name in ['crypto-launchpad-shadow', 'crypto-launchpad-api', 'postgresql@18-main',
              'qianqi-public-indexer', 'qianqi-public-automation']:
     out = subprocess.check_output(['systemctl', 'show', name,
         '-p', 'ActiveState', '-p', 'SubState', '-p', 'MainPID', '-p', 'MemoryCurrent',
@@ -39,7 +40,8 @@ try:
 except Exception:
     record['qianqiApi'] = {'status': 'UNAVAILABLE'}
 record['qianqiApi']['elapsedMs'] = round((time.monotonic() - start) * 1000)
-record['window'] = 'WINDOW_ENDED_REVIEW_REQUIRED' if now * 1000 >= marker['deadline'] else 'OBSERVING'
+record['window'] = 'LIVE' if continuous else ('WINDOW_ENDED_REVIEW_REQUIRED' if now * 1000 >= marker['deadline'] else 'OBSERVING')
+record['qianqiRuntimeManagedByPlatform'] = continuous
 directory = root / 'metrics'
 directory.mkdir(mode=0o700, exist_ok=True)
 target = directory / (datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '.json')

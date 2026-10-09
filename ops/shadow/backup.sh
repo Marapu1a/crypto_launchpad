@@ -30,6 +30,10 @@ else
  tar -czf "$dest/evidence.tar.gz" -C "$state" bootstrap shadow
 fi
 readlink -f /opt/crypto-launchpad/current > "$dest/release.txt"
+if test -L /opt/crypto-launchpad/qianqi-current; then
+ readlink -f /opt/crypto-launchpad/qianqi-current > "$dest/qianqi-release.txt"
+ (cd "$dest" && sha256sum qianqi-release.txt > QIANQI_SHA256SUMS)
+fi
 date -u +%FT%TZ > "$dest/captured-at.txt"
 (cd "$dest" && sha256sum database.dump evidence.tar.gz release.txt captured-at.txt > SHA256SUMS)
 tar -czf "$root/$stamp.tar.gz" -C "$root" "$stamp"
@@ -38,7 +42,7 @@ printf '%s\n' "$stamp.tar.gz" > "$root/latest.tmp"
 mv "$root/latest.tmp" "$root/latest"
 printf 'BACKUP_OK %s\n' "$stamp"
 # The last backup after the durable rehearsal deadline ends this temporary timer.
-if test -f "$state/shadow/rehearsal.json"; then
+if test ! -f /etc/crypto-launchpad/continuous-backup && test -f "$state/shadow/rehearsal.json"; then
  if python3 -c 'import json,time; import sys; sys.exit(0 if time.time()*1000 >= json.load(open("/var/lib/crypto-launchpad/shadow/rehearsal.json"))["deadline"] else 1)'; then
   restart=0
   systemctl disable --now crypto-launchpad-backup.timer

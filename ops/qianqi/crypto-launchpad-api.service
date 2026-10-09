@@ -1,0 +1,37 @@
+[Unit]
+Description=Crypto Launchpad shared public API
+After=postgresql@18-main.service
+Requires=postgresql@18-main.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=launchpad-api
+Group=launchpad-api
+WorkingDirectory=/opt/crypto-launchpad/qianqi-current
+ExecStart=/usr/bin/node server/shared/start.mjs
+Environment=SHARED_PORT=4180
+Environment=SHARED_DATABASE_URL=postgresql://lp_api@localhost/launchpad_shadow?host=/var/run/postgresql
+Environment=SHARED_QIANQI_API_REGISTRY=/etc/crypto-launchpad/qianqi-api-registry.json
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=40
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+CapabilityBoundingSet=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+InaccessiblePaths=/etc/qianqi /var/lib/qianqi-public /opt/qianqi
+MemoryMax=256M
+TasksMax=64
+Slice=crypto-launchpad.slice
+
+[Install]
+WantedBy=multi-user.target
