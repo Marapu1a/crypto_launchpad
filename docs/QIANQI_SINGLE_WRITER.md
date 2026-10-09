@@ -65,5 +65,36 @@ native process lock и reconciliation остаются обязательным�
 5. Стартовать один automation unit, проверить первый завершённый pass, lease,
    nonce и отсутствие рестартов. Исторические release и custody сохранять.
 
-Развёртывание исправленного sender и блокировка старых launchers фиксируются
-ниже отдельным фактическим результатом; локальные тесты не означают deployment.
+## Production результат
+
+Код `90328c4` опубликован до переключения. В 22:32:24 UTC 09.10 (10.10 МСК)
+переключён только automation unit на отдельный release
+`/opt/crypto-launchpad/releases/d0a6840-writer-90328c4`.
+Это база d0a6840 + ровно 6 изменённых файлов из 90328c4; зависимости,
+97 compiled contracts, API и indexer не обновлялись. Manifest проверяет 311 файлов:
+`9c0ff7c4c3872c45d0e4aa8764c38f67fa9d5659363bdd133a89403f1ac17a46`.
+`qianqi-current` по-прежнему указывает на d0a6840 для read-side.
+
+Переключение под общим backup flock: stop одного unit → MainPID=0 → adoption,
+latest/pending 85/85, pendingStates=0 → сохранение текущих журналов → новый unit.
+Первый pass waiting, steps=0, failures=[], причина включает prizeFunding.
+Nonce до/после 85; NRestarts=0; в PG один advisory lock и одна lp_executor session.
+
+Контроль 22:33:18 UTC: все три unit active, публичный API HTTP 200/observed,
+pendingStates=0, nonce 85/85. Scheduler/RNG byte-identical; основной state изменил
+только cursor/checksum при штатном проходе, jobs/финансовые поля сохранены.
+Никаких тестовых покупок/выплат не делали; это не доказательство нового payout.
+
+Оба старых transient launcher сохранены в admin evidence и masked. После mask
+systemd ещё держал failed transient definitions; адресный reset-failed и
+daemon-reload завершили выгрузку. Итог LoadState=masked, inactive, MainPID=0;
+старые release и журналы systemd не удалялись.
+
+Приватные операторские evidence/preflight/state copies/drop-in before:
+`/var/lib/crypto-launchpad/admin/single-writer-90328c4` (0700).
+Санитизированные result/verification и scripts локально:
+`.local/single-writer-2026-10-10/`. При rollback ориентироваться на абсолютный
+WorkingDirectory automation, а не общий symlink read-side.
+
+Открыты отдельно: внешний watchdog, контроль свежести off-server копий,
+read-only проверка следующего естественного финансового события.

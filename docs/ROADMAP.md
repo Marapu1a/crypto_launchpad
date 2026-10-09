@@ -1,9 +1,15 @@
 # Этапы
 
+10.10.2026: [single-writer inventory/защита](QIANQI_SINGLE_WRITER.md) закрыт
+и установлен (`90328c4`): два процесса на отдельной БД, fail-closed public fence,
+masked legacy launchers, успешный первый pass без отправок. Следующий
+предложенный пакет — внешний watchdog и off-server freshness; проверка
+естественного финансового события остаётся отдельным доказательством.
+
 10.10.2026: [paired native + PG recovery](QIANQI_PAIRED_RECOVERY.md) закрыт
 как read-only операторский пакет: реальная отдельная БД, блокировка старой пары,
 переиндексация копии, сверка с chain и проверка API. Автоматический финансовый
-startup не включён. Следующий предложенный пакет — single-writer inventory/тесты.
+startup не включён. Предложенный тогда single-writer пакет закрыт выше.
 
 10.10.2026: узкий пакет [backup failure detection + alert](QIANQI_BACKUP_SAFETY.md)
 закрыт и развёрнут. Следом предложен paired restore/runbook; внешний watchdog,
