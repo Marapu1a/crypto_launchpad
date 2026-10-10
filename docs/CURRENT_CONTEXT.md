@@ -2,6 +2,16 @@
 
 Обновлено 10.10.2026. **QIANQI переведён на runtime платформы.**
 
+10.10.2026: [служебный runner нового Short](SHORT_RUNTIME_SERVICE.md): отдельный
+реестр активации, pinned PG policy, encrypted executor/publisher keys, общий
+ограниченный scan cache, health/gas и graceful stop. Unit/service/backup заготовки
+не установлены на VPS; общая durable лента QIANQI ещё не подключена к Short.
+Следом API/поддомен и соединение локального owner UI с runtime; затем установка
+служб/alerts/backup и финальный wallet/public-launch допуск.
+8 сквозных/16 unit PASS; отдельный процесс открывает encrypted keys и переживает
+restart без повторных выплат. Windows health rename получил bounded retry;
+финальный source-hashed отчёт и пределы проверки в документе модуля.
+
 10.10.2026: [owner launch с PostgreSQL journal](OWNER_LAUNCH_FLOW.md) соединяет
 форму, подпись production artifacts4663, Pons launch/bind и регистрацию worker.
 Проверено на частном fork82000000: lost hash, restart/очистка браузера,

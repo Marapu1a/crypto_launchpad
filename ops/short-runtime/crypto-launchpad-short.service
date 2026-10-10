@@ -1,0 +1,31 @@
+[Unit]
+Description=Crypto Launchpad Short token runtime
+After=network-online.target postgresql.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=launchpad-short
+Group=launchpad-short
+WorkingDirectory=/opt/crypto-launchpad/short-current
+ExecStart=/usr/bin/node server/short-runtime/start.mjs /etc/crypto-launchpad/short-runtime.json
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=90
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/crypto-launchpad/short
+InaccessiblePaths=-/etc/qianqi -/var/lib/qianqi-public -/opt/qianqi
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+MemoryMax=768M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

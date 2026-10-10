@@ -1,0 +1,11 @@
+{
+ "schema":"short-runtime-config-v1",
+ "mode":"production",
+ "allowPublicTransactions":false,
+ "intervalMs":15000,
+ "concurrency":2,
+ "rpcFile":"/etc/crypto-launchpad/short-secrets/rpc-url",
+ "databaseFile":"/etc/crypto-launchpad/short-secrets/database-url",
+ "healthFile":"/var/lib/crypto-launchpad/short/health.json",
+ "projects":[]
+}

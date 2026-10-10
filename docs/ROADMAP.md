@@ -1,5 +1,11 @@
 # Этапы
 
+10.10.2026: [новый Short runtime](SHORT_RUNTIME_SERVICE.md) вынесен в постоянный
+процесс с реестром проектов, encrypted keys, общим scan cache, health и recovery.
+Серверная установка/Telegram/backup restore ещё впереди; общий durable reader
+QIANQI не переиспользован. Следующий продуктовый пакет — API и страница токена,
+затем объединение локального owner UI с runtime и финальная установка/репетиция.
+
 10.10.2026: [owner launch + server journal](OWNER_LAUNCH_FLOW.md) реализован
 для частной репетиции4663: production artifacts, nonce reservation, finalized
 recovery, сохранение проекта/worker в PostgreSQL. Обычный Studio пока отдельный;

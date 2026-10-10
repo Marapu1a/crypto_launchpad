@@ -12,6 +12,9 @@ import { replayTickets } from '../../src/tickets/ledger.mjs';
 import { digest } from '../../src/tickets/digest.mjs';
 import { verifyTemplate } from '../../src/worker/production-template.mjs';
 import { inProject } from '../../server/shared/store.mjs';
+import {runtimePass} from '../../server/short-runtime/runtime.mjs';
+import {loadRuntimeProject} from '../../server/short-runtime/config.mjs';
+import {exerciseRuntimeProcess} from './runtime-process.mjs';
 
 const vector = JSON.parse(readFileSync('vendor/qianqi/research/drand-feasibility/vector.json'));
 const preceding = JSON.parse(readFileSync('tests/fixtures/production-pre-freeze-beacon.json'));
@@ -34,11 +37,14 @@ report.sourceHashes = Object.fromEntries([
   'src/worker/production-template.mjs','src/worker/production-policy.mjs','src/worker/production-timing.mjs',
   'src/tickets/production-ledger.mjs','src/tickets/recognition.mjs','src/tickets/direct-curve.cjs',
   'db/migrations/012_production_wallets.sql','tests/contracts/production-worker-cycle.mjs',
+  'server/short-runtime/runtime.mjs','server/short-runtime/reader.mjs','server/short-runtime/config.mjs',
+  'server/short-runtime/start.mjs','tests/contracts/runtime-process.mjs',
+  'server/short-runtime/health-file.mjs',
   'tests/contracts/WorkerFixtures.sol','tests/fixtures/production-pre-freeze-beacon.json',
 ].map(file => [file,keccak256(Buffer.from(readFileSync(file,'utf8').replaceAll('\r\n','\n')))]));
 const root='.local/test-results/production-worker-'+report.startedAt.replace(/[:.]/g,'-');mkdirSync(root,{recursive:true});
 const persist=()=>writeFileSync(root+'/report.json',JSON.stringify(report,null,2));
-const scenario=async(name,fn)=>{await fn();report.scenarios.push({name,status:'PASS'});console.log('PASS '+name);persist();};
+const scenario=async(name,fn)=>{if(process.argv.includes('--service-only')&&!name.startsWith('Actual service process'))return;await fn();report.scenarios.push({name,status:'PASS'});console.log('PASS '+name);persist();};
 const tx=async p=>(await p).wait();
 let db;
 try {
@@ -163,6 +169,27 @@ try {
     assert.deepEqual(next.participants,[{wallet:wallet(5).address.toLowerCase(),firstAttempt:'101',lastAttempt:'101'}]);
     assert.deepEqual((await snapshotProductionTickets(b.policy,(await state(b)).runtime.ledger,b.program)).participants,[]);
     report.results=[];for(const p of projects)report.results.push({projectId:p.projectId,cycle:String(await p.program.cycle()),awarded:String((await p.program.draws(1)).awarded),liabilities:String(await p.program.liabilities()),operations:(await state(p)).history.length});
+  });
+  await scenario('Service reloads pinned PG projects, isolates failures and resumes settled journals without payout',async()=>{
+    const meta=await provider.send('hardhat_metadata',[]),config={mode:'rehearsal',instanceId:meta.instanceId};
+    const reload=async p=>{
+      const entry={projectId:p.projectId,moduleId:p.moduleId,enabled:true,policyHash:digest(p.policy),executor:{keyFile:'executor',passwordFile:'fixture'},publisher:{keyFile:'publisher',passwordFile:'fixture'}};
+      const loaded=await loadRuntimeProject({pool:p.pool,provider,config,entry,readSecret:async()=> 'fixture-password',loadKey:async({file,expectedAddress})=>{const key=file==='executor'?p.signer:p.publisher;assert.equal(key.address,expectedAddress);return key;}});
+      return {...loaded,now:p.now,getLatestBeacon:p.getLatestBeacon,getBeacon:p.getBeacon};
+    };
+    const before=await Promise.all(projects.map(p=>provider.getTransactionCount(p.signer.address)));
+    await move(clock); // Both independent ledgers must read the same new empty block.
+    const loaded=await Promise.all(projects.map(reload));
+    const first=await runtimePass({provider,projects:loaded});assert.ok(first.projects.every(p=>p.status==='waiting'));assert.ok(first.reader.hits>0);
+    const next=await runtimePass({provider,projects:[{...await reload(a),guard:async()=>{throw Error('bad key');}},await reload(b)]});
+    assert.deepEqual(next.projects.map(p=>p.status),['blocked','waiting']);
+    assert.deepEqual(await Promise.all(projects.map(p=>provider.getTransactionCount(p.signer.address))),before);
+  });
+  await scenario('Actual service process unlocks separate keys, restarts and preserves settled chain/PG state',async()=>{
+    // Advance modeled chain time to real process time; programs are settled and
+    // remaining funds are below threshold, so a real-clock pass stays idle.
+    await move(Math.floor(Date.now()/1000));
+    await exerciseRuntimeProcess({root,provider,hre,db,projects});
   });
   await scenario('Corrupt evidence/branch and wrong publisher stop before signing',async()=>{
     const saved=await state(a),before=await provider.getTransactionCount(a.signer.address);
