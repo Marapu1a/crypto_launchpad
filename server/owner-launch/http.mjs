@@ -3,7 +3,7 @@ import {createApiMiddleware} from '../api.mjs';
 
 // Mounted only by a prepared private rehearsal environment. No public RPC URL,
 // keystore, account, timing or calldata is accepted from an HTTP client.
-export function ownerLaunchHttp({coordinator,defaults}){
+export function ownerLaunchHttp({coordinator,defaults,handoff}){
  const images=createApiMiddleware();
  return async(req,res,next=()=>{res.writeHead(404);res.end();})=>{
   const pathname=req.url?.split('?')[0];
@@ -17,13 +17,14 @@ export function ownerLaunchHttp({coordinator,defaults}){
    if(req.method!=='POST')return reply(405,{error:'Требуется POST'});
    if(req.headers.origin!=='http://'+host)return reply(403,{error:'Недопустимый Origin'});
    if(req.headers['content-type']!=='application/json'||req.headers['content-encoding'])return reply(415,{error:'Требуется JSON'});
-   const match=/^\/api\/owner-launch\/([^/]+)\/(create|next|arm|attach|retry)$/.exec(pathname);
+   const match=/^\/api\/owner-launch\/([^/]+)\/(create|next|arm|attach|retry|handoff)$/.exec(pathname);
    if(!match||!UUID.test(match[1]))return reply(404,{error:'Нет такого шага'});
    const chunks=[];let size=0;
    for await(const chunk of req){size+=chunk.length;if(size>65536)return reply(413,{error:'Слишком большой запрос'});chunks.push(chunk);}
    let body;try{body=JSON.parse(Buffer.concat(chunks));}catch{return reply(400,{error:'Некорректный JSON'});}
-   const keys={create:['input'],next:[],arm:['requestId','revision'],attach:['requestId','hash'],retry:['requestId']}[match[2]];
+   const keys={create:['input'],next:[],arm:['requestId','revision'],attach:['requestId','hash'],retry:['requestId'],handoff:[]}[match[2]];
    if(!body||Array.isArray(body)||typeof body!=='object'||Object.keys(body).some(k=>!keys.includes(k)))return reply(400,{error:'Некорректные параметры шага'});
+   if(match[2]==='handoff')return handoff?reply(200,await handoff(match[1])):reply(409,{error:'Подготовка обслуживания ещё не настроена на этом стенде'});
    reply(200,await coordinator.run(match[1],match[2],body));
   }catch(error){
    if(error.code==='OWNER_LAUNCH')reply(409,{error:error.message});

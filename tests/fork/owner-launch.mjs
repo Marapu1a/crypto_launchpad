@@ -3,10 +3,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {createServer} from 'node:http';
 import {randomUUID,createHash} from 'node:crypto';
-import {BrowserProvider,Contract,keccak256} from 'ethers';
+import {BrowserProvider,Contract,keccak256,HDNodeWallet,Wallet} from 'ethers';
 import {chromium} from 'playwright';
 import {createOwnerCoordinator} from '../../server/owner-launch/coordinator.mjs';
 import {withOwnerLaunch} from '../../server/owner-launch/store.mjs';
+import {createRuntimeHandoff} from '../../server/owner-launch/handoff.mjs';
 import {ownerLaunchHttp} from '../../server/owner-launch/http.mjs';
 import {createTestPostgres} from '../contracts/production-postgres.mjs';
 import {createPool,inProject} from '../../server/shared/store.mjs';
@@ -43,7 +44,9 @@ try{
  let coordinator=createOwnerCoordinator({pool:db.pools.executor,adminPool,provider,profile,build});
  const cfg=JSON.parse(await fs.readFile('config/rehearsals/first-token.json','utf8'));
  const defaults={draft:{...initialDraft(),name:'Owner rehearsal',symbol:'OWN',logo:'ipfs://bafkreigh2akiscaildcobgdzvv2a6sjkgmsnj4qpxqshgjp4l5te2qv3ee',pair:USDG,creatorFee:'2',openingBuy:'5'},draws:cfg.draws,team:addresses[5],operations:addresses[6]};
- const middleware=ownerLaunchHttp({coordinator:{info:()=>coordinator.info(),run:(...args)=>coordinator.run(...args)},defaults});
+ const keys={},runtime={schema:'short-runtime-config-v1',mode:'rehearsal',instanceId:profile.instanceId,intervalMs:1000,concurrency:1,rpcFile:path.resolve(root,'rpc.txt'),databaseFile:path.resolve(root,'db.txt'),healthFile:path.resolve(root,'health.json'),allowPublicTransactions:true,projects:[{enabled:true}],secret:'never-export'};
+ const handoff=createRuntimeHandoff({pool:db.pools.executor,apiPool:db.pools.api,profile,runtime,keys,baseDomain:'tokens.example'});
+ const middleware=ownerLaunchHttp({handoff,coordinator:{info:()=>coordinator.info(),run:(...args)=>coordinator.run(...args)},defaults});
  server=createServer((req,res)=>middleware(req,res,async()=>{
   try{const name=req.url==='/'?'owner.html':req.url.split('?')[0].slice(1),file=path.resolve('dist',name);assert.ok(file.startsWith(path.resolve('dist')+path.sep)&&!name.split('/').some(x=>x.startsWith('.')));const data=await fs.readFile(file);res.writeHead(200,{'content-type':name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html'});res.end(data);}catch{res.writeHead(404);res.end();}
  }));await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;
@@ -108,6 +111,33 @@ try{
   report.deployment={project,token:s.launch.token,program:s.contracts.program.address,transactions:s.history,policyHash:digest(s.policy)};
   const nonce=await provider.getTransactionCount(owner);await click('#refresh');await page.reload();await page.locator('#refresh').waitFor();await click('#refresh');assert.equal(await provider.getTransactionCount(owner),nonce);
  });
+ await scenario('Owner UI prepares disabled runtime; keys verified, no activation or domain writes',async()=>{
+  const before=await readState(),nonce=await provider.getTransactionCount(owner);
+  await click('#handoff');await page.getByRole('heading',{name:'Конфигурация: запуск выключен'}).waitFor();assert.equal(await page.locator('#download-runtime').count(),0);
+  keys[project]={};
+  for(const [role,index] of [['executor',3],['publisher',4]]){
+   const wallet=HDNodeWallet.fromPhrase('test test test test test test test test test test test junk',undefined,`m/44'/60'/0'/0/${index}`);
+   assert.equal(wallet.address,profile[role]);const password='fixture-only-password-'+role,keyFile=path.resolve(root,role+'.json'),passwordFile=path.resolve(root,role+'.password');
+   await fs.writeFile(keyFile,await new Wallet(wallet.privateKey).encrypt(password),{mode:0o600});await fs.writeFile(passwordFile,password,{mode:0o600});keys[project][role]={keyFile,passwordFile};
+  }
+  await click('#handoff');await page.locator('#download-runtime').waitFor();
+  const download=page.waitForEvent('download');await page.locator('#download-runtime').click();const artifact=await download;const exported=JSON.parse(await fs.readFile(await artifact.path(),'utf8'));
+  assert.equal(exported.allowPublicTransactions,false);assert.equal(exported.projects.length,1);assert.equal(exported.projects[0].enabled,false);assert.equal(exported.projects[0].projectId,project);assert.equal(exported.secret,undefined);
+  assert.equal(JSON.stringify(exported).includes('fixture-only-password'),false);
+  assert.equal((await db.admin.query('SELECT count(*) FROM launchpad.project_domains')).rows[0].count,'0');assert.deepEqual(await readState(),before);assert.equal(await provider.getTransactionCount(owner),nonce);
+  const publisher=keys[project].publisher;keys[project].publisher=keys[project].executor;assert.equal((await handoff(project)).prepared,false);keys[project].publisher=publisher;
+  const post=body=>fetch(origin+'/api/owner-launch/'+project+'/handoff',{method:'POST',headers:{'content-type':'application/json',origin},body:JSON.stringify(body)});
+  assert.equal((await post({enabled:true})).status,400);assert.equal((await post({projectId:randomUUID()})).status,400);
+  await assert.rejects(handoff(randomUUID()),/Registered launch/);
+  const foreign=await fetch(origin+'/api/owner-launch/'+project+'/handoff',{method:'POST',headers:{'content-type':'application/json',origin:'https://foreign.example'},body:'{}'});assert.equal(foreign.status,403);
+  const wrongProfile=createRuntimeHandoff({pool:db.pools.executor,apiPool:db.pools.api,profile:{...profile,owner:addresses[1]},runtime,keys,baseDomain:'tokens.example'});await assert.rejects(wrongProfile(project),/this owner/);
+  const wrongInstance=createRuntimeHandoff({pool:db.pools.executor,apiPool:db.pools.api,profile,runtime:{...runtime,instanceId:'other'},keys,baseDomain:'tokens.example'});await assert.rejects(wrongInstance(project),/instance binding/);
+  await db.admin.query('INSERT INTO launchpad.project_domains VALUES($1,$2)',[before.input.slug+'.tokens.example',project]);assert.equal((await handoff(project)).site.registered,true);
+  await db.admin.query('DELETE FROM launchpad.project_domains WHERE project_id=$1',[project]);
+  await db.admin.query('UPDATE launchpad.module_instances SET config_hash=$2 WHERE project_id=$1',[project,'a'.repeat(64)]);await assert.rejects(handoff(project),/policy mismatch/);
+  await db.admin.query('UPDATE launchpad.module_instances SET config_hash=$2 WHERE project_id=$1',[project,digest(before.policy)]);
+  await page.screenshot({path:root+'/handoff.png',fullPage:true});
+ });
  await scenario('RLS isolates launch journal; lost DB lease cannot save; missing journal cannot recreate registered token',async()=>{
   const other=randomUUID();assert.equal((await inProject(db.pools.executor,other,c=>c.query('SELECT * FROM launchpad.owner_launches'))).rowCount,0);
   await assert.rejects(db.pools.api.query('SELECT * FROM launchpad.owner_launches'),/permission denied/);
@@ -123,6 +153,6 @@ try{
   await db.admin.query('INSERT INTO launchpad.owner_launches(project_id,chain_id,owner_address,slug,identity,state_text,state_hash,completed) VALUES($1,4663,$2,$3,$4,$5,$6,true)',[project,owner.toLowerCase(),before.input.slug,before.identity,JSON.stringify(before),digest(before)]);
   for(const role of ['executor','publisher'])await db.admin.query('INSERT INTO launchpad.owner_launch_wallets VALUES($1,$2,$3)',[profile[role].toLowerCase(),project,role]);
  });
- report.status='PASS';report.sources={};for(const file of ['server/owner-launch/coordinator.mjs','server/owner-launch/store.mjs','server/owner-launch/http.mjs','src/owner-launch.mjs','src/pons/owner-signing.mjs','db/migrations/013_owner_launches.sql'])report.sources[file]=createHash('sha256').update((await fs.readFile(file,'utf8')).replace(/\r\n/g,'\n')).digest('hex');
+ report.status='PASS';report.sources={};for(const file of ['server/owner-launch/handoff.mjs','server/owner-launch/coordinator.mjs','server/owner-launch/store.mjs','server/owner-launch/http.mjs','src/owner-launch.mjs','src/pons/owner-signing.mjs','db/migrations/013_owner_launches.sql'])report.sources[file]=createHash('sha256').update((await fs.readFile(file,'utf8')).replace(/\r\n/g,'\n')).digest('hex');
 }catch(e){report.status='FAIL';report.error=String(e.shortMessage??e.message).replace(/https?:\/\/[^\s"')]+/g,'[URL redacted]');report.stack=String(e.stack).replace(/https?:\/\/[^\s"')]+/g,'[URL redacted]');console.error(report.error);process.exitCode=1;}
 finally{await persist();console.log(root+'/report.json');await browser?.close();if(server)await new Promise(r=>server.close(r));await adminPool?.end();await db?.close();base.destroy();}
