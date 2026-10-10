@@ -23,5 +23,5 @@ export async function checkImageOnServer(file) {
   return responseJson(await fetch('/api/pons/image-check', { method: 'POST', headers: { 'Content-Type': file.type }, body: file, signal: AbortSignal.timeout(30000) }));
 }
 export async function publishImageOnServer(file) {
-  return responseJson(await fetch('/api/pons/image-publish', { method: 'POST', headers: { 'Content-Type': file.type }, body: file, signal: AbortSignal.timeout(60000) }));
+  return responseJson(await fetch('/api/pons/image-publish', { method: 'POST', headers: { 'Content-Type': file.type }, body: file, signal: AbortSignal.timeout(90000) }));
 }

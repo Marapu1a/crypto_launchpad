@@ -4,9 +4,10 @@ import {initialDraft} from './pons/plan.mjs';
 import {validateConfig} from './draws/config.mjs';
 import {validateDraft,percentBps} from './pons/validation.mjs';
 import {getAddress,ZeroAddress,formatUnits} from 'ethers';
+import {publishImageOnServer} from './pons/api-client.mjs';
 const key='launchpad:studio:v1',app=document.querySelector('#app');
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let defaults,input,locked=false,completed=false;
+let defaults,input,locked=false,completed=false,uploading=false;
 const request=async(url,body)=>{
  const r=await fetch('/api/studio/'+url,body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:{});
  const value=await r.json();if(!r.ok)throw Error(value.error);return value;
@@ -17,7 +18,7 @@ function render(){
  app.innerHTML=`<main style="max-width:1050px;margin:40px auto;padding:24px"><a href="/launch.html">Launchpad</a><p class="eyebrow">НОВЫЙ ПРОЕКТ · ЛОКАЛЬНАЯ РЕПЕТИЦИЯ</p><h1>Токен с ежедневным розыгрышем</h1><p>Создание, подключение и обслуживание в одном месте. Используются тестовые средства; основная сеть не затрагивается.</p><form id="launch-form"><fieldset ${locked?'disabled':''} style="border:0;padding:0">
  <div class="two">${field('name','Название',input.draft.name,'maxlength="32" required')}${field('symbol','Тикер',input.draft.symbol,'maxlength="10" required')}</div>
  ${field('slug','Поддомен проекта',input.slug,'pattern="[a-z][a-z0-9-]{1,38}[a-z0-9]" required')}<p class="hint">Адрес проекта: имя.localhost. Для публикации нужен отдельный настоящий домен.</p>
- ${field('logo','Картинка IPFS',input.draft.logo,'required')}<p class="hint">Для репетиции подставлен тестовый IPFS-адрес. Загрузка файла в IPFS здесь ещё не подключена.</p>
+ ${field('logo','Картинка IPFS',input.draft.logo,'required')}<label class="field"><span>Файл картинки</span><input id="studio-image" type="file" accept="image/png,image/jpeg,image/webp"></label><button type="button" class="button secondary" id="studio-upload">Загрузить через Pons</button><p class="hint">Картинка станет публичной; полученную ссылку сохраним в форме. Для репетиции подставлен тестовый адрес. <a href="https://ponsfamily.com/launchpad/create" target="_blank" rel="noopener noreferrer">Открыть загрузчик Pons</a></p>
  <div class="two">${field('creatorFee','Creator fee, %',input.draft.creatorFee,'inputmode="decimal"')}${field('openingBuy','Первая покупка, USDG',input.draft.openingBuy,'inputmode="decimal"')}</div>
  <h2>Условия розыгрыша</h2><div class="two">${field('ticketPurchase','Покупок на билет, USDG',input.draws.ticketPurchase)}${field('minimumFund','Фонд от, USDG',input.draws.short.minimumFund)}${field('hours','Часов после завершения розыгрыша',input.draws.short.intervalSeconds/3600)}${field('count','Количество призовых мест',input.draws.short.basket.weights.length,'type="number" min="1" max="64" step="1"')}${field('weights','Веса крупных призов',input.draws.short.basket.weights.join(':').replace(/(?:^|:)1(?::1)*$/,''))}</div>
  <p class="hint">Первый отсчёт — от создания программы. Неуказанные веса заполняются единицами; пустое поле — поровну. Призовых мест может быть больше, чем победителей; без победителя фонд переносится.</p>
@@ -25,8 +26,24 @@ function render(){
  <div class="two">${field('team','Кошелёк команды',input.team)}${field('operations','Кошелёк обслуживания',input.operations)}</div></fieldset>
  <button class="button primary" id="create" type="submit">${locked?'Продолжить этот запуск':'Создать тестовый проект'}</button> <button class="button secondary" id="new" type="button">Новый черновик</button></form><p role="status" id="notice"></p><section id="result"></section><h2>Проекты</h2><section id="projects"></section></main>`;
  document.querySelector('#new').onclick=()=>{input=fresh();input.slug='token-'+Date.now().toString().slice(-6);locked=false;completed=false;persist();render();refresh();};
+ document.querySelector('#studio-upload').onclick=async()=>{
+  if(locked||uploading)return;
+  const file=document.querySelector('#studio-image').files[0],notice=document.querySelector('#notice');
+  if(!file){notice.textContent='Выберите PNG, JPEG или WebP';return;}
+  const id=input.id;uploading=true;
+  for(const selector of ['#create','#new','#studio-upload'])document.querySelector(selector).disabled=true;
+  notice.textContent='Загружаем картинку через Pons…';
+  try{
+   const {publication}=await publishImageOnServer(file);
+   if(input.id!==id||locked)throw Error('Проект изменился во время загрузки; откройте прежний черновик.');
+   input.draft.logo=publication.uri;document.querySelector('[name=logo]').value=publication.uri;persist();
+   notice.textContent=publication.warning||'Картинка загружена через Pons. Ссылка сохранена.';
+  }catch(error){notice.textContent=error.fields?.image||error.message;}
+  finally{uploading=false;for(const selector of ['#create','#new','#studio-upload'])document.querySelector(selector).disabled=selector==='#create'&&completed;}
+ };
  document.querySelector('#launch-form').onsubmit=async event=>{
   event.preventDefault();const button=document.querySelector('#create'),notice=document.querySelector('#notice');button.disabled=true;
+  if(uploading){notice.textContent='Дождитесь загрузки картинки';return;}
   try{
    if(!locked){
     const data=new FormData(event.target),v=n=>data.get(n);
@@ -56,7 +73,7 @@ function show(p){
 async function refresh(){
  const {projects}=await request('projects');
  document.querySelector('#projects').innerHTML=projects.map(p=>`<article><strong>${escape(p.name)}</strong> · ${escape(p.stage==='ready'?'Подключён':'Создание продолжается')} · <code>${escape(p.token||'—')}</code><p>${escape(p.lastPass?.action||p.lastPass?.reason||'Ожидает первого прохода')}</p><button class="button secondary" data-project="${escape(p.id)}">Открыть</button></article>`).join('')||'<p>Пока нет проектов.</p>';
- document.querySelectorAll('[data-project]').forEach(button=>button.onclick=async()=>{const detail=await request('projects/'+button.dataset.project);input=detail.input;locked=true;completed=detail.stage==='ready';persist();render();await refresh();});
+ document.querySelectorAll('[data-project]').forEach(button=>button.onclick=async()=>{if(uploading)return;const detail=await request('projects/'+button.dataset.project);if(uploading)return;input=detail.input;locked=true;completed=detail.stage==='ready';persist();render();await refresh();});
  const current=projects.find(p=>p.id===input.id);if(current){
   show(current);
   if(current.stage==='ready'){

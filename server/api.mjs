@@ -5,7 +5,7 @@ import { preparePlan, simulatePlan } from '../src/pons/plan.mjs';
 import { IMAGE_LIMITS, imageMetadataErrors, requestFields, ValidationError } from '../src/pons/validation.mjs';
 import { assertLocalFork } from '../src/pons/local-execution.mjs';
 import rpcConfig from '../scripts/rpc-config.cjs';
-import { kuboPublisher } from './ipfs.mjs';
+import { ponsPublisher, ImageUploadError } from './ipfs.mjs';
 
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
 async function bodyBytes(req, limit) {
@@ -42,7 +42,7 @@ export async function checkImage(buffer, type) {
 function configuredProvider(mode) {
   return providerFor(mode === 'fork' ? 'http://127.0.0.1:8545' : rpcConfig.resolveRpc().url);
 }
-export function createApiMiddleware({ getProvider = configuredProvider, prepare = preparePlan, simulate = simulatePlan, publishImage = kuboPublisher() } = {}) {
+export function createApiMiddleware({ getProvider = configuredProvider, prepare = preparePlan, simulate = simulatePlan, publishImage = ponsPublisher() } = {}) {
   let running = 0;
   return async (req, res, next = () => { res.statusCode = 404; res.end(); }) => {
     const path = req.url?.split('?')[0];
@@ -62,7 +62,7 @@ export function createApiMiddleware({ getProvider = configuredProvider, prepare 
       if (path === '/api/pons/image-check' || path === '/api/pons/image-publish') {
         if (path.endsWith('image-publish')) {
           if (!req.headers.origin || !['127.0.0.1', '[::1]', 'localhost'].includes(new URL(req.headers.origin).hostname)) throw new HttpError(403, 'Публикация доступна только из локальной панели');
-          if (!publishImage) throw new HttpError(503, 'IPFS ещё не настроен. Можно указать готовый ipfs:// адрес.');
+          if (!publishImage) throw new HttpError(503, 'Загрузчик Pons недоступен. Можно указать готовый ipfs:// адрес.');
         }
         if (!IMAGE_LIMITS.types.includes(type)) throw new HttpError(415, 'Нужен PNG, JPEG или WebP');
         const buffer = await bodyBytes(req, IMAGE_LIMITS.bytes);
@@ -70,7 +70,7 @@ export function createApiMiddleware({ getProvider = configuredProvider, prepare 
         if (path.endsWith('image-publish')) {
           let publication;
           try { publication = await publishImage(buffer, result); }
-          catch { throw new HttpError(503, 'IPFS не подтвердил публикацию. Повторите загрузку того же файла.'); }
+          catch (error) { throw new HttpError(503, error instanceof ImageUploadError ? error.message : 'Pons не подтвердил загрузку. Проверьте картинку через сайт Pons.'); }
           reply(200, { image: result, publication });
         } else reply(200, { image: result });
         return;

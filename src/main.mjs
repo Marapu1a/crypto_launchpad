@@ -36,7 +36,7 @@ function destination(value, title, description) { return `<label class="destinat
 function identity() {
   return `<div class="section-heading"><span class="eyebrow">01 / ТОКЕН</span><h2>Начнём с идеи.</h2><p>Имя, образ и несколько слов о вашем проекте.</p></div>
     <div class="image-row"><div id="image-preview" class="token-image">↗</div><div><label class="button secondary file-button">Выбрать картинку<input id="image-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><p class="hint">Квадратная · PNG, JPG или WebP · до 5 МБ · до 4096 × 4096</p></div></div>
-    ${field('logo', 'Картинка в IPFS', 'ipfs://…')}<button type="button" id="publish-image" class="button secondary" ${!selectedImage || busy || journal.length ? 'disabled' : ''}>Опубликовать картинку в IPFS</button><p class="hint">Выберите файл и опубликуйте его либо вставьте готовый адрес. Для загрузки нужен настроенный IPFS на сервере.</p>
+    ${field('logo', 'Картинка в IPFS', 'ipfs://…')}<button type="button" id="publish-image" class="button secondary" ${!selectedImage || busy || journal.length ? 'disabled' : ''}>Загрузить через Pons</button><p class="hint">Картинка станет публичной. Используем хранилище Pons. Можно также <a href="https://ponsfamily.com/launchpad/create" target="_blank" rel="noopener noreferrer">загрузить на сайте Pons</a> и вставить готовый ipfs:// адрес.</p>
     <div class="two">${field('name', 'Название', 'It Gets Worse', 'maxlength="32" required')}${field('symbol', 'Тикер', 'IGW', 'maxlength="10" required')}</div>
     <label class="field"><span>Описание <small>до 256 символов</small></span><textarea name="description" rows="3" placeholder="Что стоит за вашим токеном?">${escape(draft.description)}</textarea></label>
     <div class="two">${field('twitter', 'X', '@handle')}${field('telegram', 'Telegram', '@channel')}</div>${field('website', 'Сайт', 'https://')}
@@ -286,10 +286,11 @@ function bind() {
   document.querySelector('#publish-image')?.addEventListener('click', () => work(async () => {
     if (!selectedImage || journal.length) throw Error('Выберите картинку до начала запуска');
     const file = selectedImage;
+    feedback('Загружаем картинку через Pons…');
     const { publication } = await publishImageOnServer(file);
     if (file !== selectedImage || journal.length) throw Error('Черновик изменился во время загрузки');
     draft.logo = publication.uri; plan = undefined; saved.reviewed = undefined;
-    persist(); feedback('Картинка опубликована и прочитана обратно для проверки.', 'success');
+    persist(); feedback(publication.warning || 'Картинка загружена через Pons. Ссылка сохранена.', publication.warning ? '' : 'success');
   }));
   document.querySelector('#export').onclick = () => {
     const blob = new Blob([stringify({ draft, account, mode, terms, plan, journal, result })], { type: 'application/json' });

@@ -2,14 +2,20 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {sharedApi} from '../shared/api.mjs';
 import {validateLaunch} from './template.mjs';
+import {createApiMiddleware} from '../api.mjs';
 export function studioHttp({studio,apiPool,dist,defaults}){
  const publicApi=sharedApi(apiPool);
+ const images=createApiMiddleware();
  return async(req,res)=>{
   const json=(code,value)=>{res.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});res.end(JSON.stringify(value,(_,v)=>typeof v==='bigint'?String(v):v));};
   try{
    const host=req.headers.host;
    if(typeof host!=='string'||! /^(?:127\.0\.0\.1|localhost|[a-z][a-z0-9-]*\.localhost):\d+$/.test(host))return json(403,{error:'Недопустимый Host'});
    if(req.url==='/api/project')return publicApi(req,res);
+   if(['/api/pons/image-check','/api/pons/image-publish'].includes(req.url)){
+    if(!/^(?:127\.0\.0\.1|localhost):/.test(host))return json(403,{error:'Загрузка доступна только из локальной панели'});
+    return images(req,res);
+   }
    if(req.url.startsWith('/api/studio/')){
     if(!/^(?:127\.0\.0\.1|localhost):/.test(host))return json(403,{error:'Управление доступно только с локальной панели'});
     if(req.headers.origin&&new URL(req.headers.origin).origin!=='http://'+host)return json(403,{error:'Недопустимый Origin'});

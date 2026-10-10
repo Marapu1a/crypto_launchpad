@@ -29,7 +29,7 @@ self-batch (новая/существующая делегация), факти�
 |---|---|---|
 | Имя, тикер, описание | Форма, валидация, calldata | Unit + browser + fork launch; полное совпадение всех редакционных ограничений Pons ещё не заявлено |
 | X, Telegram, сайт | Нормализация handles/HTTPS, сохранение | Unit; чтение всех metadata обратно ещё расширить |
-| Картинка | Preview/валидация; кнопка публикации и Kubo adapter с readback/pin check | [Пакет](OWNER_WALLET_IPFS.md): HTTP fixtures + browser; настоящий storage ещё не настроен |
+| Картинка | Preview/валидация, загрузка через штатную страницу Pons локальным browser helper | [Live-проверка](PONS_IMAGE_UPLOAD.md): HTTP200, URI, byte readback/reload; обе формы подключены; стабильность стороннего UI не гарантируется |
 | ETH и разрешённые ERC20 | Каталог 71 кандидата + ETH; on-chain approval каждого, decimals выбранной пары | ETH/USDG проходят fork; прочие пары пока проверены только на approval, не на запуск |
 | Ограничения доступности equity-пар в UI Pons | Найдены в исходном frontend | Региональная фильтрация нашей формы пока не реализована; текущий список отражает контракт, не полную доступность в UI Pons |
 | Supply, curve fee, graduation | Чтение выбранного launchConfig и pairTokenEconomics | Фиксированный numeric block + повторная проверка hash; нет подставленных значений при ошибке |

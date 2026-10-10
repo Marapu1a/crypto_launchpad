@@ -1,5 +1,15 @@
 # Этапы
 
+10.10.2026: [Pons image upload](PONS_IMAGE_UPLOAD.md) закрыт для локальной панели:
+кнопка в обеих формах, реальный upload через страницу Pons, readback и reload.
+Своё хранилище не требуется. Дальше — production Short deployment через кошелёк
+с серверным журналом и finalized recovery, затем runtime/API/домен/timing bounds.
+
+Уточнение10.10.2026: картинки загружаем средствами Pons; собственное IPFS
+хранилище не требуется. Прямой upload API пока отвечает403 вне их UI;
+проверить поддержанный способ интеграции, до него использовать готовый URI.
+Настройка Kubo/отдельного pinning аккаунта больше не является следующим шагом.
+
 10.10.2026: [owner wallet/IPFS — первая часть](OWNER_WALLET_IPFS.md): подпись
 через EIP-1193 и lost-hash recovery проверены на local fork в базовой форме.
 IPFS UI и Kubo adapter готовы к подключению, настоящий storage ещё не настроен.
