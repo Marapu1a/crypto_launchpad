@@ -5,6 +5,7 @@ import { preparePlan, simulatePlan } from '../src/pons/plan.mjs';
 import { IMAGE_LIMITS, imageMetadataErrors, requestFields, ValidationError } from '../src/pons/validation.mjs';
 import { assertLocalFork } from '../src/pons/local-execution.mjs';
 import rpcConfig from '../scripts/rpc-config.cjs';
+import { kuboPublisher } from './ipfs.mjs';
 
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
 async function bodyBytes(req, limit) {
@@ -41,7 +42,7 @@ export async function checkImage(buffer, type) {
 function configuredProvider(mode) {
   return providerFor(mode === 'fork' ? 'http://127.0.0.1:8545' : rpcConfig.resolveRpc().url);
 }
-export function createApiMiddleware({ getProvider = configuredProvider, prepare = preparePlan, simulate = simulatePlan } = {}) {
+export function createApiMiddleware({ getProvider = configuredProvider, prepare = preparePlan, simulate = simulatePlan, publishImage = kuboPublisher() } = {}) {
   let running = 0;
   return async (req, res, next = () => { res.statusCode = 404; res.end(); }) => {
     const path = req.url?.split('?')[0];
@@ -49,7 +50,7 @@ export function createApiMiddleware({ getProvider = configuredProvider, prepare 
     const reply = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }); res.end(stringify(body)); };
     let acquired = false, provider;
     try {
-      if (!['/api/pons/prepare', '/api/pons/image-check'].includes(path)) throw new HttpError(404, 'Маршрут не найден');
+      if (!['/api/pons/prepare', '/api/pons/image-check', '/api/pons/image-publish'].includes(path)) throw new HttpError(404, 'Маршрут не найден');
       if (req.method !== 'POST') throw new HttpError(405, 'Требуется POST');
       if (req.headers.origin) {
         let origin; try { origin = new URL(req.headers.origin); } catch { throw new HttpError(403, 'Недопустимый Origin'); }
@@ -58,10 +59,21 @@ export function createApiMiddleware({ getProvider = configuredProvider, prepare 
       if (running >= 4) throw new HttpError(429, 'Слишком много проверок одновременно. Повторите позже');
       running++; acquired = true;
       const type = req.headers['content-type']?.split(';')[0].trim().toLowerCase();
-      if (path === '/api/pons/image-check') {
+      if (path === '/api/pons/image-check' || path === '/api/pons/image-publish') {
+        if (path.endsWith('image-publish')) {
+          if (!req.headers.origin || !['127.0.0.1', '[::1]', 'localhost'].includes(new URL(req.headers.origin).hostname)) throw new HttpError(403, 'Публикация доступна только из локальной панели');
+          if (!publishImage) throw new HttpError(503, 'IPFS ещё не настроен. Можно указать готовый ipfs:// адрес.');
+        }
         if (!IMAGE_LIMITS.types.includes(type)) throw new HttpError(415, 'Нужен PNG, JPEG или WebP');
-        const result = await checkImage(await bodyBytes(req, IMAGE_LIMITS.bytes), type);
-        reply(200, { image: result }); return;
+        const buffer = await bodyBytes(req, IMAGE_LIMITS.bytes);
+        const result = await checkImage(buffer, type);
+        if (path.endsWith('image-publish')) {
+          let publication;
+          try { publication = await publishImage(buffer, result); }
+          catch { throw new HttpError(503, 'IPFS не подтвердил публикацию. Повторите загрузку того же файла.'); }
+          reply(200, { image: result, publication });
+        } else reply(200, { image: result });
+        return;
       }
       if (type !== 'application/json') throw new HttpError(415, 'Требуется application/json');
       let body; try { body = JSON.parse((await bodyBytes(req, 32 * 1024)).toString('utf8')); }

@@ -1,5 +1,11 @@
 # Этапы
 
+10.10.2026: [owner wallet/IPFS — первая часть](OWNER_WALLET_IPFS.md): подпись
+через EIP-1193 и lost-hash recovery проверены на local fork в базовой форме.
+IPFS UI и Kubo adapter готовы к подключению, настоящий storage ещё не настроен.
+Следующий пакет — storage/проверка расширения и production Short deployment
+через кошелёк с серверным журналом и finalized recovery. Затем runtime/API/домен.
+
 10.10.2026: [fork настоящего Pons для production Short](PRODUCTION_PONS_REHEARSAL.md)
 пройден: неизменные artifacts 4663, запуск TOKEN/USDG, четыре формы покупки,
 фактические комиссии, отдельный publisher и полный PostgreSQL цикл.

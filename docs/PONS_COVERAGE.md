@@ -29,7 +29,7 @@ self-batch (новая/существующая делегация), факти�
 |---|---|---|
 | Имя, тикер, описание | Форма, валидация, calldata | Unit + browser + fork launch; полное совпадение всех редакционных ограничений Pons ещё не заявлено |
 | X, Telegram, сайт | Нормализация handles/HTTPS, сохранение | Unit; чтение всех metadata обратно ещё расширить |
-| Картинка | Локальный preview PNG/JPG/WebP ≤5 МБ, квадрат; готовый ipfs:// URI для launch | Публикация файла в IPFS пока не подключена; выбираемый файл не выдаётся за опубликованный |
+| Картинка | Preview/валидация; кнопка публикации и Kubo adapter с readback/pin check | [Пакет](OWNER_WALLET_IPFS.md): HTTP fixtures + browser; настоящий storage ещё не настроен |
 | ETH и разрешённые ERC20 | Каталог 71 кандидата + ETH; on-chain approval каждого, decimals выбранной пары | ETH/USDG проходят fork; прочие пары пока проверены только на approval, не на запуск |
 | Ограничения доступности equity-пар в UI Pons | Найдены в исходном frontend | Региональная фильтрация нашей формы пока не реализована; текущий список отражает контракт, не полную доступность в UI Pons |
 | Supply, curve fee, graduation | Чтение выбранного launchConfig и pairTokenEconomics | Фиксированный numeric block + повторная проверка hash; нет подставленных значений при ошибке |
@@ -43,7 +43,7 @@ self-batch (новая/существующая делегация), факти�
 | Salt / economics pin | Стабильный salt черновика, live nonzero expectedEconomics | Адреса из симуляции совпадают с событием launch; изменение launchFee останавливает отправку |
 | Итог и восстановление | Журнал intent/nonce/hash/receipt, проверка события и record | Browser reload, запрет дублей и неизвестных исходов; replacement/reorg требуют дальнейших сценариев |
 | Черновики | LocalStorage, JSON export, архив перед новым запуском | Browser; backend-аккаунтов пока нет |
-| Подключение кошелька | Injected wallet для выбора публичного адреса, локальный тестовый signer для fork | Мобильные кошельки/WalletConnect и реальные подписи ещё не подключены |
+| Подключение кошелька | EIP-1193 подпись на local fork, аккаунт/сеть/instance checks, lost-hash recovery | Browser provider fixture → настоящий fork; расширение владельца, WalletConnect/mobile и production signing ещё не проверены/подключены |
 
 ## Дополнительные контрактные возможности
 

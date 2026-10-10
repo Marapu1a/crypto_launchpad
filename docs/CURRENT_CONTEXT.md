@@ -2,6 +2,14 @@
 
 Обновлено 10.10.2026. **QIANQI переведён на runtime платформы.**
 
+10.10.2026: [первый пакет owner wallet/IPFS](OWNER_WALLET_IPFS.md) в базовой форме:
+EIP-1193 подпись на local fork, проверка аккаунта/сети/instance, восстановление
+потерянного hash без повторной отправки; загрузка картинки через отключённый
+по умолчанию Kubo adapter с readback/pin check. 27unit/HTTP+8browser и build PASS.
+Реальное IPFS-хранилище ещё не выбрано; расширение владельца не проверено.
+Production Short deployment через кошелёк/серверный журнал ещё не подключён;
+следом это соединение, постоянный runtime/reader/API/домен и timing bounds.
+
 10.10.2026: [репетиция production Short на настоящем Pons](PRODUCTION_PONS_REHEARSAL.md):
 на fork 82000000 (4663) создан TOKEN/USDG прежними artifacts, проверены opening,
 direct и два варианта EIP-7702 self-batch. Комиссии → PostgreSQL worker → билеты →

@@ -2,9 +2,10 @@ import './style.css';
 import { formatEther, formatUnits, getAddress } from 'ethers';
 import { NETWORK, ZeroAddress, providerFor, readTerms, listPairs, stringify } from './pons/client.mjs';
 import { initialDraft } from './pons/plan.mjs';
-import { prepareOnServer, checkImageOnServer } from './pons/api-client.mjs';
+import { prepareOnServer, checkImageOnServer, publishImageOnServer } from './pons/api-client.mjs';
 import { validateDraft, DRAFT_FIELDS, IDENTITY_FIELDS, termsMatch, termsFresh, imageMetadataErrors } from './pons/validation.mjs';
-import { assertLocalFork, executeLocalLaunch, continueLocalHolders, sendLocal, reconcileJournal, verifyLaunch } from './pons/local-execution.mjs';
+import { assertLocalFork, executeLocalLaunch, continueLocalHolders, sendLocal, reconcileJournal, verifyLaunch, attachLocalHash } from './pons/local-execution.mjs';
+import { walletAccount } from './pons/wallet.mjs';
 
 const KEY = 'crypto-launchpad:pons:v1';
 const app = document.querySelector('#app');
@@ -12,6 +13,9 @@ const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&a
 const short = value => value ? `${value.slice(0, 6)}…${value.slice(-4)}` : 'Не подключён';
 function stored() { try { const value = JSON.parse(localStorage.getItem(KEY)); return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; } catch { return {}; } }
 const saved = stored();
+let useWallet = saved.useWallet === true;
+let selectedImage;
+const signingWallet = () => { if (!useWallet) return undefined; if (!window.ethereum) throw Error('Подключите браузерный кошелёк'); return window.ethereum; };
 const restored = saved.draft && typeof saved.draft === 'object' && !Array.isArray(saved.draft) ? saved.draft : {};
 let draft = { ...initialDraft(), ...Object.fromEntries(DRAFT_FIELDS.filter(k => Object.hasOwn(restored, k)).map(k => [k, typeof restored[k] === 'string' ? restored[k] : ''])) }, mode = saved.mode === 'fork' ? 'fork' : 'read';
 let account = typeof saved.account === 'string' ? saved.account : '', stage = 1, terms, pairs = [{ address: ZeroAddress, symbol: 'ETH', name: 'Ether' }];
@@ -20,7 +24,7 @@ let plan, journal = Array.isArray(saved.journal) ? saved.journal : [], result = 
 let provider = providerFor(mode === 'fork' ? 'http://127.0.0.1:8545' : NETWORK.rpc);
 function persist() {
   if (plan) saved.reviewed = plan;
-  localStorage.setItem(KEY, stringify({ draft, account, mode, journal, result, reviewed: saved.reviewed }));
+  localStorage.setItem(KEY, stringify({ draft, account, mode, useWallet, journal, result, reviewed: saved.reviewed }));
 }
 function feedback(text, status = '') { message = text; tone = status; renderMessage(); }
 function renderMessage() { const e = document.querySelector('#notice'); if (e) { e.textContent = message; e.className = `notice ${tone}`; e.hidden = !message; } }
@@ -32,7 +36,7 @@ function destination(value, title, description) { return `<label class="destinat
 function identity() {
   return `<div class="section-heading"><span class="eyebrow">01 / ТОКЕН</span><h2>Начнём с идеи.</h2><p>Имя, образ и несколько слов о вашем проекте.</p></div>
     <div class="image-row"><div id="image-preview" class="token-image">↗</div><div><label class="button secondary file-button">Выбрать картинку<input id="image-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><p class="hint">Квадратная · PNG, JPG или WebP · до 5 МБ · до 4096 × 4096</p></div></div>
-    ${field('logo', 'Картинка в IPFS', 'ipfs://…')}<p class="hint">Пока нужен адрес уже опубликованной картинки. Выбор файла показывает локальный предпросмотр.</p>
+    ${field('logo', 'Картинка в IPFS', 'ipfs://…')}<button type="button" id="publish-image" class="button secondary" ${!selectedImage || busy || journal.length ? 'disabled' : ''}>Опубликовать картинку в IPFS</button><p class="hint">Выберите файл и опубликуйте его либо вставьте готовый адрес. Для загрузки нужен настроенный IPFS на сервере.</p>
     <div class="two">${field('name', 'Название', 'It Gets Worse', 'maxlength="32" required')}${field('symbol', 'Тикер', 'IGW', 'maxlength="10" required')}</div>
     <label class="field"><span>Описание <small>до 256 символов</small></span><textarea name="description" rows="3" placeholder="Что стоит за вашим токеном?">${escape(draft.description)}</textarea></label>
     <div class="two">${field('twitter', 'X', '@handle')}${field('telegram', 'Telegram', '@channel')}</div>${field('website', 'Сайт', 'https://')}
@@ -59,6 +63,7 @@ function review() {
   const nativeCost = plan ? plan.terms.fee + (plan.input.pair === ZeroAddress ? plan.input.amount : 0n) : null;
   return `<div class="section-heading"><span class="eyebrow">03 / ПРОВЕРКА</span><h2>Всё готово к проверке.</h2><p>Симуляция проверит создание токена с выбранными параметрами.</p></div>
     <label class="field"><span>Кошелёк запуска</span><input id="account" value="${escape(account)}" placeholder="0x…"></label>
+    ${mode === 'fork' ? `<label><input type="checkbox" id="use-wallet" ${useWallet ? 'checked' : ''} ${journal.length ? 'disabled' : ''}> Подписывать в браузерном кошельке (сеть 31337)</label>` : ''}
     <p class="hint">${mode === 'fork' ? 'Используется тестовый кошелёк локальной копии сети.' : 'Подключите кошелёк или укажите публичный адрес для симуляции.'}</p>
     <div class="review-list"><div><span>Режим</span><strong>${mode === 'fork' ? 'Локальный fork' : 'Чтение основной сети'}</strong></div>
     <div><span>Получатель комиссий</span><strong>${draft.destination === 'holders' ? 'Держатели' : escape(short(draft.feeWallet || account))}</strong></div>
@@ -72,7 +77,7 @@ function review() {
     ${plan?.state === 'ready' && mode === 'fork' && !result ? '<button type="button" id="launch" class="button primary">Запустить на локальной сети</button>' : ''}</div>
     ${plan?.token ? `<div class="result-box"><span class="eyebrow">ПРЕДСКАЗАННЫЙ ТОКЕН</span><code>${escape(plan.token)}</code><p>Симуляция пройдена. ${mode === 'read' ? 'В этой сборке основная сеть доступна для чтения и симуляций.' : 'Можно проверить отправку на fork.'}</p></div>` : ''}
     ${result ? `<div class="result-box"><span class="eyebrow">ТОКЕН СОЗДАН НА FORK</span><code>${escape(result.token)}</code><p>Блок ${result.block} · ${escape(result.distributor ? 'Holders подключён' : 'Запуск подтверждён')}</p>${draft.destination === 'holders' && !result.distributor ? '<button type="button" class="button secondary" id="holders">Продолжить настройку Holders</button>' : ''}</div>` : ''}
-    ${journal.length ? `<details open><summary>Журнал запуска · ${journal.length}</summary><ul class="journal">${journal.map(j => `<li><span>${escape(j.kind)}</span><strong>${escape(j.state)}</strong><small>${escape(j.hash ? short(j.hash) : 'nonce ' + j.nonce)}</small></li>`).join('')}</ul><button type="button" id="reconcile" class="button secondary">Проверить подтверждения</button></details>` : ''}`;
+    ${journal.length ? `<details open><summary>Журнал запуска · ${journal.length}</summary><ul class="journal">${journal.map(j => `<li><span>${escape(j.kind)}</span><strong>${escape(j.state)}</strong><small>${escape(j.hash ? short(j.hash) : 'nonce ' + j.nonce)}</small></li>`).join('')}</ul><button type="button" id="reconcile" class="button secondary">Проверить подтверждения</button>${journal.some(j => ['unknown','requesting','pending'].includes(j.state) && !j.hash) ? '<label class="field"><span>Hash отправленной транзакции из кошелька</span><input id="recovery-hash" placeholder="0x…"></label><button type="button" id="recover-hash" class="button secondary">Найти отправленный шаг</button>' : ''}</details>` : ''}`;
 }
 
 function render() {
@@ -210,13 +215,21 @@ function bind() {
   };
   document.querySelector('#connect').onclick = () => work(async () => {
     if (journal.length) throw Error('Кошелёк закреплён за журналом запуска. Для другого кошелька создайте новый черновик.');
-    if (mode === 'fork') {
+    if (mode === 'fork' && !useWallet) {
       await assertLocalFork(provider); account = await (await provider.getSigner(0)).getAddress();
     } else {
       if (!window.ethereum) throw Error('Кошелёк не найден. На шаге «Проверка» можно указать публичный адрес.');
-      [account] = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      account = await walletAccount(window.ethereum, mode === 'fork' ? 31337 : 4663, { connect: true });
     }
     plan = undefined; saved.reviewed = undefined; serverErrors = {}; await loadTerms(); feedback('Кошелёк выбран');
+  });
+  document.querySelector('#use-wallet')?.addEventListener('change', e => {
+    if (journal.length || busy) return;
+    useWallet = e.target.checked; plan = undefined; saved.reviewed = undefined; persist(); render();
+  });
+  document.querySelector('#recover-hash')?.addEventListener('click', () => {
+    const hash = document.querySelector('#recovery-hash').value.trim();
+    return work(async () => { await attachLocalHash(provider, journal, async () => persist(), hash); feedback('Шаг найден. Нажмите «Проверить подтверждения» для восстановления результата.'); });
   });
   document.querySelector('#simulate')?.addEventListener('click', () => { if (!checkAll()) return; return work(async () => {
     if (journal.some(x => x.kind === 'launch' && !['reverted', 'rejected'].includes(x.state))) throw Error('Запуск уже отправлен. Проверьте подтверждения.');
@@ -230,16 +243,16 @@ function bind() {
   }); });
   document.querySelector('#approve')?.addEventListener('click', () => work(async () => {
     if (mode !== 'fork') throw Error('Approve доступен в тестовом окружении');
-    for (const step of plan.steps) await sendLocal(provider, account, step, journal, async () => persist(), step.kind);
+    for (const step of plan.steps) await sendLocal(provider, account, step, journal, async () => persist(), step.kind, signingWallet());
     plan = await prepareOnServer(draft, account, mode); feedback('Approve и симуляция пройдены', 'success');
   }));
   document.querySelector('#launch')?.addEventListener('click', () => work(async () => {
-    result = await executeLocalLaunch(provider, plan, journal, async () => persist());
+    result = await executeLocalLaunch(provider, plan, journal, async () => persist(), signingWallet());
     persist(); feedback('Токен создан на локальном fork', 'success');
-    if (draft.destination === 'holders') { result.distributor = await continueLocalHolders(provider, result.token, account, journal, async () => persist()); feedback('Токен создан, Holders подключён', 'success'); }
+    if (draft.destination === 'holders') { result.distributor = await continueLocalHolders(provider, result.token, account, journal, async () => persist(), signingWallet()); feedback('Токен создан, Holders подключён', 'success'); }
   }));
   document.querySelector('#holders')?.addEventListener('click', () => work(async () => {
-    result.distributor = await continueLocalHolders(provider, result.token, account, journal, async () => persist()); feedback('Holders подключён', 'success');
+    result.distributor = await continueLocalHolders(provider, result.token, account, journal, async () => persist(), signingWallet()); feedback('Holders подключён', 'success');
   }));
   document.querySelector('#reconcile')?.addEventListener('click', () => work(async () => {
     await reconcileJournal(provider, journal, async () => persist());
@@ -253,6 +266,8 @@ function bind() {
     const file = e.target.files[0]; if (!file) return;
     if (busy || journal.length) { feedback('Картинку уже начатого запуска менять нельзя', 'error'); return; }
     const version = ++imageRequest;
+    selectedImage = undefined;
+    const publishButton = document.querySelector('#publish-image'); if (publishButton) publishButton.disabled = true;
     const invalid = imageMetadataErrors({ size: file.size, type: file.type });
     if (invalid) { serverErrors.image = invalid; paintValidation(); return; }
     feedback('Проверяем картинку…');
@@ -262,10 +277,20 @@ function bind() {
       delete serverErrors.image;
       if (localImage) URL.revokeObjectURL(localImage);
       localImage = URL.createObjectURL(file); preview();
-      feedback('Картинка проверена. Для запуска пока нужен адрес её публикации в IPFS.');
+      selectedImage = file;
+      const button = document.querySelector('#publish-image'); if (button) button.disabled = false;
+      feedback('Картинка проверена. Можно опубликовать её в IPFS.');
     } catch (error) { if (version === imageRequest) { serverErrors.image = error.fields?.image || error.message; } }
     paintValidation();
   });
+  document.querySelector('#publish-image')?.addEventListener('click', () => work(async () => {
+    if (!selectedImage || journal.length) throw Error('Выберите картинку до начала запуска');
+    const file = selectedImage;
+    const { publication } = await publishImageOnServer(file);
+    if (file !== selectedImage || journal.length) throw Error('Черновик изменился во время загрузки');
+    draft.logo = publication.uri; plan = undefined; saved.reviewed = undefined;
+    persist(); feedback('Картинка опубликована и прочитана обратно для проверки.', 'success');
+  }));
   document.querySelector('#export').onclick = () => {
     const blob = new Blob([stringify({ draft, account, mode, terms, plan, journal, result })], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `pons-${draft.symbol || 'draft'}.json`; a.click(); URL.revokeObjectURL(a.href);
@@ -276,6 +301,7 @@ function bind() {
       persist(); localStorage.setItem(`${KEY}:archive:${Date.now()}`, localStorage.getItem(KEY));
       draft = initialDraft(); touched.clear(); attempted.clear(); serverErrors = {}; imageRequest++; journal = []; result = undefined; plan = undefined; saved.reviewed = undefined; stage = 1;
       if (localImage) URL.revokeObjectURL(localImage); localImage = undefined; terms = null; persist();
+      selectedImage = undefined;
       feedback('Предыдущий черновик сохранён в локальном архиве'); render(); loadTerms();
     } catch (error) { feedback('Не удалось сохранить архив: ' + error.message, 'error'); }
   };
