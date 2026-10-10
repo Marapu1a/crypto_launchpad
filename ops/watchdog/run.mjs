@@ -22,6 +22,13 @@ export async function probe(url,fetcher=fetch){
   return ['observed','stale'].includes(body.status);
  }catch{return false;}
 }
+export function describeAlarms(alarms){
+ const labels={pull_failed:'ошибка скачивания копий',pull_stale:'синхронизация копий давно не подтверждалась',pull_missing:'нет отчёта скачивания',archive_missing:'нет готового архива',archive_future:'дата архива в будущем',archive_stale:'архив старше допустимого срока',archive_integrity:'архив или его контрольная сумма повреждены'};
+ return alarms.map(code=>{
+  if(code==='public_api_unreachable')return 'API QIANQI недоступен с компьютера — проверьте также свой интернет';
+  const [id,reason]=code.split(':');return `${id==='qianqi'?'QIANQI':'Платформа'}: ${labels[reason]||'ошибка проверки копии'}`;
+ }).join('; ');
+}
 function save(file,value){fs.writeFileSync(file+'.tmp',JSON.stringify(value,null,2));fs.renameSync(file+'.tmp',file);}
 async function main(){
  const config=JSON.parse(fs.readFileSync(process.argv[2],'utf8').replace(/^\uFEFF/,''));
@@ -36,7 +43,7 @@ async function main(){
  const next=transition(previous,alarms,now);
  save(path.join(config.stateDirectory,'status.json'),{schema:'launchpad-local-watchdog-status-v1',at:new Date(now).toISOString(),reachable,backups,alarms});
  if(next.notify){
-  const message=next.recovery?'Launchpad: внешняя проверка и копии снова в норме.':'Launchpad: '+alarms.join(', ')+'. Проверьте status.json в папке watchdog.';
+  const message=next.recovery?'Launchpad: внешняя проверка и копии снова в норме.':describeAlarms(alarms)+'. Подробности: '+path.join(config.stateDirectory,'status.json');
   // No VPS credentials or Telegram tokens are copied onto this machine.
   try{
    await promisify(execFile)('powershell.exe',['-NoProfile','-NonInteractive','-File',fileURLToPath(new URL('./notify-windows.ps1',import.meta.url)),'-Message',message],{windowsHide:true,timeout:20000});

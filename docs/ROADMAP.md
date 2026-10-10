@@ -1,5 +1,11 @@
 # Этапы
 
+10.10.2026: [watchdog с компьютера](LOCAL_WATCHDOG.md) установлен по выбору
+владельца: API и возраст/SHA256 off-server архивов, Windows alerts. Постоянная
+внешняя точка пока не предоставлена; при спящем компьютере проверка не работает.
+Заодно platform backup дополнен актуальным отдельным executor runtime;
+реальный backup и его извлечение проверены. Финансовое исполнение не менялось.
+
 10.10.2026: [single-writer inventory/защита](QIANQI_SINGLE_WRITER.md) закрыт
 и установлен (`90328c4`): два процесса на отдельной БД, fail-closed public fence,
 masked legacy launchers, успешный первый pass без отправок. Следующий

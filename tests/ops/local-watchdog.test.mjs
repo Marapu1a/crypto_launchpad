@@ -1,6 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {transition,probe} from '../../ops/watchdog/run.mjs';
+import {transition,probe,describeAlarms} from '../../ops/watchdog/run.mjs';
+test('notification explains failure and does not assert that VPS alone is down',()=>{
+ assert.match(describeAlarms(['public_api_unreachable']),/свой интернет/);
+ assert.match(describeAlarms(['platform:archive_integrity']),/контрольная сумма/);
+});
 test('single transient failure is suppressed; second check alerts; reminders and recovery',()=>{
  const first=transition({},['offline'],1000);assert.equal(first.notify,false);
  const second=transition(first.state,['offline'],301000);assert.equal(second.notify,true);
