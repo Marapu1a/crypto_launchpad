@@ -2,6 +2,15 @@
 
 Обновлено 10.10.2026. **QIANQI переведён на runtime платформы.**
 
+10.10.2026: [контракты 4663 и PostgreSQL sender](PRODUCTION_SHORT_CONTRACTS.md)
+реализованы отдельно от Local*: checkpoint/dataset-bound RNG, immutable fee
+flow, recognition notice, encrypted per-project keystore, миграция 011 и
+sender lease на chain+wallet. Сквозные контрактные/PG проверки и соседние
+shared tests пройдены; production не менялся. Часы ПК проверены NTP (~0.11с),
+разница latest/finalized по самим timestamp блоков 1121–1129с. Далее — полный
+planner/admission и recognition publisher для нового шаблона, fork Pons,
+wallet/IPFS. Боевые timing bounds ещё не утверждены; public launch не включён.
+
 10.10.2026: [подготовка production Short](PRODUCTION_SHORT_PREPARATION.md):
 отдельные policy/finality/timing и кандидат журнала 4663 с ожиданием finalized,
 неизменной подписью и обязательными admission/lease. Проверены 8 новых сценариев

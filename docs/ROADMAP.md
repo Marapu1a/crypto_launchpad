@@ -1,5 +1,12 @@
 # Этапы
 
+10.10.2026: [production contracts + PG sender](PRODUCTION_SHORT_CONTRACTS.md)
+готовы как отдельный кандидат: 4663 artifacts, BLS, checkpoint, split,
+encrypted key utility, изолированный sender journal и session-loss recovery.
+Миграция 011 проверена только в тестовых БД. Следующий пакет — полный planner
+и отдельный recognition publisher, затем fork Pons с теми же artifacts,
+wallet/IPFS. Готовность кандидата не означает включённые публичные отправки.
+
 10.10.2026: [production preparation](PRODUCTION_SHORT_PREPARATION.md) — готов
 кандидат проверок и журнала 4663; finalized snapshot/receipt, clock/drand,
 replay и обязательные guards проверены отдельно. Read-only сеть показала
