@@ -46,6 +46,15 @@ if test -f /etc/crypto-launchpad/continuous-backup; then
  qianqi_release=$(readlink -f /opt/crypto-launchpad/qianqi-current)
  case "$qianqi_release" in /opt/crypto-launchpad/releases/*) ;; *) exit 1 ;; esac
  tar --exclude=./node_modules -czf "$dest/qianqi-runtime.tar.gz" -C "$qianqi_release" .
+ # The financial unit may use a newer pinned release than the read-side symlink.
+ executor_release=$(systemctl show qianqi-public-automation.service -p WorkingDirectory --value)
+ executor_release=$(readlink -f "$executor_release")
+ case "$executor_release" in /opt/crypto-launchpad/releases/*) ;; *) exit 1 ;; esac
+ test -f "$executor_release/platform-release.json"
+ executor_manifest=$(sha256sum "$executor_release/platform-release.json" | cut -d ' ' -f 1)
+ node /opt/crypto-launchpad/ops/verify-release.mjs "$executor_release" "$executor_manifest"
+ printf '%s\n' "$executor_release" > "$dest/qianqi-executor-release.txt"
+ tar --exclude=./node_modules -czf "$dest/qianqi-executor-runtime.tar.gz" -C "$executor_release" .
  tar -czf "$dest/platform-ops.tar.gz" -C /opt/crypto-launchpad/ops \
   verify-release.mjs backup.sh monitor.py qianqi/native-backup.cjs qianqi/backup-public.sh \
   qianqi/backup.py qianqi/check-backup-config.mjs qianqi/monitor.cjs qianqi/notify.cjs
@@ -54,7 +63,8 @@ fi
 date -u +%FT%TZ > "$dest/captured-at.txt"
 (cd "$dest" && for file in database.dump evidence.tar.gz release.txt captured-at.txt \
  qianqi-release.txt platform-config.tar.gz platform-units.tar.gz postgres-config.tar.gz \
- qianqi-runtime.tar.gz platform-ops.tar.gz native-backup-status.tar.gz; do
+ qianqi-runtime.tar.gz qianqi-executor-release.txt qianqi-executor-runtime.tar.gz \
+ platform-ops.tar.gz native-backup-status.tar.gz; do
  if test -f "$file"; then sha256sum "$file"; fi
 done > SHA256SUMS)
 tar -czf "$root/$stamp.tar.gz" -C "$root" "$stamp"
