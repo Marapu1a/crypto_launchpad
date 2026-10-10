@@ -43,6 +43,9 @@ nonce; attach проверяет sender/chain/nonce/to/data/value/gas caps. Сл
 
 ## Что ещё не подключено
 
+Обновление следующего пакета: внутренний [v2 handoff и worker](DRAW_WORKER.md)
+добавлены отдельно; текст ниже фиксирует границы исходного owner-launch пакета.
+
 V2 не регистрируется в старом production_senders: его worker понимает только v1.
 Созданные token/curve/policy сохраняются в owner journal; проекты/модули API и
 серверное обслуживание будут зарегистрированы следующим отдельным handoff.

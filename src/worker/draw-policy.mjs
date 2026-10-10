@@ -64,3 +64,9 @@ export async function verifyDrawPolicy(provider,p){
  check(same((await provider.getBlock(block.number))?.hash,block.hash),'Observation branch changed');
  return {schema:p.schema,blockNumber:block.number,blockHash:block.hash,authorizationToSend:false};
 }
+
+export function drawContracts(provider,p){
+ const config=validateDrawPolicy(p),artifacts=build().artifacts;
+ const own={collector:'PonsFeeCollector',splitter:'FeeSplitter',recognition:'PurchaseRecognition',fundingRouter:'DrawFundingRouter',...(config.short.enabled?{short:'ShortProgram',shortAdapter:'ShortDrandAdapter'}:{}),...(config.monthly.enabled?{monthly:'MonthlyProgram',monthlyAdapter:'ShortDrandAdapter'}:{})};
+ return Object.fromEntries(Object.entries(p.contracts).filter(([role])=>own[role]||ABI[role]).map(([role,pin])=>[role,new Contract(pin.address,own[role]?artifacts[own[role]].abi:ABI[role],provider)]));
+}

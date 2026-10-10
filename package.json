@@ -53,7 +53,8 @@
     "test:short-site": "node tests/shared/short-site.mjs",
     "test:short-projection": "node tests/shared/short-projection.mjs",
     "owner:rehearsal": "node scripts/start-owner-rehearsal.mjs",
-    "test:owner-stand": "node tests/studio/owner-rehearsal.mjs"
+    "test:owner-stand": "node tests/studio/owner-rehearsal.mjs",
+    "test:draw-worker": "node tests/contracts/draw-worker-cycle.mjs"
   },
   "engines": {
     "node": ">=22"

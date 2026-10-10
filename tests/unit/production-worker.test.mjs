@@ -123,3 +123,18 @@ test('Gas shortage is durable per role, estimate failure is unknown, topup resum
 test('Balance lost at broadcast keeps exact signed transaction and resumes after refill',async()=>{
  const f=fixture(),send=f.provider.broadcastTransaction;f.provider.broadcastTransaction=async()=>{throw Object.assign(Error('secret'),{code:'INSUFFICIENT_FUNDS'});};const r=await advanceProductionTransaction(f);assert.equal(r.reason,'native-balance');const raw=f.state.pending.raw;assert.equal(f.state.gasFunding.active,true);f.provider.broadcastTransaction=send;f.finalized=10;assert.equal((await advanceProductionTransaction(f)).status,'confirmed');assert.equal(f.broadcasts[0],raw);assert.equal(f.state.gasFunding.active,false);
 });
+
+test('Saved raw waits before broadcast on low balance; unclassified low-balance race also waits',async()=>{
+ const f=fixture();
+ await assert.rejects(advanceProductionTransaction({...f,hook:async()=>{throw Error('restart');}}),/restart/);
+ const raw=f.state.pending.raw;f.provider.getBalance=async()=>0n;
+ assert.equal((await advanceProductionTransaction(f)).reason,'native-balance');
+ assert.equal(f.broadcasts.length,0);assert.equal(f.state.pending.raw,raw);
+ f.provider.getBalance=async()=>1000000n;f.finalized=10;
+ assert.equal((await advanceProductionTransaction(f)).status,'confirmed');assert.equal(f.broadcasts[0],raw);
+ const g=fixture(),send=g.provider.broadcastTransaction;
+ g.provider.broadcastTransaction=async()=>{g.provider.getBalance=async()=>0n;throw Object.assign(Error('opaque RPC rejection'),{code:'UNKNOWN_ERROR'});};
+ assert.equal((await advanceProductionTransaction(g)).reason,'native-balance');
+ assert.ok(g.state.pending);g.provider.getBalance=async()=>1000000n;g.provider.broadcastTransaction=send;g.finalized=10;
+ assert.equal((await advanceProductionTransaction(g)).status,'confirmed');assert.equal(g.broadcasts.length,1);
+});

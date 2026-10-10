@@ -6,7 +6,7 @@ export async function migrate(client) {
   try{
     await client.query('SELECT pg_advisory_xact_lock(49172,1)');
     const {rows:[found]}=await client.query("SELECT to_regclass('launchpad.schema_migrations') AS table_name");
-    const files=['001_projects.sql','002_chain_read.sql','003_ticket_shadow.sql','004_ticket_ledger.sql','005_financial_journal.sql','006_postgres_worker.sql','007_qianqi_history.sql','008_qianqi_live.sql','009_qianqi_live_bodies.sql','010_existing_qianqi.sql','011_production_senders.sql','012_production_wallets.sql','013_owner_launches.sql','014_short_public_views.sql'];
+    const files=['001_projects.sql','002_chain_read.sql','003_ticket_shadow.sql','004_ticket_ledger.sql','005_financial_journal.sql','006_postgres_worker.sql','007_qianqi_history.sql','008_qianqi_live.sql','009_qianqi_live_bodies.sql','010_existing_qianqi.sql','011_production_senders.sql','012_production_wallets.sql','013_owner_launches.sql','014_short_public_views.sql','015_draw_module.sql'];
     const records=found.table_name?(await client.query('SELECT version,checksum FROM launchpad.schema_migrations ORDER BY version')).rows:[];
     if(records.some((r,i)=>r.version!==i+1)||records.length>files.length)throw Error('Migration version mismatch');
     for(const [i,file] of files.entries()){

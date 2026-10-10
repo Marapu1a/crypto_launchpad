@@ -1,5 +1,13 @@
 # Текущий контекст
 
+11.10.2026: [общий v2 worker и handoff](DRAW_WORKER.md) проверены для
+Short/Monthly/обоих: один ledger на токен, независимые frozen cycles/consumption/RNG,
+ожидание газа и восстановление той же подписи, поздние билеты для следующих циклов.
+3 новых integration +9 v1 regression +24 unit PASS. Регистрация enabled:false;
+UI, v2 service/config и публичная страница ещё не подключены. QIANQI/VPS не менялись.
+Следующий пакет — соединить v2 с локальным конструктором и подготовкой обслуживания,
+показать Short/Monthly и пройти репетицию через UI.
+
 10.10.2026: [сохраняемый owner launch v2](DRAW_OWNER_LAUNCH.md) прошёл
 для Short/Monthly/обоих на частном Pons fork82000000: PG journal, nonce/hash
 recovery, finality, bind и проверка policy.4fork/8unit PASS. Статус deployed,

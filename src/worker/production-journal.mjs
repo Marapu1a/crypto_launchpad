@@ -60,9 +60,11 @@ export async function advanceProductionTransaction({ provider, signer, policy, s
     check(await provider.getTransactionCount(sender, 'latest') <= p.nonce, 'Nonce consumed by another transaction');
     await guard(); await admit({ action: p.action, request: { to: p.to, data: p.data, value: p.value }, phase: 'broadcast' });
     // A lost RPC response leaves the signed operation intact. Never replace the round/nonce.
+    const required=tx.gasLimit*tx.gasPrice+BigInt(policy.limits.nativeFloor);
+    if(await provider.getBalance(sender)<required)return funding(required);
     let sent;
     try{sent=await provider.broadcastTransaction(p.raw);}
-    catch(e){if(e.code==='INSUFFICIENT_FUNDS')return funding(tx.gasLimit*tx.gasPrice+BigInt(policy.limits.nativeFloor));throw e;}
+    catch(e){if(e.code==='INSUFFICIENT_FUNDS'||await provider.getBalance(sender)<required)return funding(required);throw e;}
     check(sent.hash === p.hash, 'Broadcast hash mismatch');
     if(state.gasFunding?.active)await funding(tx.gasLimit*tx.gasPrice+BigInt(policy.limits.nativeFloor),false);
     await hook('broadcast'); receipt = await provider.getTransactionReceipt(p.hash);
