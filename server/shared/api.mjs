@@ -24,7 +24,7 @@ export function sharedApi(pool,{projectAdapters=new Map()}={}) {
         const adapter=projectAdapters.get(route.id);
         if(adapter)return await adapter.handle(req,res);
       }
-      if(req.url==='/api/short')return reply(200,await readShortView(pool,route.id));
+      if(['/api/short','/api/draws'].includes(req.url))return reply(200,await readShortView(pool,route.id));
       if(req.url!=='/api/project')return reply(404,{error:'not_found'});
       const result=await readProject(pool,route.id);
       return result?reply(200,result):reply(404,{error:'not_found'});

@@ -7,7 +7,7 @@ const root=path.resolve('.local/owner-rehearsal/'+new Date().toISOString().repla
 let env,child,timer,stopping=false;
 const stop=async()=>{if(stopping)return;stopping=true;clearInterval(timer);if(child&&child.exitCode===null){const done=new Promise(r=>child.once('exit',r));child.kill();await done;}await env?.close();};
 try{
- env=await createOwnerRehearsal(root);
+ env=await createOwnerRehearsal(root,process.argv.includes('--v2')?{version:2,httpPort:4188}:{});
  child=spawn(process.execPath,['scripts/run-owner-rehearsal.mjs',env.file],{stdio:'inherit',windowsHide:true});
  child.once('exit',()=>console.log('UI stopped. Original fork and DB remain until this supervisor stops. Resume UI: node scripts/run-owner-rehearsal.mjs '+JSON.stringify(env.file)));
  await fs.writeFile(path.join(root,'supervisor.json'),JSON.stringify({pid:process.pid,uiPid:child.pid,file:env.file},null,2));

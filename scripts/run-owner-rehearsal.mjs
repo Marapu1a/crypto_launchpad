@@ -3,6 +3,8 @@ import path from 'node:path';
 import {createServer} from 'node:http';
 import {JsonRpcProvider} from 'ethers';
 import {createPool} from '../server/shared/store.mjs';
+import {createDrawOwnerCoordinator} from '../server/owner-launch/draw-coordinator.mjs';
+import {registerDeployedDraw} from '../server/owner-launch/draw-handoff.mjs';
 import {createOwnerCoordinator} from '../server/owner-launch/coordinator.mjs';
 import {createRuntimeHandoff} from '../server/owner-launch/handoff.mjs';
 import {ownerLaunchHttp} from '../server/owner-launch/http.mjs';
@@ -11,16 +13,17 @@ import {rehearsalSigner} from '../server/owner-launch/rehearsal-sign.mjs';
 let provider,pools,server;
 try{
  const c=JSON.parse(await fs.readFile(process.argv[2],'utf8'));
- if(c.schema!=='owner-rehearsal-v1'||c.profile?.mode!=='rehearsal'||!Number.isInteger(c.httpPort)||c.httpPort<1024||c.httpPort>65535)throw Error('Invalid rehearsal config');
+ const v2=c.schema==='owner-rehearsal-v2';
+ if(!['owner-rehearsal-v1','owner-rehearsal-v2'].includes(c.schema)||c.profile?.mode!=='rehearsal'||!Number.isInteger(c.httpPort)||c.httpPort<1024||c.httpPort>65535)throw Error('Invalid rehearsal config');
  for(const [value,protocol] of [[c.rpcUrl,'http:'],...Object.values(c.urls).map(u=>[u,'postgresql:'])]){const u=new URL(value);if(u.hostname!=='127.0.0.1'||u.protocol!==protocol)throw Error('Loopback endpoints required');}
  provider=new JsonRpcProvider(c.rpcUrl,undefined,{cacheTimeout:-1});provider.pollingInterval=50;
  const meta=await provider.send('hardhat_metadata',[]);if(meta.instanceId!==c.profile.instanceId||meta.chainId!==4663||meta.forkedNetwork?.forkBlockNumber!==82000000)throw Error('Fork instance changed; old journal cannot resume');
  // Local model only: latest stands for finalized on the private copy.
  const chain=new Proxy(provider,{get(target,key){if(key==='getBlock')return n=>target.getBlock(n==='finalized'?'latest':n);const v=Reflect.get(target,key);return typeof v==='function'?v.bind(target):v;}});
  pools=Object.fromEntries(Object.entries(c.urls).map(([role,url])=>[role,createPool(url)]));
- const coordinator=createOwnerCoordinator({pool:pools.executor,adminPool:pools.admin,provider:chain,profile:c.profile});
- const runtime={schema:'short-runtime-config-v1',mode:'rehearsal',instanceId:c.profile.instanceId,intervalMs:5000,concurrency:1,rpcFile:path.join(c.root,'rpc.txt'),databaseFile:path.join(c.root,'db.txt'),healthFile:path.join(c.root,'short-health.json')};
- const handoff=projectId=>createRuntimeHandoff({pool:pools.executor,apiPool:pools.api,profile:c.profile,runtime,keys:{[projectId]:c.keys},baseDomain:'tokens.localhost'})(projectId);
+ const coordinator=(v2?createDrawOwnerCoordinator:createOwnerCoordinator)({pool:pools.executor,adminPool:pools.admin,provider:chain,profile:c.profile});
+ const runtime={schema:v2?'draw-runtime-config-v2':'short-runtime-config-v1',mode:'rehearsal',instanceId:c.profile.instanceId,intervalMs:5000,concurrency:1,rpcFile:path.join(c.root,'rpc.txt'),databaseFile:path.join(c.root,'db.txt'),healthFile:path.join(c.root,'short-health.json')};
+ const handoff=async projectId=>{if(v2)await registerDeployedDraw({pool:pools.executor,adminPool:pools.admin,provider:chain,projectId,owner:c.profile.owner});return createRuntimeHandoff({pool:pools.executor,apiPool:pools.api,profile:c.profile,runtime,keys:{[projectId]:c.keys},baseDomain:'tokens.localhost'})(projectId);};
  const middleware=ownerLaunchHttp({coordinator,defaults:c.defaults,handoff,localSign:rehearsalSigner({pool:pools.executor,provider:chain,profile:c.profile})});
  server=createServer((req,res)=>middleware(req,res,async()=>{
   try{

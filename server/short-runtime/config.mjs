@@ -2,6 +2,7 @@ import {readFile,lstat} from 'node:fs/promises';
 import {isAbsolute} from 'node:path';
 import {inProject,verifyRole} from '../shared/store.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
+import {validateDrawPolicy} from '../../src/worker/draw-policy.mjs';
 import {validatePolicy} from '../../src/worker/production-policy.mjs';
 import {loadExecutorKeystore} from '../../src/worker/executor-keystore.mjs';
 import {UUID} from '../../src/launch/template.mjs';
@@ -14,7 +15,7 @@ export async function privateText(file){
  return (await readFile(file,'utf8')).trim();
 }
 export function validateRuntimeConfig(c){
- check(c?.schema==='short-runtime-config-v1'&&['rehearsal','production'].includes(c.mode),'Invalid runtime config');
+ check(['short-runtime-config-v1','draw-runtime-config-v2'].includes(c?.schema)&&['rehearsal','production'].includes(c.mode),'Invalid runtime config');
  check(Number.isInteger(c.intervalMs)&&c.intervalMs>=1000&&c.intervalMs<=300000,'Invalid interval');
  check(Number.isInteger(c.concurrency)&&c.concurrency>=1&&c.concurrency<=2,'Invalid concurrency');
  check(Array.isArray(c.projects)&&c.projects.length<=8,'At most eight projects in this runtime');
@@ -40,12 +41,12 @@ export async function loadRuntimeProject({pool,provider,config,entry,loadKey=loa
  await verifyRole(pool,'lp_executor');
  const policy=await inProject(pool,entry.projectId,async c=>{
   const {rows:[r]}=await c.query('SELECT s.policy_text,s.policy_hash,m.adapter_version,m.config_hash FROM launchpad.production_senders s JOIN launchpad.module_instances m ON m.project_id=s.project_id AND m.id=s.module_id WHERE s.project_id=$1 AND s.module_id=$2',[entry.projectId,entry.moduleId]);
-  check(r&&r.adapter_version==='production-candidate-v1'&&r.policy_hash===entry.policyHash&&r.config_hash===entry.policyHash,'Runtime registration mismatch');
-  const p=JSON.parse(r.policy_text);check(digest(p)===entry.policyHash&&p.projectId===entry.projectId,'Runtime policy checksum');validatePolicy(p);return p;
+  check(r&&r.adapter_version===(config.schema==='draw-runtime-config-v2'?'draw-candidate-v2':'production-candidate-v1')&&r.policy_hash===entry.policyHash&&r.config_hash===entry.policyHash,'Runtime registration mismatch');
+  const p=JSON.parse(r.policy_text);check(digest(p)===entry.policyHash&&p.projectId===entry.projectId,'Runtime policy checksum');(config.schema==='draw-runtime-config-v2'?validateDrawPolicy:validatePolicy)(p);return p;
  });
  const keys={};
  for(const role of ['executor','publisher'])keys[role]=await loadKey({file:entry[role].keyFile,password:await readSecret(entry[role].passwordFile),expectedAddress:policy[role],provider});
- return {projectId:entry.projectId,moduleId:entry.moduleId,enabled:entry.enabled,pool,provider,nativeFloor:policy.limits.nativeFloor,signer:keys.executor,publisher:keys.publisher,
+ return {policySchema:policy.schema,projectId:entry.projectId,moduleId:entry.moduleId,enabled:entry.enabled,pool,provider,nativeFloor:policy.limits.nativeFloor,signer:keys.executor,publisher:keys.publisher,
   guard:async()=>{
    await runtimeEnvironment(provider,config);
    await inProject(pool,entry.projectId,async c=>{const {rows:[r]}=await c.query('SELECT policy_hash FROM launchpad.production_senders WHERE project_id=$1 AND module_id=$2',[entry.projectId,entry.moduleId]);check(r?.policy_hash===entry.policyHash,'Activated policy changed');});

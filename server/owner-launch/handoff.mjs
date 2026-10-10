@@ -18,10 +18,10 @@ export function createRuntimeHandoff({pool,apiPool,profile,runtime,keys={},baseD
     JOIN launchpad.production_senders s ON s.project_id=p.id AND s.module_id=m.id
     WHERE l.project_id=$1`,[projectId]);
    check(row&&same(row.owner_address,profile.owner),'Registered launch for this owner required');
-   const state=JSON.parse(row.state_text),policy=JSON.parse(row.policy_text);
-   check(digest(state)===row.state_hash&&state.stage==='registered'&&state.input.id===projectId&&state.profileHash===digest(profile),'Registered journal checksum');
+   const state=JSON.parse(row.state_text),policy=JSON.parse(row.policy_text),v2=runtime.schema==='draw-runtime-config-v2';
+   check(digest(state)===row.state_hash&&state.stage===(v2?'deployed':'registered')&&state.schema===(v2?'owner-launch-v2':'owner-launch-v1')&&state.input.id===projectId&&state.profileHash===digest(profile),'Registered journal checksum');
    check(digest(policy)===row.policy_hash&&digest(state.policy)===row.policy_hash&&row.config_hash===row.policy_hash&&policy.projectId===projectId,'Registered policy mismatch');
-   check(row.adapter_version==='production-candidate-v1'&&row.slug===state.input.slug&&same(row.token_address,state.launch.token)&&same(row.program_address,policy.contracts.program.address),'Registered project mismatch');
+   check(row.adapter_version===(v2?'draw-candidate-v2':'production-candidate-v1')&&row.slug===state.input.slug&&same(row.token_address,state.launch.token)&&same(row.program_address,policy.contracts[v2?'fundingRouter':'program'].address),'Registered project mismatch');
    return {state,policy,hash:row.policy_hash,slug:row.slug};
   });
   const {state,policy,hash,slug}=source,hostname=slug+'.'+baseDomain;

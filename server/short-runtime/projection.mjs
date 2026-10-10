@@ -1,3 +1,4 @@
+import {buildDrawSnapshot} from './draw-projection.mjs';
 import {keccak256} from 'ethers';
 import {inProject,verifyRole} from '../shared/store.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
@@ -47,7 +48,7 @@ export async function publishShortView({pool,provider,projectId,moduleId,status,
    let metadata={};if(launch){const s=JSON.parse(launch.state_text);check(digest(s)===launch.state_hash&&s.input.id===projectId,'Launch metadata checksum');metadata=s.input.draft;}
    return {policy,state,metadata,revision:r.revision};
   });
-  const snapshot=await buildShortSnapshot({provider,...source});
+  const snapshot=await (source.policy.schema==='draw-production-policy-v2'?buildDrawSnapshot:buildShortSnapshot)({provider,...source});
   const saved=await inProject(pool,projectId,c=>c.query(`INSERT INTO launchpad.short_public_views(project_id,module_id,source_revision,snapshot,observed_at,service_status)
    VALUES($1,$2,$3,$4,clock_timestamp(),$5) ON CONFLICT(project_id,module_id) DO UPDATE SET
    source_revision=EXCLUDED.source_revision,snapshot=EXCLUDED.snapshot,observed_at=EXCLUDED.observed_at,

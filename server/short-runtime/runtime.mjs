@@ -1,8 +1,9 @@
+import {runDrawWorker} from '../shared/draw-worker.mjs';
 import {runProductionWorker} from '../shared/production-worker.mjs';
 import {sharedScanProvider} from './reader.mjs';
 
 const safe=value=>typeof value==='string'&&/^[a-z0-9.,:-]{1,100}$/.test(value)?value:undefined;
-export async function runtimePass({provider,projects,runWorker=runProductionWorker,concurrency=2}){
+export async function runtimePass({provider,projects,runWorker=p=>p.policySchema==='draw-production-policy-v2'?runDrawWorker(p):runProductionWorker(p),concurrency=2}){
  if(!Number.isInteger(concurrency)||concurrency<1||concurrency>4)throw Error('Invalid concurrency');
  const shared=sharedScanProvider(provider),results=Array(projects.length);let cursor=0;
  await Promise.all(Array.from({length:Math.min(concurrency,projects.length)},async()=>{
