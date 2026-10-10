@@ -20,6 +20,7 @@
     "test:studio": "node tests/studio/rehearsal.mjs",
     "start": "node server/app.mjs",
     "start:shared": "node server/shared/start.mjs",
+    "start:short-notify": "node server/short-runtime/notify.mjs",
     "start:short": "node server/short-runtime/start.mjs",
     "migrate:shared": "node scripts/migrate-shared.mjs",
     "test:shared": "node tests/shared/projects.mjs",

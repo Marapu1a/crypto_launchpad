@@ -83,7 +83,7 @@ test('Reorg and reverted receipt retain or stop state; finality failure never cl
 
 test('Admission is repeated before signing and broadcasting, budgets prevent signing', async () => {
   const f = fixture(); await advanceProductionTransaction(f); assert.deepEqual(f.admits, ['prepare', 'sign', 'broadcast']);
-  const g = fixture(); g.provider.getBalance = async () => 0n; assert.equal((await advanceProductionTransaction(g)).reason, 'native-balance'); assert.equal(g.saved.length, 0);
+  const g = fixture(); g.provider.getBalance = async () => 0n; assert.equal((await advanceProductionTransaction(g)).reason, 'native-balance'); assert.equal(g.saved.length, 1); assert.equal(g.state.pending, undefined); assert.equal(g.state.gasFunding.active, true);
   const h = fixture(); h.admit = async ({ phase }) => { if (phase === 'broadcast') throw Error('cutoff expired'); };
   await assert.rejects(advanceProductionTransaction(h), /cutoff expired/); assert.ok(h.state.pending); assert.equal(h.broadcasts.length, 0);
 });
@@ -110,4 +110,16 @@ test('Timing model matches QIANQI and HTTP beacon alone cannot admit a freeze', 
     await assert.rejects(admitBeacon({ observation, timing, beacon, verify: async () => false }), /Unverified/);
     await assert.rejects(admitBeacon({ observation, timing, beacon }), /Unverified/);
   }
+});
+
+test('Gas shortage is durable per role, estimate failure is unknown, topup resumes once',async()=>{
+ for(const role of ['executor','publisher']){
+  const f=fixture();if(role==='publisher'){f.policy.publisher=f.signer.address;f.policy.executor=Wallet.createRandom().address;f.role=role;f.state.identity=policyIdentity(f.policy)+':publisher';}
+  f.provider.getBalance=async()=>1n;const wait=await advanceProductionTransaction(f);assert.equal(wait.reason,'native-balance');assert.equal(wait.gasFunding.shortfallWei,'25200');assert.equal(wait.gasFunding.role,role);assert.equal(f.state.pending,undefined);assert.equal(f.broadcasts.length,0);
+  const original=f.provider.estimateGas;f.provider.estimateGas=async()=>{throw Object.assign(Error('RPC secret'),{code:'INSUFFICIENT_FUNDS'});};await advanceProductionTransaction(f);assert.equal(f.state.gasFunding.requiredWei,null);assert.equal(f.state.gasFunding.estimateAvailable,false);
+  f.state=structuredClone(f.saved.at(-1));f.provider.estimateGas=original;f.provider.getBalance=async()=>1000000n;f.finalized=10;assert.equal((await advanceProductionTransaction(f)).status,'confirmed');assert.equal(f.state.gasFunding.active,false);assert.equal((await advanceProductionTransaction(f)).status,'already-confirmed');assert.equal(f.broadcasts.length,1);
+ }
+});
+test('Balance lost at broadcast keeps exact signed transaction and resumes after refill',async()=>{
+ const f=fixture(),send=f.provider.broadcastTransaction;f.provider.broadcastTransaction=async()=>{throw Object.assign(Error('secret'),{code:'INSUFFICIENT_FUNDS'});};const r=await advanceProductionTransaction(f);assert.equal(r.reason,'native-balance');const raw=f.state.pending.raw;assert.equal(f.state.gasFunding.active,true);f.provider.broadcastTransaction=send;f.finalized=10;assert.equal((await advanceProductionTransaction(f)).status,'confirmed');assert.equal(f.broadcasts[0],raw);assert.equal(f.state.gasFunding.active,false);
 });

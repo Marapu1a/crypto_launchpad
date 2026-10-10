@@ -1,5 +1,6 @@
 import { Transaction, keccak256 } from 'ethers';
 import { policyIdentity, verifyProductionBindings, finalizedObservation } from './production-policy.mjs';
+import {recordGasFunding} from './gas-funding.mjs';
 
 const check = (v, message) => { if (!v) throw Error(message); };
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
@@ -15,6 +16,12 @@ export async function advanceProductionTransaction({ provider, signer, policy, s
   check(['executor', 'publisher'].includes(role) && same(sender, policy[role]), 'Wrong executor/publisher');
   check(state.schema === 'short-production-journal-v1' && state.identity === policyIdentity(policy) + (role === 'publisher' ? ':publisher' : '') && Array.isArray(state.history), 'Journal identity mismatch');
   check(!state.failure, 'Reverted operation requires reconciliation');
+  const funding=async(required,active=true)=>{
+    const balance=await provider.getBalance(sender);
+    if(active&&required!==null&&balance>=required)required=null;
+    await recordGasFunding({state,save,role,wallet:sender,action:state.pending?.action??action,balance,required,active});
+    return {status:'waiting',reason:'native-balance',gasFunding:state.gasFunding};
+  };
   const last = state.history.at(-1);
   if (last) check(same((await provider.getBlock(last.blockNumber))?.hash, last.blockHash), 'Finalized history changed');
   if (!state.pending) {
@@ -31,9 +38,13 @@ export async function advanceProductionTransaction({ provider, signer, policy, s
     if (latest !== pending) return { status: 'waiting', reason: 'external-pending-nonce' };
     const price = (await provider.getFeeData()).gasPrice;
     if (price === null || price <= 0n || price > BigInt(policy.limits.maxGasPrice)) return { status: 'waiting', reason: 'gas-price' };
-    const gas = ((await provider.estimateGas({ ...intent, from: sender })) * 120n + 99n) / 100n;
+    let estimate;
+    try{estimate=await provider.estimateGas({ ...intent, from: sender });}
+    catch(e){if(e.code==='INSUFFICIENT_FUNDS')return funding(null);throw e;}
+    const gas = (estimate * 120n + 99n) / 100n;
     if (gas > BigInt(policy.limits.maxGasLimit)) return { status: 'waiting', reason: 'gas-limit' };
-    if (await provider.getBalance(sender) < gas * price + BigInt(policy.limits.nativeFloor)) return { status: 'waiting', reason: 'native-balance' };
+    const required=gas*price+BigInt(policy.limits.nativeFloor);
+    if (await provider.getBalance(sender) < required) return funding(required);
     await guard(); await admit({ action, request: intent, phase: 'sign' });
     const raw = await signer.signTransaction({ ...intent, chainId: 4663, nonce: latest, type: 0, gasPrice: price, gasLimit: gas });
     const tx = Transaction.from(raw);
@@ -49,7 +60,11 @@ export async function advanceProductionTransaction({ provider, signer, policy, s
     check(await provider.getTransactionCount(sender, 'latest') <= p.nonce, 'Nonce consumed by another transaction');
     await guard(); await admit({ action: p.action, request: { to: p.to, data: p.data, value: p.value }, phase: 'broadcast' });
     // A lost RPC response leaves the signed operation intact. Never replace the round/nonce.
-    const sent = await provider.broadcastTransaction(p.raw); check(sent.hash === p.hash, 'Broadcast hash mismatch');
+    let sent;
+    try{sent=await provider.broadcastTransaction(p.raw);}
+    catch(e){if(e.code==='INSUFFICIENT_FUNDS')return funding(tx.gasLimit*tx.gasPrice+BigInt(policy.limits.nativeFloor));throw e;}
+    check(sent.hash === p.hash, 'Broadcast hash mismatch');
+    if(state.gasFunding?.active)await funding(tx.gasLimit*tx.gasPrice+BigInt(policy.limits.nativeFloor),false);
     await hook('broadcast'); receipt = await provider.getTransactionReceipt(p.hash);
     if (!receipt) return { status: 'waiting', reason: 'receipt', hash: p.hash };
   }
@@ -62,6 +77,7 @@ export async function advanceProductionTransaction({ provider, signer, policy, s
   check(same((await provider.getBlock(receipt.blockNumber))?.hash, receipt.blockHash), 'Receipt branch changed');
   const resolved = { action: p.action, requestHash: p.requestHash, hash: p.hash, nonce: p.nonce, blockNumber: receipt.blockNumber, blockHash: receipt.blockHash, receiptStatus: receipt.status };
   state.history.push(resolved); delete state.pending;
+  if(receipt.status===1&&state.gasFunding?.active)await recordGasFunding({state,save,role,wallet:sender,action:p.action,balance:await provider.getBalance(sender),required:null,active:false});
   if (receipt.status === 0) state.failure = resolved;
   await save(state); await hook('confirmed');
   return { ...resolved, status: receipt.status === 1 ? 'confirmed' : 'blocked' };

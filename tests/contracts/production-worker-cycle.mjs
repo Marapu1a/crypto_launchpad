@@ -1,3 +1,4 @@
+import {readGasNotifications} from '../../server/short-runtime/gas-notifications.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -35,6 +36,7 @@ const provider = new Proxy(base,{ get(target,name) {
 } });
 const report={startedAt:new Date().toISOString(),scenarios:[],limits:['Isolated modeled chain 4663/finality; no public sends','Pons fixture, direct buys only; fork rehearsal remains','Test-only timing; historical authenticated drand vectors']};
 report.sourceHashes = Object.fromEntries([
+  'src/worker/gas-funding.mjs','server/short-runtime/gas-notifications.mjs',
   'server/shared/production-worker.mjs','server/shared/production-sender.mjs','src/worker/production-journal.mjs',
   'src/worker/production-template.mjs','src/worker/production-policy.mjs','src/worker/production-timing.mjs',
   'src/tickets/production-ledger.mjs','src/tickets/recognition.mjs','src/tickets/direct-curve.cjs',
@@ -106,6 +108,17 @@ try {
     for(let j=5;j<9;j++)await buy(a,j,1000000000n);
     for(let j=9;j<13;j++)await buy(b,j,1500000000n);
     await move(roundTime-timing.lead-61); // Beacon ahead: recognition and funding continue, freeze waits.
+    const balances=await Promise.all([a.signer,a.publisher].map(w=>provider.getBalance(w.address)));
+    for(const w of [a.signer,a.publisher])await hre.network.provider.send('hardhat_setBalance',[w.address,'0x0']);
+    assert.equal((await pass(a)).reason,'native-balance');
+    assert.equal((await state(a)).gasFunding.active,true);
+    await until(b,async()=>await b.program.freeFund()===96000000n);
+    await hre.network.provider.send('hardhat_setBalance',[a.signer.address,'0x'+balances[0].toString(16)]);
+    await until(a,async()=>(await state(a)).runtime?.publisher?.gasFunding?.active===true);
+    const observed=await readGasNotifications(db.pools.executor,projects.map(p=>({enabled:true,projectId:p.projectId,moduleId:p.moduleId,policyHash:digest(p.policy)})));
+    assert.deepEqual(observed.errors,[]);
+    assert.ok(observed.events.some(e=>e.projectId===a.projectId&&e.role==='publisher'&&e.active));
+    await hre.network.provider.send('hardhat_setBalance',[a.publisher.address,'0x'+balances[1].toString(16)]);
     for(const [p,budget] of [[a,64000000n],[b,96000000n]]) {
       await until(p,async()=>{const s=await state(p);return await p.program.freeFund()===budget && s.runtime && creditedPurchases(p.policy,s.runtime.ledger).length===4 && await p.splitter.credit(1)===0n && await p.splitter.credit(2)===0n;});
       assert.equal(await p.program.cycle(),0n);

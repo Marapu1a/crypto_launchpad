@@ -16,7 +16,8 @@ export async function runtimePass({provider,projects,runWorker=runProductionWork
      const balances=await Promise.all([p.signer,p.publisher].map(async s=>String(await provider.getBalance(await s.getAddress()))));
      const outcome=await runWorker({...p,provider:shared.provider});
      const alerts=balances.flatMap((b,i)=>BigInt(b)<BigInt(p.nativeFloor??'0')?[(i?'publisher':'executor')+'-native-low']:[]);
-     result={status:safe(outcome.status)??'blocked',reason:safe(outcome.reason),operation:safe(outcome.operation),balances,alerts};
+     result={status:safe(outcome.status)??'blocked',reason:safe(outcome.reason),operation:safe(outcome.operation),role:safe(outcome.role),balances,alerts};
+     if(outcome.gasFunding)result.gasFunding=Object.fromEntries(['active','role','wallet','action','balanceWei','requiredWei','shortfallWei','estimateAvailable','changedAt'].map(k=>[k,outcome.gasFunding[k]]));
     }
    }catch{result={status:'blocked',reason:'project-pass-failed'};}
    results[index]={projectId:p.projectId,moduleId:p.moduleId,...result,completedAt:new Date().toISOString(),durationMs:Date.now()-started};
