@@ -15,7 +15,7 @@ function persist(){localStorage.setItem(key,JSON.stringify({id:input.id,input,in
 async function action(kind,body={}){state=await request(input.id+'/'+kind,body);input=state.input;persist();return state;}
 function render(){
  const step=state?.pending??state?.candidate;
- app.innerHTML=`<main style="max-width:1050px;margin:32px auto;padding:24px"><a href="/launch.html">Launchpad</a><p class="eyebrow">ЗАПУСК ЧЕРЕЗ КОШЕЛЁК · РЕПЕТИЦИЯ</p><h1>Токен и ежедневный розыгрыш</h1><p>Контракты для сети 4663 проверяются в изолированной копии. Каждую транзакцию подтверждает кошелёк владельца.</p><p>Владелец: <code>${escape(config.owner)}</code></p>
+ app.innerHTML=`<main style="max-width:1050px;margin:32px auto;padding:24px"><a href="/launch.html">Launchpad</a><p class="eyebrow">ЗАПУСК ЧЕРЕЗ КОШЕЛЁК · РЕПЕТИЦИЯ</p><h1>Токен и ежедневный розыгрыш</h1><p>Контракты для сети 4663 проверяются в изолированной копии. Каждую транзакцию подтверждает кошелёк владельца.</p>${config.localFixtureWallet?'<p><strong>Локальный тестовый кошелёк.</strong> Каждый шаг отправляется только в копию сети. Это не реальные средства и не подключённое расширение.</p>':''}<p>Владелец: <code>${escape(config.owner)}</code></p>
  <form id="owner-form"><fieldset ${busy||state?'disabled':''} style="border:0;padding:0"><div class="two">${field('name','Название',input.draft.name)}${field('symbol','Тикер',input.draft.symbol)}${field('slug','Поддомен',input.slug)}${field('logo','Картинка IPFS',input.draft.logo)}</div>
  <label class="field"><span>Картинка</span><input id="image-file" type="file" accept="image/png,image/jpeg,image/webp"></label><button type="button" class="button secondary" id="upload">Загрузить через Pons</button><p>Торговая пара: USDG</p>
  <div class="two">${field('creatorFee','Creator fee, %',input.draft.creatorFee)}${field('openingBuy','Первая покупка, USDG',input.draft.openingBuy||'0')}${field('ticketPurchase','Покупок на билет, USDG',input.draws.ticketPurchase)}${field('minimumFund','Фонд от, USDG',input.draws.short.minimumFund)}${field('hours','Часов между розыгрышами',input.draws.short.intervalSeconds/3600)}${field('count','Призовых мест',input.draws.short.basket.weights.length)}${field('weights','Веса крупных призов',input.draws.short.basket.weights.join(':'))}${field('minimumUnit','Минимальная единица приза',input.draws.short.basket.minimumUnit)}${field('prizes','На призы, %',input.draws.fees.prizesBps/100)}${field('teamShare','Команде, %',input.draws.fees.teamBps/100)}${field('operationsShare','На обслуживание, %',input.draws.fees.operationsBps/100)}${field('team','Кошелёк команды',input.team)}${field('operations','Кошелёк обслуживания',input.operations)}</div><p>Недостающие веса заполняются единицами. Победителя может не быть; фонд переносится.</p><button class="button primary" type="submit">Проверить и сохранить запуск</button></fieldset></form>
@@ -47,11 +47,11 @@ function render(){
   return work(async()=>{const {publication}=await publishImageOnServer(file);input.draft.logo=publication.uri;persist();notice=publication.warning||'Картинка загружена через Pons';}).then(()=>{for(const [k,v] of form)if(k!=='logo'){const el=document.querySelector(`[name="${k}"]`);if(el)el.value=v;}});
  };
  async function sign(kind){
-  if(!window.ethereum)throw Error('Подключите кошелёк');
-  await window.ethereum.request({method:'eth_requestAccounts'});
+  if(config.localFixtureWallet){if(!window.confirm('Подтвердить этот шаг в локальной копии сети? Реальные средства не используются.'))return;}
+  else{if(!window.ethereum)throw Error('Подключите кошелёк');await window.ethereum.request({method:'eth_requestAccounts'});}
   const step=state.candidate??state.pending;
   await action(kind,{requestId:step.id,...(kind==='arm'?{revision:state.revision}:{})});
-  const hash=await signReservedOwnerStep(window.ethereum,state);
+  const hash=config.localFixtureWallet?(await request(input.id+'/rehearsal-sign',{requestId:state.pending.id})).hash:await signReservedOwnerStep(window.ethereum,state);
   // Save returned hash locally too if the acknowledgement cannot reach backend.
   localStorage.setItem(key+':hash:'+input.id,JSON.stringify({requestId:state.pending.id,hash}));
   await action('attach',{requestId:state.pending.id,hash});notice='Отправка сохранена. Следующий шаг откроется после окончательного подтверждения.';
@@ -70,6 +70,10 @@ function render(){
 async function boot(){
  try{
   config=await request('config');const saved=JSON.parse(localStorage.getItem(key)||'null');
+  if(saved&&saved.instanceId!==config.instanceId){
+   app.innerHTML=`<main style="padding:40px"><h1>Открыт другой локальный стенд</h1><p>Сохраните ID прежнего запуска: <code>${escape(saved.id)}</code>. Его серверный журнал остаётся в прежней среде.</p><button id="new-stand" class="button secondary">Начать черновик на новом стенде</button></main>`;
+   document.querySelector('#new-stand').onclick=()=>{localStorage.removeItem(key);void boot();};return;
+  }
   if(saved){if(saved.instanceId!==config.instanceId)throw Error('Сохранённый запуск относится к другому стенду. Сохраните его ID перед созданием нового.');input=saved.input;try{await action('next');}catch(e){notice=e.message;}}
   else input={id:crypto.randomUUID(),slug:'token-'+Date.now().toString().slice(-6),draft:{...initialDraft(),...config.defaults.draft},draws:structuredClone(config.defaults.draws),team:config.defaults.team,operations:config.defaults.operations};
   render();
