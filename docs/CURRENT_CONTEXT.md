@@ -1,5 +1,10 @@
 # Текущий контекст
 
+10.10.2026: [распределитель Short/Monthly](DRAW_FUNDING_ROUTER.md) проверен
+во всех3 режимах через FeeSplitter и настоящие фонды.4 контрактных +6 unit PASS;
+точные доли, независимая доставка, cap Next, uint256. Далее — v2 build/policy
+и связи контрактов; owner deployment/worker/UI ещё не подключены.
+
 10.10.2026: [Monthly контрактный цикл](MONTHLY_CONTRACT_CYCLE.md) реализован
 отдельным кандидатом:30суток, Current/Next, gate75/25, BLS, перенос/claim.
 4 контрактных +8 unit/соседних PASS. Старый Short build неизменён. Далее —
