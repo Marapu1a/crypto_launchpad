@@ -2,6 +2,16 @@
 
 Обновлено 10.10.2026. **QIANQI переведён на runtime платформы.**
 
+10.10.2026: [автоматический production Short worker](PRODUCTION_SHORT_WORKER.md)
+готов как внутренний кандидат: finalized ledger, отдельный publisher, planner и
+admission, fees/draw/claims, durable snapshot/подпись под PostgreSQL lease.
+Два токена независимо прошли полный цикл (64/96 тестовых USDG), проверены
+потеря DB session, поздний билет, ожидание finality, повтор без выплаты и
+миграция 012 с backfill. 6 новых, 8 контрактных, 10 unit и 10 shared проверок PASS.
+Сервер/QIANQI не менялись. Далее — fork настоящего Pons с теми же artifacts,
+рабочие маршруты покупок, затем wallet/IPFS и постоянный runtime/сайт.
+Боевые timing bounds и включение public launch ещё не согласованы.
+
 10.10.2026: [проверка двух естественных покупок QIANQI](QIANQI_PURCHASE_CHECK_2026-10-10.md).
 Покупки 0.75 и 0.842856 USDG распознаны; четыре штатные транзакции collector,
 в призовой vault поступило 0.053042 USDG. Первоначально сайт показывал finalized

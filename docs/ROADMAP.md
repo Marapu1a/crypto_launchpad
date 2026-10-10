@@ -1,5 +1,14 @@
 # Этапы
 
+10.10.2026: [production Short worker](PRODUCTION_SHORT_WORKER.md) соединён:
+финализированная история покупок, publisher, fee flow, freeze/drand/settle/claim,
+PostgreSQL recovery и два изолированных проекта. 6 новых сквозных сценариев PASS,
+соседние контракты/unit/shared PASS. Миграция 012 только в тестовых БД.
+**Следующий пакет:** fork настоящего Pons с неизменными production artifacts
+и новым worker; проверить запуск TOKEN/USDG, opening buy/торговые маршруты
+и реальную проводку creator fee. После — owner wallet/IPFS и постоянный
+runtime/проекции API/сайт на поддомене. QIANQI ради этого не переделывать.
+
 10.10.2026: [production contracts + PG sender](PRODUCTION_SHORT_CONTRACTS.md)
 готовы как отдельный кандидат: 4663 artifacts, BLS, checkpoint, split,
 encrypted key utility, изолированный sender journal и session-loss recovery.

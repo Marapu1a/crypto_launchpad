@@ -26,7 +26,7 @@ export async function registerProductionSender({ pool, provider, projectId, modu
 
 // Internal transport. The caller supplies a concrete contract/dataset admission planner.
 // No HTTP route or service unit enables it. Session lock lasts across committed writes.
-export async function runProductionSender({ pool, provider, signer, projectId, moduleId, request, action, admit, hook }) {
+export async function runProductionSender({ pool, provider, signer, projectId, moduleId, request, action, admit, hook, operate }) {
   await verifyRole(pool, 'lp_executor');
   const c = await pool.connect(); let broken = false, held = false, lock;
   const onError = () => { broken = true; }; c.on('error', onError);
@@ -53,6 +53,7 @@ export async function runProductionSender({ pool, provider, signer, projectId, m
       const { rows } = await c.query('UPDATE launchpad.production_senders SET state_text=$4,state_hash=$5,revision=revision+1 WHERE project_id=$1 AND module_id=$2 AND revision=$3 RETURNING revision', [projectId, moduleId, revision, JSON.stringify(value), digest(value)]);
       check(rows.length === 1, 'Production state transition lost'); revision = rows[0].revision;
     };
+    if (operate) return await operate({ policy, state, save, lease });
     return await advanceProductionTransaction({ provider, signer, policy, state, save, lease, admit, request, action, hook });
   } finally {
     try { if (held) await c.query('SELECT pg_advisory_unlock(hashtextextended($1,49177))', [lock]); await c.query('RESET launchpad.project_id'); } catch { broken = true; }

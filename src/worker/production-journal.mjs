@@ -7,13 +7,13 @@ const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 // Candidate sender primitive. No CLI/public route invokes it. Caller owns a durable
 // store and a database lease covering chain+sender (not just project), and admits calldata.
 // Signing keys are injected by a signer provider; they never enter config/state.
-export async function advanceProductionTransaction({ provider, signer, policy, state, save, lease, admit, request, action, hook = async () => {} }) {
+export async function advanceProductionTransaction({ provider, signer, policy, state, save, lease, admit, request, action, role = 'executor', hook = async () => {} }) {
   check(typeof lease === 'function' && typeof admit === 'function' && typeof save === 'function', 'Execution guards required');
   const guard = async () => { await lease(); await verifyProductionBindings(provider, policy); };
   await guard();
   const sender = await signer.getAddress();
-  check(same(sender, policy.executor), 'Wrong executor');
-  check(state.schema === 'short-production-journal-v1' && state.identity === policyIdentity(policy) && Array.isArray(state.history), 'Journal identity mismatch');
+  check(['executor', 'publisher'].includes(role) && same(sender, policy[role]), 'Wrong executor/publisher');
+  check(state.schema === 'short-production-journal-v1' && state.identity === policyIdentity(policy) + (role === 'publisher' ? ':publisher' : '') && Array.isArray(state.history), 'Journal identity mismatch');
   check(!state.failure, 'Reverted operation requires reconciliation');
   const last = state.history.at(-1);
   if (last) check(same((await provider.getBlock(last.blockNumber))?.hash, last.blockHash), 'Finalized history changed');

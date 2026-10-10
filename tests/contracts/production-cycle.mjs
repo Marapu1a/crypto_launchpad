@@ -198,7 +198,7 @@ try {
     const result = await runProductionSender(args); assert.equal(result.status, 'confirmed'); assert.equal(result.hash, prepared.pending.hash);
     assert.equal((await runProductionSender(args)).status, 'already-confirmed');
     assert.equal(await quote.balanceOf(await team.getAddress()), 30000000n);
-    report.postgres = { hash: result.hash, sessionTerminated: true, repeated: 'already-confirmed', migrations: 11 };
+    report.postgres = { hash: result.hash, sessionTerminated: true, repeated: 'already-confirmed', migrations: 12 };
   });
   report.status = 'PASS';
 } catch (e) { report.status = 'FAIL'; report.error = e.shortMessage || e.message; console.error(report.error); process.exitCode = 1; }

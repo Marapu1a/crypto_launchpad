@@ -20,6 +20,19 @@ function fixture() {
   return f;
 }
 
+test('Publisher journal uses its own identity and cannot resume as executor', async () => {
+  const f = fixture(), publisher = Wallet.createRandom();
+  f.policy.publisher = publisher.address;
+  f.signer = publisher; f.role = 'publisher';
+  f.state.identity = policyIdentity(f.policy) + ':publisher';
+  const result = await advanceProductionTransaction(f);
+  assert.equal(result.reason, 'receipt-finality');
+  assert.equal(Transaction.from(f.state.pending.raw).from, publisher.address);
+  await assert.rejects(advanceProductionTransaction({ ...f, role: 'executor' }), /Wrong executor/);
+  await assert.rejects(advanceProductionTransaction({ ...f, state: { ...f.state, identity: policyIdentity(f.policy) } }), /Journal identity/);
+  f.finalized = 10; assert.equal((await advanceProductionTransaction(f)).status, 'confirmed');
+});
+
 test('Production policy rejects implicit limits, shared signer, wrong chain and changed runtime', async () => {
   for (const change of [p => { delete p.limits; }, p => { p.publisher = p.executor; }, p => { p.chainId = 31337; }, p => { p.timing.lead = 1; }]) {
     const f = fixture(); change(f.policy); assert.throws(() => validatePolicy(f.policy));
