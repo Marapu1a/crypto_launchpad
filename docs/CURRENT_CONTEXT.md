@@ -1,5 +1,10 @@
 # Текущий контекст
 
+10.10.2026: [v2 build/policy](DRAW_BUILD_POLICY.md) готовы отдельно от v1:
+доверенные artifacts,3 режима, проверка runtime и полных Pons/funding/RNG bindings
+на одном блоке.2 integration/15unit/CLI PASS; authorizationToSend=false.
+Далее — v2 owner deployment plan и восстановление; worker/UI ещё впереди.
+
 10.10.2026: [распределитель Short/Monthly](DRAW_FUNDING_ROUTER.md) проверен
 во всех3 режимах через FeeSplitter и настоящие фонды.4 контрактных +6 unit PASS;
 точные доли, независимая доставка, cap Next, uint256. Далее — v2 build/policy
