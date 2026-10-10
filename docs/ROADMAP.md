@@ -1,5 +1,12 @@
 # Этапы
 
+10.10.2026: [сквозной локальный запуск нового проекта](NEW_TOKEN_STUDIO.md)
+готов: форма → Pons и Short contracts → PostgreSQL registration → automated
+worker → отдельный localhost-сайт. Реальный browser, два токена, restart/replay,
+late recognition, обе ветки drand/settle, повтор без выплаты проверены.
+Дальше предложен production профиль первого USDG/Short и закрытие реальных
+подписей/IPFS/finality; существующий QIANQI не переделывать ради нового токена.
+
 10.10.2026: [watchdog с компьютера](LOCAL_WATCHDOG.md) установлен по выбору
 владельца: API и возраст/SHA256 off-server архивов, Windows alerts. Постоянная
 внешняя точка пока не предоставлена; при спящем компьютере проверка не работает.
