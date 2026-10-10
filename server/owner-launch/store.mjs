@@ -33,7 +33,7 @@ export async function withOwnerLaunch({pool,projectId,owner},operate){
     await c.query('COMMIT');
     }catch(e){await c.query('ROLLBACK');throw e;}
    }else{
-    const {rows}=await c.query('UPDATE launchpad.owner_launches SET state_text=$2,state_hash=$3,revision=revision+1,completed=$4 WHERE project_id=$1 AND revision=$5 RETURNING revision',[projectId,text,hash,s.stage==='registered',revision]);
+    const {rows}=await c.query('UPDATE launchpad.owner_launches SET state_text=$2,state_hash=$3,revision=revision+1,completed=$4 WHERE project_id=$1 AND revision=$5 RETURNING revision',[projectId,text,hash,(s.stage==='registered'||s.schema==='owner-launch-v2'&&s.stage==='deployed'),revision]);
     check(rows.length===1,'Launch journal changed');revision=rows[0].revision;
    }
   };

@@ -1,5 +1,11 @@
 # Этапы
 
+10.10.2026: [сохраняемый owner launch v2](DRAW_OWNER_LAUNCH.md) прошёл
+для Short/Monthly/обоих на частном Pons fork82000000: PG journal, nonce/hash
+recovery, finality, bind и проверка policy.4fork/8unit PASS. Статус deployed,
+исполнение выключено; прежний UI/v1 worker не подключаются автоматически.
+Далее — v2 worker/ledger и отдельный handoff, затем UI конструктора.
+
 10.10.2026: [v2 build/policy](DRAW_BUILD_POLICY.md) готовы отдельно от v1:
 доверенные artifacts,3 режима, проверка runtime и полных Pons/funding/RNG bindings
 на одном блоке.2 integration/15unit/CLI PASS; authorizationToSend=false.
