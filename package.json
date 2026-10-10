@@ -11,6 +11,7 @@
     "test:production-contracts": "node tests/contracts/production-cycle.mjs",
     "test:production-worker": "node tests/contracts/production-worker-cycle.mjs",
     "test:production-fork": "node tests/fork/production-worker.mjs",
+    "test:owner-launch": "node tests/fork/owner-launch.mjs",
     "test": "npm run test:unit",
     "test:reference": "node scripts/test-reference.cjs",
     "dev": "vite",

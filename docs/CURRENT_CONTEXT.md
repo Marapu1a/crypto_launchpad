@@ -2,6 +2,15 @@
 
 Обновлено 10.10.2026. **QIANQI переведён на runtime платформы.**
 
+10.10.2026: [owner launch с PostgreSQL journal](OWNER_LAUNCH_FLOW.md) соединяет
+форму, подпись production artifacts4663, Pons launch/bind и регистрацию worker.
+Проверено на частном fork82000000: lost hash, restart/очистка браузера,
+finalized wait, RLS и резервации кошельков. Новая013 только в тестовых БД.
+Это отдельный интеграционный кандидат `/owner.html`, не включённый в панель4185
+или public mainnet. Далее — постоянное обслуживание Short, затем API/поддомен;
+перед публичным запуском — реальные wallet transport и timing/budget настройки.
+5fork/23unit/10shared и build PASS; детали и отчёты в документе модуля.
+
 10.10.2026: [загрузка картинок через Pons](PONS_IMAGE_UPLOAD.md) подключена к
 базовой форме и Studio. Кратковременный локальный Chromium использует штатный
 file input Pons; без авторизации/кошелька, подмены Origin и собственной IPFS-ноды.

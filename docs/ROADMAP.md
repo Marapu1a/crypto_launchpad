@@ -1,5 +1,12 @@
 # Этапы
 
+10.10.2026: [owner launch + server journal](OWNER_LAUNCH_FLOW.md) реализован
+для частной репетиции4663: production artifacts, nonce reservation, finalized
+recovery, сохранение проекта/worker в PostgreSQL. Обычный Studio пока отдельный;
+реальный кошелёк/mainnet transport ещё не включён. Следующий пакет — постоянные
+службы нового Short, общий reader, ключи/газ/alerts/backups; далее API/поддомен
+и финальная проверка кошелька с явными боевыми timing/budget перед public launch.
+
 10.10.2026: [Pons image upload](PONS_IMAGE_UPLOAD.md) закрыт для локальной панели:
 кнопка в обеих формах, реальный upload через страницу Pons, readback и reload.
 Своё хранилище не требуется. Дальше — production Short deployment через кошелёк
