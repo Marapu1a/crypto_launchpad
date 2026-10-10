@@ -2,6 +2,13 @@
 
 Обновлено 10.10.2026. **QIANQI переведён на runtime платформы.**
 
+10.10.2026: [проверка двух естественных покупок QIANQI](QIANQI_PURCHASE_CHECK_2026-10-10.md).
+Покупки 0.75 и 0.842856 USDG распознаны; четыре штатные транзакции collector,
+в призовой vault поступило 0.053042 USDG. Первоначально сайт показывал finalized
+блок до пополнения, затем догнал. Ошибок/застрявшего funding нет, Telegram
+правильно не тревожил. Это реальная проверка финансового пути после handoff;
+ручных транзакций/restart не делали. Работа над новым Short template продолжается.
+
 10.10.2026: [контракты 4663 и PostgreSQL sender](PRODUCTION_SHORT_CONTRACTS.md)
 реализованы отдельно от Local*: checkpoint/dataset-bound RNG, immutable fee
 flow, recognition notice, encrypted per-project keystore, миграция 011 и
