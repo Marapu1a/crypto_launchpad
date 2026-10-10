@@ -5,6 +5,7 @@ import {createPool,verifyRole} from '../shared/store.mjs';
 import {validateRuntimeConfig,privateText,runtimeEnvironment,loadRuntimeProject} from './config.mjs';
 import {runtimePass,runRuntimeLoop} from './runtime.mjs';
 import {writeHealthFile} from './health-file.mjs';
+import {publishShortView} from './projection.mjs';
 
 let pool,provider,phase='configuration';
 try{
@@ -26,6 +27,10 @@ try{
  let last='';
  phase='pass-or-health';
  await runRuntimeLoop({signal:controller.signal,intervalMs:config.intervalMs,pass:()=>runtimePass({provider,projects,concurrency:config.concurrency}),publish:async report=>{
+  for(const result of report.projects){
+   try{const view=await publishShortView({pool,provider,...result,status:result.status});if(view?.failed)(result.alerts??=[]).push('public-view-failed');}
+   catch{(result.alerts??=[]).push('public-view-failed');}
+  }
   await writeHealthFile(config.healthFile,report);
   const summary=JSON.stringify(report.projects.map(({projectId,status,reason,alerts})=>({projectId,status,reason,alerts})));
   if(summary!==last){console.log(summary);last=summary;}

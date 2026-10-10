@@ -15,7 +15,7 @@ export const ABI = {
   program: [...LOCAL_ABI.program.filter(s => !s.startsWith('function freeze(') && !s.startsWith('function settle(')),
     `function freeze(${people},(uint256 number,bytes32 blockHash,uint256 timestamp,bytes32 ledgerHash))`,
     `function settle(${people})`, 'function instanceId() view returns(bytes32)',
-    'function PROFILE() view returns(bytes32)', ...uintGetters(['minimumUnit']),
+    'function PROFILE() view returns(bytes32)', ...uintGetters(['minimumUnit','liabilities']),
     'function weights(uint256) view returns(uint256)', 'function solvent() view returns(bool)',
     'function checkpoints(uint256) view returns(uint256 number,bytes32 blockHash,uint256 timestamp,bytes32 ledgerHash)'],
   adapter: [...LOCAL_ABI.adapter, 'function verify(uint64,bytes) view returns(bool)',

@@ -1,0 +1,31 @@
+import fs from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import {Interface,keccak256} from 'ethers';
+import {createTestPostgres} from '../contracts/production-postgres.mjs';
+import {ABI} from '../../src/worker/production-template.mjs';
+import {digest} from '../../src/tickets/digest.mjs';
+import {publishShortView} from '../../server/short-runtime/projection.mjs';
+const root='.local/test-results/short-projection-'+new Date().toISOString().replace(/[:.]/g,'-');await fs.mkdir(root,{recursive:true});
+const report={at:new Date().toISOString(),scenarios:[],limits:['Isolated PostgreSQL, deterministic RPC fixture; no public transactions']};let db;
+try{
+ db=await createTestPostgres(root+'/postgres');
+ const id='a5897d1a-def5-4c9f-a7bb-a76f2b16519e',addr=n=>'0x'+String(n).repeat(40),hash='0x'+'a'.repeat(64),code='0x6000',abi=new Interface(ABI.program);
+ const policy={projectId:id,executor:addr(2),publisher:addr(3),contracts:{program:{address:addr(1),codeHash:keccak256(code)}},template:{thresholdRaw:'10000000',minimumFund:'50000000',minimumUnit:'1',weights:[1],interval:'86400',creatorTaxBps:200,bps:[8000,1500,500]}};
+ const state={identity:digest(policy),runtime:{schema:'production-runtime-v1',ledger:{head:{number:1,hash},events:[],confirmations:[],bundles:{},evidence:{}},cycles:{}}};
+ await db.admin.query("INSERT INTO launchpad.projects VALUES($1,'projection','Projection',4663,$2,'test')",[id,addr(4)]);
+ await db.admin.query("INSERT INTO launchpad.module_instances VALUES($1,$1,'short','production-candidate-v1',$2,$3)",[id,addr(1),'a'.repeat(64)]);
+ await db.admin.query('INSERT INTO launchpad.production_senders VALUES($1,$1,4663,$2,$3,$4,$5,$6,1)',[id,addr(2),JSON.stringify(policy),digest(policy),JSON.stringify(state),digest(state)]);
+ const values={freeFund:50000000n,liabilities:0n,cycle:0n,pending:false,lastTerminal:100n};
+ const provider={getBlock:async n=>({number:n==='finalized'?2:n,hash,timestamp:200}),getCode:async()=>code,call:async req=>abi.encodeFunctionResult(abi.parseTransaction(req).name,[values[abi.parseTransaction(req).name]])};
+ const args={pool:db.pools.executor,provider,projectId:id,moduleId:id,status:'waiting'};
+ const read=async()=>(await db.admin.query('SELECT * FROM launchpad.short_public_views')).rows[0];
+ assert.equal((await publishShortView(args)).failed,false);assert.equal((await read()).snapshot.fundRaw,'50000000');report.scenarios.push('Initial finalized projection PASS');
+ await db.admin.query('UPDATE launchpad.short_public_views SET source_revision=2');
+ assert.equal((await publishShortView(args)).failed,true);assert.equal((await read()).source_revision,'2');assert.equal((await read()).snapshot.fundRaw,'50000000');report.scenarios.push('Older revision cannot overwrite PASS');
+ await db.admin.query(`UPDATE launchpad.short_public_views SET source_revision=0,snapshot=jsonb_set(snapshot,'{checkpoint,number}','3')`);
+ assert.equal((await publishShortView(args)).failed,true);assert.equal((await read()).snapshot.checkpoint.number,3);report.scenarios.push('Older block cannot overwrite PASS');
+ await db.admin.query(`UPDATE launchpad.short_public_views SET snapshot=NULL`);
+ assert.equal((await publishShortView({...args,reason:'native-balance'})).failed,false);assert.equal((await read()).service_status,'blocked');
+ await publishShortView({...args,status:'paused',provider:{getBlock(){throw Error('must not read');}}});assert.equal((await read()).service_status,'paused');assert.equal((await read()).snapshot.fundRaw,'50000000');report.scenarios.push('Gas attention and paused retention PASS');
+ report.status='PASS';report.sources={};for(const f of ['server/short-runtime/projection.mjs','server/shared/short-view.mjs','db/migrations/014_short_public_views.sql'])report.sources[f]=digest((await fs.readFile(f,'utf8')).replaceAll('\r\n','\n'));
+}catch(e){report.status='FAIL';report.error=e.message;console.error(e);process.exitCode=1;}finally{await fs.writeFile(root+'/report.json',JSON.stringify(report,null,2));console.log(report.status,report.scenarios,root+'/report.json');await db?.close();}

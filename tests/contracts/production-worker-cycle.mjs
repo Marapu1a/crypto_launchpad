@@ -15,6 +15,8 @@ import { inProject } from '../../server/shared/store.mjs';
 import {runtimePass} from '../../server/short-runtime/runtime.mjs';
 import {loadRuntimeProject} from '../../server/short-runtime/config.mjs';
 import {exerciseRuntimeProcess} from './runtime-process.mjs';
+import {publishShortView} from '../../server/short-runtime/projection.mjs';
+import {readShortView} from '../../server/shared/short-view.mjs';
 
 const vector = JSON.parse(readFileSync('vendor/qianqi/research/drand-feasibility/vector.json'));
 const preceding = JSON.parse(readFileSync('tests/fixtures/production-pre-freeze-beacon.json'));
@@ -40,6 +42,7 @@ report.sourceHashes = Object.fromEntries([
   'server/short-runtime/runtime.mjs','server/short-runtime/reader.mjs','server/short-runtime/config.mjs',
   'server/short-runtime/start.mjs','tests/contracts/runtime-process.mjs',
   'server/short-runtime/health-file.mjs',
+  'server/short-runtime/projection.mjs','server/shared/short-view.mjs',
   'tests/contracts/WorkerFixtures.sol','tests/fixtures/production-pre-freeze-beacon.json',
 ].map(file => [file,keccak256(Buffer.from(readFileSync(file,'utf8').replaceAll('\r\n','\n')))]));
 const root='.local/test-results/production-worker-'+report.startedAt.replace(/[:.]/g,'-');mkdirSync(root,{recursive:true});
@@ -113,6 +116,19 @@ try {
     assert.equal(await quote.balanceOf(a.operations.address),4000000n);
   });
   let preparedHash,frozenHash;
+  await scenario('Finalized public snapshots expose independent funds/ticket totals without private journals',async()=>{
+    for(const [p,expected] of [[a,'64000000'],[b,'96000000']]){
+      const published=await publishShortView({...p,status:'waiting'});assert.equal(published.failed,false);
+      const view=await readShortView(db.pools.api,p.projectId),s=view.modules[0].snapshot;
+      assert.equal(s.fundRaw,expected);assert.equal(s.tickets.wallets,4);assert.equal(s.tickets.creditedPurchases,4);assert.equal(view.modules[0].stale,false);
+      for(const secret of ['policy_text','state_text','privateKey','pending.raw','operation','executor','publisher'])assert.ok(!JSON.stringify(s).includes(secret));
+    }
+    const prior=await readShortView(db.pools.api,a.projectId);
+    const failedProvider=new Proxy(provider,{get(t,k){if(k==='getBlock')return async()=>{throw Error('secret RPC URL');};const x=Reflect.get(t,k);return typeof x==='function'?x.bind(t):x;}});
+    assert.equal((await publishShortView({...a,provider:failedProvider,status:'waiting'})).failed,true);
+    const after=await readShortView(db.pools.api,a.projectId);assert.deepEqual(after.modules[0].snapshot,prior.modules[0].snapshot);assert.equal(after.modules[0].service.projectionFailed,true);
+    await publishShortView({...a,status:'waiting'});
+  });
   await scenario('Process/DB-session loss before freeze broadcast; second project still progresses',async()=>{
     await move(roundTime-timing.lead-1);
     let killed=false;

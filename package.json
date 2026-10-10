@@ -43,7 +43,9 @@
     "check:qianqi-runtime": "node scripts/check-qianqi-runtime.mjs",
     "test:qianqi-runtime": "node scripts/test-qianqi-runtime.mjs",
     "test:qianqi-adapter": "node tests/shared/projects.mjs --qianqi-adapter",
-    "build:qianqi-runtime": "node scripts/build-qianqi-runtime.mjs"
+    "build:qianqi-runtime": "node scripts/build-qianqi-runtime.mjs",
+    "test:short-site": "node tests/shared/short-site.mjs",
+    "test:short-projection": "node tests/shared/short-projection.mjs"
   },
   "engines": {
     "node": ">=22"

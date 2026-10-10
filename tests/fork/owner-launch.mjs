@@ -104,7 +104,7 @@ try{
   assert.equal(sent.length,9);assert.equal(new Set(sent).size,9);
   assert.equal((await db.admin.query('SELECT count(*) FROM launchpad.production_senders WHERE project_id=$1',[project])).rows[0].count,'1');
   assert.equal((await db.admin.query('SELECT count(*) FROM launchpad.production_wallets WHERE project_id=$1',[project])).rows[0].count,'2');
-  assert.equal((await db.admin.query('SELECT count(*) FROM launchpad.schema_migrations')).rows[0].count,'13');
+  assert.equal((await db.admin.query('SELECT count(*) FROM launchpad.schema_migrations')).rows[0].count,'14');
   report.deployment={project,token:s.launch.token,program:s.contracts.program.address,transactions:s.history,policyHash:digest(s.policy)};
   const nonce=await provider.getTransactionCount(owner);await click('#refresh');await page.reload();await page.locator('#refresh').waitFor();await click('#refresh');assert.equal(await provider.getTransactionCount(owner),nonce);
  });
