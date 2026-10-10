@@ -3,6 +3,7 @@ import { FACTORY, ROUTER } from '../pons/client.mjs';
 import { ABI as LOCAL_ABI } from './local-worker.mjs';
 import { RECOGNITION } from '../tickets/late-recognition.mjs';
 import { verifyProductionBindings } from './production-policy.mjs';
+import routePins from '../qianqi/routes/genesis-fields.json' with {type:'json'};
 
 export const check = (v, m) => { if (!v) throw Error(m); };
 export const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
@@ -45,6 +46,8 @@ export async function verifyTemplate(provider, policy, blockTag = 'latest') {
   check(Number.isSafeInteger(t.creatorTaxBps) && t.creatorTaxBps >= 0 && t.creatorTaxBps <= 1000, 'Invalid creator fee');
   for (const k of ['team', 'operations']) check(isAddress(t[k]) && !same(t[k], ZeroAddress), 'Invalid recipient');
   for (const k of [...Object.keys(ABI), 'token', 'hook']) check(policy.contracts[k], 'Missing template contract ' + k);
+  if (policy.contracts.batchExecutor) check(same(policy.contracts.batchExecutor.address,routePins.pins.batchExecutor[0])
+    && same(policy.contracts.batchExecutor.codeHash,routePins.pins.batchExecutor[1]), 'Unreviewed batch executor');
   const c = contracts(provider, policy), at = { blockTag };
   const a = k => policy.contracts[k].address;
   const expected = [

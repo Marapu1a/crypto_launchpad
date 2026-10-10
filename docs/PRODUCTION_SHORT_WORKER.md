@@ -5,6 +5,11 @@
 Это внутренний кандидат нового шаблона. QIANQI, сервер, production БД,
 работающий Studio и публичные отправки в этом пакете не менялись.
 
+Дополнение 10.10.2026: следующий [fork Pons пакет](PRODUCTION_PONS_REHEARSAL.md)
+проверил эти artifacts и worker на настоящих контрактах, включая opening buy,
+direct и два USDG self-batch маршрута. Ниже сохранены границы первоначального
+стенда; актуальный следующий шаг — owner wallet/IPFS.
+
 ## Что делает исполнитель
 
 `server/shared/production-worker.mjs` обслуживает один проект за pass:

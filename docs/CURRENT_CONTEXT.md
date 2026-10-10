@@ -2,6 +2,15 @@
 
 Обновлено 10.10.2026. **QIANQI переведён на runtime платформы.**
 
+10.10.2026: [репетиция production Short на настоящем Pons](PRODUCTION_PONS_REHEARSAL.md):
+на fork 82000000 (4663) создан TOKEN/USDG прежними artifacts, проверены opening,
+direct и два варианта EIP-7702 self-batch. Комиссии → PostgreSQL worker → билеты →
+freeze/BLS/settle/claims и поздний билет проходят. В профиль добавлен опциональный
+reviewed batch executor; старый режим без него сохранён. На этом срезе collector
+получает creator fee + 70% base fee, split применяется к фактическому доходу.
+Публичных отправок/изменений сервера не было. Далее — owner wallet/IPFS,
+затем постоянный runtime/общий reader/API/поддомен и production timing bounds.
+
 10.10.2026: [автоматический production Short worker](PRODUCTION_SHORT_WORKER.md)
 готов как внутренний кандидат: finalized ledger, отдельный publisher, planner и
 admission, fees/draw/claims, durable snapshot/подпись под PostgreSQL lease.

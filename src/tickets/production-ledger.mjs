@@ -1,10 +1,10 @@
 import { keccak256 } from 'ethers';
 import { digest } from './digest.mjs';
-import { recognize } from './recognition.mjs';
+import { recognizeProduction, captureBatchContext } from './production-recognition.mjs';
 import { replayTickets } from './ledger.mjs';
 import { RECOGNITION, bundleHash } from './late-recognition.mjs';
 import { participantsHash } from '../draws/short-outcome.mjs';
-import { ticketProfile, check, same } from '../worker/production-template.mjs';
+import { check, same } from '../worker/production-template.mjs';
 
 const hex = n => '0x' + BigInt(n).toString(16);
 export function newLedger(policy) { return { head: { ...policy.anchor }, events: [], evidence: {}, confirmations: [], bundles: {} }; }
@@ -15,7 +15,7 @@ export function makeBundle(policy, ids) {
 export function verifiedCandidate(policy, ledger, candidateId) {
   const event = ledger.events.find(e => e.candidateId === candidateId), row = ledger.evidence[event?.transactionHash];
   check(event && row && row.receipt.blockHash === event.blockHash, 'Missing purchase evidence');
-  const decoded = recognize(ticketProfile(policy), row.transaction, row.receipt);
+  const decoded = recognizeProduction(policy, row.transaction, row.receipt, row.context);
   const verified = decoded.find(e => e.candidateId === candidateId);
   check(decoded.length === 1 && verified?.status === 'ELIGIBLE' && digest(verified) === digest(event), 'Unverified purchase');
   return verified;
@@ -42,7 +42,7 @@ export async function scanProductionLedger(provider, policy, ledger, finalized, 
   check(Number.isSafeInteger(limit) && limit > 0 && limit <= 500, 'Invalid scan batch limit');
   check(same((await provider.getBlock(ledger.head.number))?.hash, ledger.head.hash), 'Indexed finalized branch changed');
   check(finalized.number >= ledger.head.number, 'Finalized index moved backwards');
-  const target = Math.min(finalized.number, ledger.head.number + limit), profile = ticketProfile(policy);
+  const target = Math.min(finalized.number, ledger.head.number + limit);
   for (let number = ledger.head.number + 1; number <= target; number++) {
     const block = await provider.send('eth_getBlockByNumber',[hex(number),true]);
     check(block && Number(BigInt(block.number)) === number && same(block.parentHash,ledger.head.hash), 'Discontinuous finalized history');
@@ -58,8 +58,9 @@ export async function scanProductionLedger(provider, policy, ledger, finalized, 
         const position = Number(BigInt(log.logIndex));
         check(!log.removed && same(log.blockHash,block.hash) && same(log.transactionHash,transaction.hash) && Number(BigInt(log.blockNumber)) === number && Number(BigInt(log.transactionIndex)) === index && position > last, 'Log branch/order mismatch'); last = position;
       }
-      const events = recognize(profile,transaction,receipt);
-      if (events.length) { ledger.events.push(...events); ledger.evidence[transaction.hash] = { transaction, receipt }; }
+      const context = await captureBatchContext(provider,policy,block,transaction);
+      const events = recognizeProduction(policy,transaction,receipt,context);
+      if (events.length) { ledger.events.push(...events); ledger.evidence[transaction.hash] = { transaction, receipt, ...(context ? {context} : {}) }; }
       for (const log of receipt.logs.filter(l => same(l.address,policy.contracts.recognition.address) && l.topics[0] === RECOGNITION.getEvent('PurchasesRecognized').topicHash)) {
         const [instance, hash, count] = RECOGNITION.parseLog(log).args;
         check(BigInt(receipt.status) === 1n && same(instance,policy.template.instanceId) && same(transaction.from,policy.publisher) && same(transaction.to,policy.contracts.recognition.address)

@@ -4,6 +4,12 @@
 на локальном fork; основная сеть доступна для чтения и симуляций. Это рабочий
 пакет базовой интеграции, ещё не завершённая контрольная версия.
 
+Дополнение 10.10.2026: [production Short + PostgreSQL на fork 4663](PRODUCTION_PONS_REHEARSAL.md)
+проверены с настоящими Pons launch/escrow/curve и USDG: opening buy, direct,
+self-batch (новая/существующая делегация), фактический fee flow и Short cycle.
+Это дополняет матрицу ниже, но не закрывает owner wallet/IPFS, native-funded
+маршруты, graduation и постоянный runtime новых токенов.
+
 ## Основание
 
 - [Форма Pons](https://ponsfamily.com/launchpad/create): браузером пройден переход

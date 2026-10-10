@@ -1,5 +1,13 @@
 # Этапы
 
+10.10.2026: [fork настоящего Pons для production Short](PRODUCTION_PONS_REHEARSAL.md)
+пройден: неизменные artifacts 4663, запуск TOKEN/USDG, четыре формы покупки,
+фактические комиссии, отдельный publisher и полный PostgreSQL цикл.
+Batch adapter проверяет авторизацию и parent delegation; поздние билеты
+не меняют frozen dataset. Следующий пакет — owner wallet/IPFS и восстановление
+launch flow. Затем постоянный runtime/общий reader/API/поддомен и явный допуск
+публичного запуска. Native-funded/aggregator/pool маршруты остаются отдельными.
+
 10.10.2026: [production Short worker](PRODUCTION_SHORT_WORKER.md) соединён:
 финализированная история покупок, publisher, fee flow, freeze/drand/settle/claim,
 PostgreSQL recovery и два изолированных проекта. 6 новых сквозных сценариев PASS,
