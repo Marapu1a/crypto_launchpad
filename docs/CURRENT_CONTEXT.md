@@ -2,6 +2,14 @@
 
 Обновлено 10.10.2026. **QIANQI переведён на runtime платформы.**
 
+10.10.2026: [подготовка production Short](PRODUCTION_SHORT_PREPARATION.md):
+отдельные policy/finality/timing и кандидат журнала 4663 с ожиданием finalized,
+неизменной подписью и обязательными admission/lease. Проверены 8 новых сценариев
+и 4 соседних теста. В трёх read-only замерах finalized отстаёт примерно на
+19 минут; параметры локального стенда непригодны для переноса. Боевые timing
+bounds ещё не выбраны. Новый код не подключён к UI/production runner; следующий
+шаг — production contracts и связка с PostgreSQL/key storage, затем wallet/IPFS.
+
 10.10.2026: вернулись к новым токенам. [New token studio](NEW_TOKEN_STUDIO.md)
 соединяет UI → contracts/Pons launch → регистрацию в общем PostgreSQL →
 поздние билеты → автоматический Short worker → сайт на slug.localhost.

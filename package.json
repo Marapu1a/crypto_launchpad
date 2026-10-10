@@ -6,6 +6,7 @@
   "scripts": {
     "check:upstream": "node scripts/check-upstream.cjs",
     "check:rpc": "node scripts/check-rpc.mjs",
+    "check:production": "node scripts/check-production-readiness.mjs",
     "test": "npm run test:unit",
     "test:reference": "node scripts/test-reference.cjs",
     "dev": "vite",

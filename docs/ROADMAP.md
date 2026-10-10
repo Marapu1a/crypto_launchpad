@@ -1,5 +1,12 @@
 # Этапы
 
+10.10.2026: [production preparation](PRODUCTION_SHORT_PREPARATION.md) — готов
+кандидат проверок и журнала 4663; finalized snapshot/receipt, clock/drand,
+replay и обязательные guards проверены отдельно. Read-only сеть показала
+около 19 минут finality lag. До запуска остаются production contracts,
+явные timing bounds, PostgreSQL/signer integration и репетиция точных artifacts;
+затем wallet/IPFS. Стенд и QIANQI не переключались на новый код.
+
 10.10.2026: [сквозной локальный запуск нового проекта](NEW_TOKEN_STUDIO.md)
 готов: форма → Pons и Short contracts → PostgreSQL registration → automated
 worker → отдельный localhost-сайт. Реальный browser, два токена, restart/replay,
