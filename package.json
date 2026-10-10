@@ -8,6 +8,7 @@
     "check:rpc": "node scripts/check-rpc.mjs",
     "check:production": "node scripts/check-production-readiness.mjs",
     "build:production": "node scripts/build-production.mjs",
+    "test:monthly-contracts": "node tests/contracts/monthly-cycle.mjs",
     "test:production-contracts": "node tests/contracts/production-cycle.mjs",
     "test:production-worker": "node tests/contracts/production-worker-cycle.mjs",
     "test:production-fork": "node tests/fork/production-worker.mjs",
