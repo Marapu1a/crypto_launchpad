@@ -16,7 +16,7 @@ contract ShortDrandAdapter is ReentrancyGuard {
     uint256 public constant PERIOD = 3;
     uint256 public constant fee = 0; // Delivery gas is paid by the external executor.
     address public immutable shortConsumer;
-    
+
     uint256 public immutable leadSeconds;
     uint256 public immutable maxClockLag;
     uint256 public immutable maxClockAhead;

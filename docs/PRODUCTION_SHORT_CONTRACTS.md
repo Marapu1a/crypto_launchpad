@@ -69,8 +69,8 @@ Compiler, настройки, исходники и транзитивные з�
 CRLF нормализуется в LF, чтобы Windows checkout не менял сборку.
 
 Проверенная сборка:
-`0x7198bee87bb4c2817be98210349578bc3c518941fab9c411b812d05e3fe00497`.
-Manifest: `.local/builds/production-2026-10-10T08-07-52-648Z/manifest.json`.
+`0x24fe240da110404159ec3b3695b4b4c1dd6a312f4dabf60e261f7880207c9ad1`.
+Manifest: `.local/builds/production-2026-10-10T08-11-37-111Z/manifest.json`.
 Runtime ShortProgram 11786 байт, adapter 10844; ограничения размеров пройдены.
 В тестах runtime сверяется с **этими же artifacts**, с учётом immutable slots.
 runtimeTemplateHash не подменяет hash фактически развёрнутого runtime.
@@ -121,7 +121,10 @@ runtimeTemplateHash не подменяет hash фактически развё
   pass с PostgreSQL `08-04-48-989Z`. Harness исправлен отдельной test DB,
   production-разрешения не расширялись. Финальная сборка повторно проверена
   после нормализации исходников для воспроизводимости.
-  Финальный PASS: `.local/test-results/production-contracts-2026-10-10T08-07-53-462Z/report.json`.
+  PASS после LF-нормализации: `.local/test-results/production-contracts-2026-10-10T08-07-53-462Z/report.json`.
+  После удаления trailing whitespace поменялась metadata сборки; финальные
+  artifacts повторно прошли те же 8 сценариев:
+  `.local/test-results/production-contracts-2026-10-10T08-11-48-307Z/report.json`.
 
 ## Что дальше
 
