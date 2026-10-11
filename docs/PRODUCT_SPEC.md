@@ -109,3 +109,9 @@ QIANQI тоже планируется подключить к общему бэ
 09.10.2026: [POSTGRES_FINANCIAL_JOURNAL](POSTGRES_FINANCIAL_JOURNAL.md) изолирует подписанные намерения от обычного API/jobs и закрепляет повтор за прежним operation ID/hash. Реальные ключи, production и полный worker не переключались.
 
 09.10.2026: [POSTGRES_LOCAL_WORKER](POSTGRES_LOCAL_WORKER.md) связывает полный локальный денежный цикл с PostgreSQL. Snapshot используется финансовым worker только через сохранённое намерение и проверку on-chain cycle/consumed; RNG request закрепляется до prove. Это локальная интеграция, не production cutover.
+
+## Shared footer convention
+
+For new token sites follow [TOKEN_SITE_FOOTER.md](TOKEN_SITE_FOOTER.md): compact
+project signature, All projects, contacts in a separate modal, useful links and
+risk line, with each token's own visual style. Owner-approved 2026-10-11.

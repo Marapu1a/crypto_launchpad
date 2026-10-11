@@ -51,3 +51,17 @@ source commit pushed to origin/main. Public desktop/mobile browser checks passed
 old `/#account` bookmark resolves to `https://init.qianqi.site/#account`.
 Content hashes, TLS, API responses and old-path redirects are recorded in
 `.local/hub-migration-20261011/public-check.json`; browser evidence is alongside.
+
+## Local copy revision — 2026-10-12
+
+Owner approved a concise personal project directory: first-person introduction,
+Valentin linked to https://x.com/ui_uallas, two project cards, updates and contacts.
+Removed repeated slogans, the three-principle section and public-launchpad disclaimer.
+Each card has one description, status and website link; IGW remains in preparation.
+Existing artwork retained. This supersedes the earlier copy proposals in
+HUB_GPT_REVIEW_BRIEF.md. Changes are local, not published.
+
+Preview: http://127.0.0.1:4193/. Chromium checks at 320/390/768/1440px:
+no horizontal overflow, two cards, images loaded, valid internal anchors, author X
+link and fresh-load legacy #account redirect verified. Screenshots and check record:
+`.local/hub-copy-review/`. Redirect destination mocked; no live token/API check.
