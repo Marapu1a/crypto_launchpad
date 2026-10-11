@@ -1,5 +1,11 @@
 # Этапы
 
+12.10.2026: [подготовка IGW до подписей](IGW_LAUNCH_PREPARATION.md).
+Выключенный runtime установлен, backup/restore и девять локальных шагов PASS.
+Расчёт: около0.00079ETH deployment +0.011ETH чернового резерва.
+До выпуска остаются реальные маршруты BUY и кабинет: найден подтверждённый
+пропуск покупки через0x65050. Контракты не подписаны.
+
 11.10.2026: [IGW published + API connected](IGW_BACKEND_CONNECTION.md), release2abb23d.
 Shared schema15 after isolated restore/migration rehearsal; new read-only API4191.
 Public contacts/animation/HTTPS verified; QIANQI unchanged. IGW remains undeployed,
