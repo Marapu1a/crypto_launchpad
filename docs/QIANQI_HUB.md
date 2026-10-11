@@ -46,5 +46,8 @@ To roll back the root: restore `qianqi.nginx` from that backup to its original
 nginx site file, run `nginx -t`, reload nginx. The old QIANQI release symlink was
 not moved. Keep `init` working for any already-shared links.
 
-Public rollout verification will record content hashes, TLS, API identity,
-old-link redirects and unchanged IGW separately in the local evidence directory.
+Published hub release `655dfa1` at `/var/www/qianqi-hub/releases/655dfa1`;
+source commit pushed to origin/main. Public desktop/mobile browser checks passed;
+old `/#account` bookmark resolves to `https://init.qianqi.site/#account`.
+Content hashes, TLS, API responses and old-path redirects are recorded in
+`.local/hub-migration-20261011/public-check.json`; browser evidence is alongside.
