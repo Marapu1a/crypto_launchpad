@@ -65,3 +65,5 @@ Live HTTPS200 still has the initial pre-launch version, no fridge/contact modal.
 Pending: publish approved local assets; before token activation connect real
 contract/Pons link, live fund and draw state, wallet/ticket/purchase/reward views,
 final economics and precise participation/late-ticket rules. Current site is EN-only.
+
+11.10 publication supersedes local-only status above: approved frontend and read-only API are online, release2abb23d. See [backend connection](IGW_BACKEND_CONNECTION.md) for exact limits and remaining launch work.

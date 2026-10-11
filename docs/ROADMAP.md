@@ -1,5 +1,11 @@
 # Этапы
 
+11.10.2026: [IGW published + API connected](IGW_BACKEND_CONNECTION.md), release2abb23d.
+Shared schema15 after isolated restore/migration rehearsal; new read-only API4191.
+Public contacts/animation/HTTPS verified; QIANQI unchanged. IGW remains undeployed,
+no sender or hostname registration. Next: owner signing flow and isolated activation,
+then complete wallet UI. Recipient/Telegram clarification pending; no chain sends.
+
 11.10.2026: [IGW pre-launch site](IGW_SITE.md) published at https://igw.qianqi.site/.
 Separate static release5e3e2f3, HTTPS, mobile/desktop and public hashes PASS.
 Token deployment remains pending; frontend shows proposals, no live funds or wallet.

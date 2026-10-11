@@ -1,0 +1,24 @@
+[Unit]
+Description=Crypto Launchpad new token read-only API
+After=network-online.target postgresql.service
+
+[Service]
+User=launchpad-api
+Group=launchpad-api
+WorkingDirectory=/opt/crypto-launchpad/draw-current
+Environment=SHARED_DATABASE_URL=postgresql://lp_api@localhost/launchpad_shadow?host=/var/run/postgresql
+Environment=SHARED_PORT=4191
+ExecStart=/usr/bin/node server/shared/start.mjs
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+InaccessiblePaths=-/etc/qianqi -/var/lib/qianqi-public -/etc/crypto-launchpad/draw-secrets
+MemoryMax=256M
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
