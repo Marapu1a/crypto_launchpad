@@ -1,5 +1,10 @@
 # Этапы
 
+11.10.2026: [IGW pre-launch site](IGW_SITE.md) published at https://igw.qianqi.site/.
+Separate static release5e3e2f3, HTTPS, mobile/desktop and public hashes PASS.
+Token deployment remains pending; frontend shows proposals, no live funds or wallet.
+Next: owner reviews the site; resume infrastructure/launch preparation separately.
+
 11.10.2026: [production-профиль владельца](OWNER_PRODUCTION_PREPARATION.md) подготовлен.
 Живые Pons pins/условия/доступ владельца проверены, новые encrypted keys созданы;
 подписи выключены. Production fork + restore journal и browser boundaries PASS,
