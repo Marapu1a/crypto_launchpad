@@ -17,7 +17,7 @@ function persist(){localStorage.setItem(key,JSON.stringify({id:input.id,input,in
 async function action(kind,body={}){state=await request(input.id+'/'+kind,body);input=state.input;persist();return state;}
 function render(){
  const step=state?.pending??state?.candidate;
- app.innerHTML=`<main style="max-width:1050px;margin:32px auto;padding:24px"><a href="/launch.html">Launchpad</a><p class="eyebrow">ЗАПУСК ЧЕРЕЗ КОШЕЛЁК · РЕПЕТИЦИЯ</p><h1>Токен и розыгрыши</h1><p>Контракты для сети 4663 проверяются в изолированной копии. Каждую транзакцию подтверждает кошелёк владельца.</p>${config.localFixtureWallet?'<p><strong>Локальный тестовый кошелёк.</strong> Каждый шаг отправляется только в копию сети. Это не реальные средства и не подключённое расширение.</p>':''}<p>Владелец: <code>${escape(config.owner)}</code></p>
+ app.innerHTML=`<main style="max-width:1050px;margin:32px auto;padding:24px"><a href="/launch.html">Launchpad</a><p class="eyebrow">ЗАПУСК ЧЕРЕЗ КОШЕЛЁК · ${config.mode==='production'?'ОСНОВНАЯ СЕТЬ':'РЕПЕТИЦИЯ'}</p><h1>Токен и розыгрыши</h1><p>${config.mode==='production'?(config.signingEnabled?'Основная сеть 4663. Каждую реальную транзакцию подтверждает ваш кошелёк.':'Подготовка запуска в основной сети 4663. Подписи выключены; можно проверить и сохранить план.'):'Контракты для сети 4663 проверяются в изолированной копии. Каждую транзакцию подтверждает кошелёк владельца.'}</p>${config.localFixtureWallet?'<p><strong>Локальный тестовый кошелёк.</strong> Каждый шаг отправляется только в копию сети. Это не реальные средства и не подключённое расширение.</p>':''}<p>Владелец: <code>${escape(config.owner)}</code></p>
  <form id="owner-form"><fieldset ${busy||state?'disabled':''} style="border:0;padding:0"><div class="two">${field('name','Название',input.draft.name)}${field('symbol','Тикер',input.draft.symbol)}${field('slug','Поддомен',input.slug)}${field('logo','Картинка IPFS',input.draft.logo)}</div>
  <label class="field"><span>Картинка</span><input id="image-file" type="file" accept="image/png,image/jpeg,image/webp"></label><button type="button" class="button secondary" id="upload">Загрузить через Pons</button><p>Торговая пара: USDG</p>
  ${isV2()?'<label class="field"><span>Розыгрыши</span><select name="mode"><option value="short" '+(!input.draws.monthly.enabled?'selected':'')+'>Только Short</option><option value="monthly" '+(!input.draws.short.enabled?'selected':'')+'>Только Monthly</option><option value="both" '+(input.draws.short.enabled&&input.draws.monthly.enabled?'selected':'')+'>Short + Monthly</option></select></label>':''}
@@ -28,7 +28,7 @@ function render(){
  ${step?`<div class="result-box"><h3>${escape(step.label??step.kind)}</h3><p>${step.request.to?'Получатель: '+escape(step.request.to):'Создание контракта'}</p><p>Сумма: ${formatEther(step.request.value)} ETH · максимум gas: ${formatEther(BigInt(step.request.gasLimit)*BigInt(step.request.gasPrice))} ETH</p><p>Nonce: ${step.request.nonce}</p>${state.candidate?'<button id="sign" class="button primary">Подтвердить этот шаг в кошельке</button>':`<p>Ожидает ${step.hash?'окончательного подтверждения':'результата запроса кошельку'}</p>${step.hash?`<code>${escape(step.hash)}</code>`:'<label class="field"><span>Hash из кошелька</span><input id="recover-hash"></label><button id="attach" class="button secondary">Проверить отправку</button><button id="retry" class="button secondary">Повторить тот же запрос подписи</button>'}`}</div>`:''}
  <button id="refresh" class="button secondary">Обновить состояние</button><ol>${state.history.map(h=>`<li>${escape(h.label??h.kind)} · <code>${escape(h.hash)}</code> · подтверждён</li>`).join('')}</ol>${state.launch?`<p>Токен: <code>${escape(state.launch.token)}</code></p>`:''}${complete()?`<p>Контракты развёрнуты. Подготовка обслуживания регистрирует проект в общем бэке; запуск выполняется отдельно.</p><button id="handoff" type="button" class="button secondary">Проверить подготовку обслуживания</button>${handoff?`<section id="handoff-result"><h3>Конфигурация: запуск выключен</h3><p>${handoff.prepared?'Ключи проверены. Конфигурация подготовлена.':'Нужны отдельные ключи исполнителя и подтверждения покупок.'}</p><ul>${handoff.credentials.map(c=>`<li>${escape(c.role)}: ${c.ready?'проверен':'не готов'} · <code>${escape(c.address)}</code></li>`).join('')}</ul><p>Планируемый адрес: ${escape(handoff.site.url)}. ${handoff.site.registered?'Домен зарегистрирован в БД; доступность сайта отдельно не проверялась.':'Домен ещё не зарегистрирован.'}</p>${handoff.prepared?'<button id="download-runtime" type="button" class="button secondary">Скачать выключенную конфигурацию</button>':''}<p>Эта проверка не запускает службу, не создаёт домен и не отправляет транзакций.</p></section>`:''}`:''}</section>`:''}
  <details><summary>Параметры стенда и сборки</summary><pre>${escape(JSON.stringify({build:config.buildHash,timing:config.profile.timing,limits:config.profile.limits,instance:config.instanceId},null,2))}</pre></details></main>`;
- app.querySelectorAll('button').forEach(button=>{if(busy)button.disabled=true;});
+ app.querySelectorAll('button').forEach(button=>{if(busy||(config.mode==='production'&&!config.signingEnabled&&['sign','retry'].includes(button.id)))button.disabled=true;});
  const work=async fn=>{if(busy)return;busy=true;render();try{await fn();}catch(e){notice=e.code===4001?'Подпись отклонена. Можно повторить тот же сохранённый запрос.':e.message;}finally{busy=false;render();}};
  document.querySelector('#resume')?.addEventListener('click',()=>{const id=document.querySelector('#resume-id').value.trim();return work(async()=>{if(!UUID.test(id))throw Error('Неверный ID запуска');state=await request(id+'/next',{});input=state.input;persist();notice='Запуск восстановлен из серверного журнала';});});
  document.querySelector('#owner-form').onsubmit=event=>{
@@ -55,6 +55,7 @@ function render(){
   return work(async()=>{const {publication}=await publishImageOnServer(file);input.draft.logo=publication.uri;persist();notice=publication.warning||'Картинка загружена через Pons';}).then(()=>{for(const [k,v] of form)if(k!=='logo'){const el=document.querySelector(`[name="${k}"]`);if(el)el.value=v;}});
  };
  async function sign(kind){
+  if(config.mode==='production'&&!config.signingEnabled)throw Error('Боевые подписи ещё не включены');
   if(config.localFixtureWallet){if(!window.confirm('Подтвердить этот шаг в локальной копии сети? Реальные средства не используются.'))return;}
   else{if(!window.ethereum)throw Error('Подключите кошелёк');await window.ethereum.request({method:'eth_requestAccounts'});}
   const step=state.candidate??state.pending;
@@ -77,14 +78,14 @@ function render(){
 }
 async function boot(){
  try{
-  config=await request('config');key=isV2()?'launchpad:owner-launch:v2':'launchpad:owner-launch:v1';const saved=JSON.parse(localStorage.getItem(key)||'null');
+  config=await request('config');key=isV2()?'launchpad:owner-launch:v2':'launchpad:owner-launch:v1';if(config.mode==='production')key+=':production';const saved=JSON.parse(localStorage.getItem(key)||'null');
   if(saved&&saved.instanceId!==config.instanceId){
-   app.innerHTML=`<main style="padding:40px"><h1>Открыт другой локальный стенд</h1><p>Сохраните ID прежнего запуска: <code>${escape(saved.id)}</code>. Его серверный журнал остаётся в прежней среде.</p><button id="new-stand" class="button secondary">Начать черновик на новом стенде</button></main>`;
+   app.innerHTML=`<main style="padding:40px"><h1>Открыта другая среда запуска</h1><p>Сохраните ID прежнего запуска: <code>${escape(saved.id)}</code>. Его серверный журнал остаётся в прежней среде.</p><button id="new-stand" class="button secondary">Начать черновик на новом стенде</button></main>`;
    document.querySelector('#new-stand').onclick=()=>{localStorage.removeItem(key);void boot();};return;
   }
   if(saved){if(saved.instanceId!==config.instanceId)throw Error('Сохранённый запуск относится к другому стенду. Сохраните его ID перед созданием нового.');input=saved.input;try{await action('next');}catch(e){notice=e.message;}}
   else input={id:crypto.randomUUID(),slug:'token-'+Date.now().toString().slice(-6),draft:{...initialDraft(),...config.defaults.draft},draws:structuredClone(config.defaults.draws),team:config.defaults.team,operations:config.defaults.operations};
   render();
- }catch(e){app.innerHTML=`<main style="padding:40px"><h1>Запуск через кошелёк</h1><p>${escape(e.message)}</p><p>Нужна подготовленная среда репетиции. Публичные отправки не включены.</p></main>`;}
+ }catch(e){app.innerHTML=`<main style="padding:40px"><h1>Запуск через кошелёк</h1><p>${escape(e.message)}</p><p>Нужна подготовленная среда запуска. Проверьте локальный сервер конфигурации.</p></main>`;}
 }
 boot();

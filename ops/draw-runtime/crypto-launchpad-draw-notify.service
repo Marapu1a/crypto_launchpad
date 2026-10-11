@@ -1,0 +1,31 @@
+[Unit]
+Description=Crypto Launchpad v2 gas notifier
+After=network-online.target postgresql.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=launchpad-draw
+Group=launchpad-draw
+WorkingDirectory=/opt/crypto-launchpad/draw-current
+ExecStart=/usr/bin/node server/short-runtime/notify.mjs /etc/crypto-launchpad/draw-runtime.json
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=90
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/crypto-launchpad/draw
+InaccessiblePaths=-/etc/qianqi -/var/lib/qianqi-public -/opt/qianqi
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+MemoryMax=256M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

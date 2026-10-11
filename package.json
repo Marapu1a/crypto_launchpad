@@ -57,7 +57,10 @@
     "test:draw-worker": "node tests/contracts/draw-worker-cycle.mjs",
     "owner:draw-rehearsal": "node scripts/start-owner-rehearsal.mjs --v2",
     "test:draw-owner-stand": "node tests/studio/draw-owner-rehearsal.mjs",
-    "start:draw": "node server/short-runtime/start.mjs"
+    "start:draw": "node server/short-runtime/start.mjs",
+    "owner:production:prepare": "node scripts/prepare-owner-production.mjs",
+    "owner:production": "node scripts/run-owner-production.mjs",
+    "test:owner-production": "node tests/fork/owner-production.mjs"
   },
   "engines": {
     "node": ">=22"

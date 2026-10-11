@@ -1,0 +1,18 @@
+{
+  "schema": "draw-runtime-config-v2",
+  "mode": "production",
+  "allowPublicTransactions": false,
+  "intervalMs": 15000,
+  "concurrency": 2,
+  "rpcFile": "/etc/crypto-launchpad/draw-secrets/rpc-url",
+  "databaseFile": "/etc/crypto-launchpad/draw-secrets/database-url",
+  "healthFile": "/var/lib/crypto-launchpad/draw/health.json",
+  "projects": [],
+  "notifications": {
+    "tokenFile": "/etc/crypto-launchpad/draw-secrets/telegram-token",
+    "chatFile": "/etc/crypto-launchpad/draw-secrets/telegram-chat",
+    "stateFile": "/var/lib/crypto-launchpad/draw/gas-notifications.json",
+    "intervalMs": 30000,
+    "reminderMs": 21600000
+  }
+}

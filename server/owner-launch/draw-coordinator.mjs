@@ -10,6 +10,7 @@ import {NETWORK} from '../../src/pons/client.mjs';
 import {verifyLaunch} from '../../src/pons/local-execution.mjs';
 import {amount} from '../../src/draws/config.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
+import {validateProductionProfile,verifyProductionEnvironment,walletGuard} from './production-profile.mjs';
 import {validatePolicy} from '../../src/worker/production-policy.mjs';
 
 const BUILD='0x2824a5d90a5160f42449e82ad770e57d68c9124dbf99177da396b74dd853f640';
@@ -17,16 +18,23 @@ const hash=value=>typeof value==='string'&&/^0x[0-9a-f]{64}$/i.test(value);
 const money=value=>typeof value==='string'&&/^(0|[1-9]\d*)$/.test(value);
 const labels={short:'Короткий розыгрыш и RNG',monthly:'Месячный розыгрыш и RNG',fundingRouter:'Распределение между розыгрышами',program:'Программа розыгрыша и RNG',splitter:'Распределение комиссий',collector:'Получатель комиссий Pons',recognition:'Подтверждение покупок',executorFunding:'Газ для исполнителя',publisherFunding:'Газ для регистрации покупок',approve:'Разрешение USDG', 'approve-reset':'Сброс прежнего разрешения USDG',launch:'Создание токена на Pons',bind:'Привязка комиссий к токену'};
 
-// Private rehearsal is the only enabled transport. Same artifacts as the 4663
-// candidate; no flag in a browser request can activate public mainnet signing.
+// Production signing is an operator setting, never an HTTP request field.
+// Rehearsal retains its original instance and fixture boundaries.
 let trustedBuild;
-export function createDrawOwnerCoordinator({pool,adminPool,provider,profile}){
+export function withinOwnerReview(fresh,reviewed,owner){
+ return !!fresh&&fresh.kind===reviewed.kind&&matchesOwnerTransaction(fresh.request,reviewed,owner);
+}
+export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allowPublicTransactions=false}){
  const build=trustedBuild??=compileDrawPrograms();
  profile=plain(profile);const profileHash=digest(profile);
  check(build.manifest.buildHash===BUILD,'Production artifacts changed');
  const owner=getAddress(profile.owner);check(owner!==ZeroAddress,'Owner required');
  check(new Set([owner,profile.executor,profile.publisher].map(x=>getAddress(x).toLowerCase())).size===3,'Separate owner/executor/publisher required');
- check(profile.mode==='rehearsal'&&typeof profile.instanceId==='string'&&profile.instanceId.length>0,'Rehearsal instance required');
+ check(typeof allowPublicTransactions==='boolean','Explicit signing switch required');
+ const production=profile.mode==='production';
+ if(production)validateProductionProfile(profile);
+ else check(profile.mode==='rehearsal'&&typeof profile.instanceId==='string'&&profile.instanceId.length>0,'Rehearsal instance required');
+ const signingEnabled=!production||allowPublicTransactions;
  check(money(profile.totalNativeLimit)&&BigInt(profile.totalNativeLimit)>0n,'Explicit total native budget required');
  for(const k of ['executor','publisher'])check(money(profile.funding?.[k]),'Explicit funding required');
  const roles={quote:USDG,escrow:ESCROW,factory:NETWORK.factory,router:NETWORK.router};
@@ -36,8 +44,9 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile}){
  const artifact=name=>build.artifacts[name];
  async function environment(){
   check((await provider.getNetwork()).chainId===4663n,'Wrong chain');
-  const meta=await provider.send('hardhat_metadata',[]);
-  check(meta.instanceId===profile.instanceId&&Number(meta.chainId)===4663&&Number(meta.forkedNetwork?.chainId)===4663,'Wrong rehearsal instance');
+  if(production)await verifyProductionEnvironment(provider,profile);
+  else{const meta=await provider.send('hardhat_metadata',[]);
+   check(meta.instanceId===profile.instanceId&&Number(meta.chainId)===4663&&Number(meta.forkedNetwork?.chainId)===4663,'Wrong rehearsal instance');}
   check(same((await provider.getBlock(profile.anchor.number))?.hash,profile.anchor.hash),'Environment anchor changed');
   for(const c of Object.values(profile.externals))check(same(keccak256(await provider.getCode(c.address)),c.codeHash),'External runtime changed');
   check(await provider.getCode(owner)==='0x','This owner flow requires an EOA');
@@ -128,8 +137,9 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile}){
   s.policy=policy;s.stage='deployed';await save(s);
   // v2 worker registration is deliberately separate; v1 executor rejects this policy.
  }
- function view(s,revision){return plain({id:s.input.id,input:s.input,owner,stage:s.stage,executionEnabled:false,policy:s.policy??null,revision,buildHash:BUILD,instanceId:profile.instanceId,profile:{executor:profile.executor,publisher:profile.publisher,timing:profile.timing,limits:profile.limits,funding:profile.funding,totalNativeLimit:profile.totalNativeLimit},candidate:s.candidate,pending:s.pending,history:s.history,contracts:s.contracts,launch:s.launch,spent:s.spent});}
+ function view(s,revision){return plain({id:s.input.id,input:s.input,owner,mode:profile.mode,signingEnabled,...(production?{walletGuard:walletGuard(profile)}:{}),stage:s.stage,executionEnabled:false,policy:s.policy??null,revision,buildHash:BUILD,instanceId:profile.instanceId,profile:{executor:profile.executor,publisher:profile.publisher,timing:profile.timing,limits:profile.limits,funding:profile.funding,totalNativeLimit:profile.totalNativeLimit},candidate:s.candidate,pending:s.pending,history:s.history,contracts:s.contracts,launch:s.launch,spent:s.spent});}
  async function run(projectId,action,body={}){
+  if(['arm','retry'].includes(action))check(signingEnabled,'Public signing is disabled; owner approval and operator activation required');
   await environment();
   return withOwnerLaunch({pool,projectId,owner},async({state,save,lease,revision})=>{
    let s=state;
@@ -154,7 +164,11 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile}){
    if(action==='arm'){
     check(String(body.revision)===String(revision()),'Review changed; refresh first');
     check(!s.pending&&s.candidate?.id===body.requestId,'Step already reserved or review changed');
-    const fresh=await candidate(s);check(fresh?.id===s.candidate.id,'Conditions changed; refresh review');
+    const fresh=await candidate(s);check(withinOwnerReview(fresh,s.candidate,owner),'Conditions changed; refresh review');
+    // Preserve the exact reviewed request if current gas requirements decreased.
+    // A changed call/nonce or a higher cost still requires a new review.
+    const reserved=s.candidate.request,maximum=BigInt(reserved.value)+BigInt(reserved.gasLimit)*BigInt(reserved.gasPrice);
+    check(BigInt(s.spent)+maximum<=BigInt(profile.totalNativeLimit)&&await provider.getBalance(owner)>=maximum,'Reserved request exceeds available budget');
     s.pending={...s.candidate,state:'requesting'};s.candidate=null;s.stage='awaiting-wallet';await save(s);
    }
    if(action==='retry'){
@@ -169,5 +183,5 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile}){
    return view(s,revision());
   });
  }
- return {run,info:()=>plain({owner,chainId:4663,instanceId:profile.instanceId,mode:'rehearsal',buildHash:BUILD,profile})};
+ return {run,info:()=>plain({owner,chainId:4663,instanceId:profile.instanceId,mode:profile.mode,signingEnabled,buildHash:BUILD,profile})};
 }

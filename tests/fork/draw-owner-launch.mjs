@@ -53,7 +53,7 @@ try{
   report[index]={id:input.id,token:state.launch.token,steps:state.history.map(x=>x.kind)};
  });
  await scenario('Public mode and changed profile cannot enable or resume sends',async()=>{
-  assert.throws(()=>createDrawOwnerCoordinator({pool:db.pools.executor,adminPool,provider,profile:{...profiles[0],mode:'production'}}),/Rehearsal/);
+  assert.throws(()=>createDrawOwnerCoordinator({pool:db.pools.executor,adminPool,provider,profile:{...profiles[0],mode:'production'}}),/production profile/);
   const changed=createDrawOwnerCoordinator({pool:db.pools.executor,adminPool,provider,profile:{...profiles[0],totalNativeLimit:'3000000000000000000'}});await assert.rejects(changed.run(report[0].id,'next'),/profile\/input changed/);
  });
  report.status='PASS';

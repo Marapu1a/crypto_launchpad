@@ -1,0 +1,23 @@
+{
+  "schema": "owner-production-request-v2",
+  "owner": "REPLACE_WITH_OWNER_ADDRESS",
+  "rpcFile": "D:/sites/crypto_launchpad/.local/config/pons-rpc.txt",
+  "baseDomain": "tokens.localhost",
+  "timing": {
+    "lead": 3600,
+    "clockLag": 30,
+    "clockAhead": 30,
+    "finalizedLag": 1800,
+    "beaconLag": 30
+  },
+  "limits": {
+    "maxGasPrice": "100000000000",
+    "maxGasLimit": "15000000",
+    "nativeFloor": "100000000000000"
+  },
+  "funding": {
+    "executor": "10000000000000000",
+    "publisher": "1000000000000000"
+  },
+  "totalNativeLimit": "50000000000000000"
+}

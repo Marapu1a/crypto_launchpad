@@ -1,0 +1,33 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {createServer} from 'node:http';
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import {ownerLaunchHttp} from '../../server/owner-launch/http.mjs';
+import {initialDraft} from '../../src/pons/plan.mjs';
+import {upgradeProgramDraft} from '../../src/draws/program-config.mjs';
+import preset from '../../config/rehearsals/first-token.json' with {type:'json'};
+import {USDG} from '../../src/launch/template.mjs';
+const root='.local/test-results/owner-production-ui-'+new Date().toISOString().replace(/[:.]/g,'-');await fs.mkdir(root,{recursive:true});
+const owner='0x0000000000000000000000000000000000000001',profile={timing:{},limits:{},funding:{executor:'0',publisher:'0'},totalNativeLimit:'50000000000000000'};
+const defaults={draft:{...initialDraft(),name:'Production preview',symbol:'PREVIEW',logo:'ipfs://bafkreigh2akiscaildcobgdzvv2a6sjkgmsnj4qpxqshgjp4l5te2qv3ee',pair:USDG,creatorFee:'2',openingBuy:'0'},draws:upgradeProgramDraft(preset.draws,10000),team:owner,operations:owner};
+let enabled=false,s,browser;const actions=[];
+const info=()=>({owner,mode:'production',chainId:4663,instanceId:'production:test-ui',signingEnabled:enabled,profile,buildHash:'test-only'});
+const coordinator={info,run:async(id,action,body)=>{actions.push(action);if(action==='create')s={...info(),id,input:body.input,stage:'deploying',spent:'0',history:[],candidate:{id:'test-step',kind:'short',label:'Короткий розыгрыш и RNG',request:{to:null,value:'0',gasLimit:'100000',gasPrice:'100',nonce:0}}};return {...s,signingEnabled:enabled};}};
+const middleware=ownerLaunchHttp({coordinator,defaults});
+const server=createServer((req,res)=>middleware(req,res,async()=>{try{const name=req.url==='/'?'owner.html':req.url.slice(1);if(!['owner.html'].includes(name)&&!/^assets\/[a-zA-Z0-9_.-]+$/.test(name))throw Error();const b=await fs.readFile(path.join('dist',name));res.setHeader('content-type',name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html');res.end(b);}catch{res.writeHead(404);res.end();}}));
+const report={status:'FAIL',limits:['Mock coordinator and wallet cancellation; real built UI and HTTP middleware','No chain, keys, database or transactions']};
+try{
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+server.address().port;
+ browser=await chromium.launch();const page=await browser.newPage();
+ await page.addInitScript(()=>{localStorage.setItem('launchpad:owner-launch:v2',JSON.stringify({id:'old-rehearsal',instanceId:'fork'}));window.ethereum={request:async()=>{throw Object.assign(Error('Rejected'),{code:4001});}};});
+ await page.goto(url);await page.getByText('Подготовка запуска в основной сети 4663. Подписи выключены; можно проверить и сохранить план.',{exact:true}).waitFor();
+ await page.locator('#owner-form button[type=submit]').click();await page.locator('#sign').waitFor();assert.equal(await page.locator('#sign').isDisabled(),true);assert.deepEqual(actions,['create']);
+ assert.equal(await page.getByText('Локальный тестовый кошелёк.',{exact:true}).count(),0);
+ const id=await page.evaluate(()=>JSON.parse(localStorage.getItem('launchpad:owner-launch:v2:production')).id);
+ assert.notEqual(id,'old-rehearsal');
+ const r=await page.request.post(url+'/api/owner-launch/'+id+'/rehearsal-sign',{headers:{origin:url,'content-type':'application/json'},data:{requestId:'test-step'}});assert.equal(r.status(),409);
+ await page.screenshot({path:root+'/disabled.png',fullPage:true});
+ enabled=true;await page.reload();await page.locator('#sign').waitFor();assert.equal(await page.locator('#sign').isDisabled(),false);await page.locator('#sign').click();await page.getByText('Подпись отклонена. Можно повторить тот же сохранённый запрос.',{exact:true}).waitFor();assert.ok(!actions.includes('arm'));assert.ok(!actions.includes('attach'));
+ report.status='PASS';report.checks=['production label and disabled button','separate saved draft','no fixture signing route','wallet rejection never arms or sends'];console.log('PASS production UI boundaries and wallet cancellation');
+}finally{await fs.writeFile(root+'/report.json',JSON.stringify(report,null,2));console.log(root+'/report.json');await browser?.close();await new Promise(r=>server.close(r));}
