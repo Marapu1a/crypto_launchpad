@@ -9,6 +9,12 @@
 Создание, PostgreSQL worker и localhost-сайт соединены; реальные deploy пока
 не включены. [Условия, результаты и границы](docs/NEW_TOKEN_STUDIO.md).
 
+Актуальный конструктор Short/Monthly v2: `npm run owner:draw-rehearsal` →
+http://127.0.0.1:4188/owner.html. [Возможности и ограничения](docs/DRAW_OWNER_UI.md),
+[полный цикл токена владельца](docs/OWNER_DRAW_CYCLE.md),
+[путь к первому реальному запуску](docs/FIRST_REAL_TOKEN.md).
+Это отдельный частный стенд; не запускайте второй поверх уже работающего.
+
 ## Открыть приложение
 
 ```powershell
