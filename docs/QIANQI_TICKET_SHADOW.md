@@ -1,3 +1,5 @@
+> Технический документ с результатами отдельных пакетов. Датированные статусы и «следующие шаги» ниже — история; актуальная готовность — в [CURRENT_CONTEXT](CURRENT_CONTEXT.md), очередь работ — в [ROADMAP](ROADMAP.md).
+
 # QIANQI: read-only сверка учёта билетов
 
 09.10.2026. Продолжение [inventory](QIANQI_READONLY_INVENTORY.md).

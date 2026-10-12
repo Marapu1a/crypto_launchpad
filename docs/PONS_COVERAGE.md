@@ -1,10 +1,12 @@
+> Технический документ с результатами отдельных пакетов. Датированные статусы и «следующие шаги» ниже — история; актуальная готовность — в [CURRENT_CONTEXT](CURRENT_CONTEXT.md), очередь работ — в [ROADMAP](ROADMAP.md).
+
 # Покрытие базового запуска Pons
 
 Инвентаризация 07.10.2026. В этой версии реальные отправки реализованы только
 на локальном fork; основная сеть доступна для чтения и симуляций. Это рабочий
 пакет базовой интеграции, ещё не завершённая контрольная версия.
 
-Дополнение 10.10.2026: [production Short + PostgreSQL на fork 4663](PRODUCTION_PONS_REHEARSAL.md)
+Дополнение 10.10.2026: [production Short + PostgreSQL на fork 4663](archive/reports/PRODUCTION_PONS_REHEARSAL.md)
 проверены с настоящими Pons launch/escrow/curve и USDG: opening buy, direct,
 self-batch (новая/существующая делегация), фактический fee flow и Short cycle.
 Это дополняет матрицу ниже, но не закрывает owner wallet/IPFS, native-funded

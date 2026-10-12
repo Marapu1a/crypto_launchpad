@@ -1,3 +1,5 @@
+> Технический документ с результатами отдельных пакетов. Датированные статусы и «следующие шаги» ниже — история; актуальная готовность — в [CURRENT_CONTEXT](CURRENT_CONTEXT.md), очередь работ — в [ROADMAP](ROADMAP.md).
+
 # Pons: Holders, комиссии и opening buy
 
 Исследовательский пакет 2, 07.10.2026. Read-only; запусков и отправок нет.
@@ -141,4 +143,4 @@ Verified source действующего deployer содержит CREATE2 и `p
 
 Следующий документ: [предложение графа запуска](DEPLOYMENT_BLUEPRINT.md).
 
-Уточнение 08.10.2026, [сквозная репетиция](FIRST_TOKEN_REHEARSAL_REPORT.md): curve sweep нельзя вызывать обычным кошельком запуска, если recipient — collector. Добавлен LocalPonsFeeCollector с проверенной однократной привязкой к токену и permissionless sweepCurve от самого collector. На fork82000000 base1%, creator2%, protocol share30% базовой комиссии: creator получает 2% плюс 70% от базового1%. Split80/15/5 применяется ко всей полученной выручке. Исторический пример50/50 выше заменён согласованным профилем первого токена.
+Уточнение 08.10.2026, [сквозная репетиция](archive/reports/FIRST_TOKEN_REHEARSAL_REPORT.md): curve sweep нельзя вызывать обычным кошельком запуска, если recipient — collector. Добавлен LocalPonsFeeCollector с проверенной однократной привязкой к токену и permissionless sweepCurve от самого collector. На fork82000000 base1%, creator2%, protocol share30% базовой комиссии: creator получает 2% плюс 70% от базового1%. Split80/15/5 применяется ко всей полученной выручке. Исторический пример50/50 выше заменён согласованным профилем первого токена.

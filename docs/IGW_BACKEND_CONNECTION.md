@@ -1,3 +1,5 @@
+> Технический документ с результатами отдельных пакетов. Датированные статусы и «следующие шаги» ниже — история; актуальная готовность — в [CURRENT_CONTEXT](CURRENT_CONTEXT.md), очередь работ — в [ROADMAP](ROADMAP.md).
+
 # IGW: publication and backend connection
 
 11.10.2026, release `2abb23d`. Owner authorized publication and connection after

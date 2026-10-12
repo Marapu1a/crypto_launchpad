@@ -1,7 +1,9 @@
+> Технический документ с результатами отдельных пакетов. Датированные статусы и «следующие шаги» ниже — история; актуальная готовность — в [CURRENT_CONTEXT](CURRENT_CONTEXT.md), очередь работ — в [ROADMAP](ROADMAP.md).
+
 # QIANQI: согласованное восстановление native + PostgreSQL
 
 Пакет 10.10.2026. Продолжение [backup safeguards](QIANQI_BACKUP_SAFETY.md)
-и [ревью после handoff](GPT_REVIEW_RESPONSE.md). Это операторский инструмент
+и [ревью после handoff](archive/reports/GPT_REVIEW_RESPONSE.md). Это операторский инструмент
 восстановления на отдельных копиях, не новый финансовый runtime.
 
 ## Что считается набором backup

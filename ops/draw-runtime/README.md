@@ -33,6 +33,12 @@ checksum миграций и применение недостающих011–01
 Точный набор отсутствующих миграций получить из `launchpad.schema_migrations`.
 
 Owner server проверяет наличие015 и не запускает форму на старой схеме.
+Для реального owner UI используйте отдельного OS user и роль `lp_owner_ui` из
+[owner-access.sql](owner-access.sql), оставляя `lp_owner` NOLOGIN. Эта роль
+проверяет конфликты проектов/публичных адресов и вставляет projects/modules с RLS;
+API и executor сохраняют свои роли. Применять SQL один раз после backup,
+проверять доступ на восстановленной копии. Текущая установка IGW описана в
+[IGW_OWNER_REVIEW_20261012](../../docs/archive/reports/IGW_OWNER_REVIEW_20261012.md).
 `databaseFiles` должны ссылаться на реальные защищённые файлы подключения.
 PG наружу не открывать: локальный owner UI можно прокинуть через SSH, оставив
 owner server на VPS с доступом к его Unix socket/локальным credentials.
@@ -48,6 +54,11 @@ unit-файлы без enable/start до готовности конкретно
 подключаются отдельно; тестовое сообщение согласуется при проверке канала.
 
 ## Backup и возврат
+
+Для периодических копий установлены `crypto-launchpad-draw-backup.service` и
+`crypto-launchpad-draw-backup.timer` (каждые шесть часов). Скрипт устанавливается
+с LF в `/usr/local/lib/crypto-launchpad-draw-backup.sh`, root:root, mode0700.
+Текущее состояние IGW и границы проверки: [IGW_AUTONOMY_20261012](../../docs/archive/reports/IGW_AUTONOMY_20261012.md).
 
 `backup.sh` останавливает только новый draw worker, делает `pg_dump` общей БД,
 архивирует encrypted keys/state и конфигурацию, сохраняет checksum/release,

@@ -1,3 +1,5 @@
+> Технический документ с результатами отдельных пакетов. Датированные статусы и «следующие шаги» ниже — история; актуальная готовность — в [CURRENT_CONTEXT](CURRENT_CONTEXT.md), очередь работ — в [ROADMAP](ROADMAP.md).
+
 # QIANQI: историческая сверка RNG и обязательств
 
 09.10.2026, база платформы 2222518. Только публичные read-only RPC, без SSH-изменений, приватных журналов и транзакций. Исходники форматов: vendor/qianqi/contracts/DrandRandomAdapter.sol, ShortControllerBase.sol, ShortSettlement.sol, ShortRulesEpochs.sol, PromoVault.sol, DualControllerPromoVault.sol (зафиксированный vendor ae445254). Новая реализация: src/qianqi/finance-shadow.mjs.

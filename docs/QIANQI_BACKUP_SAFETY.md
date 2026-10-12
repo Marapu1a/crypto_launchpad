@@ -1,6 +1,8 @@
+> Технический документ с результатами отдельных пакетов. Датированные статусы и «следующие шаги» ниже — история; актуальная готовность — в [CURRENT_CONTEXT](CURRENT_CONTEXT.md), очередь работ — в [ROADMAP](ROADMAP.md).
+
 # QIANQI: backup failure detection и операторская тревога
 
-Пакет 10.10.2026 после [ревью GPT](GPT_REVIEW_RESPONSE.md).
+Пакет 10.10.2026 после [ревью GPT](archive/reports/GPT_REVIEW_RESPONSE.md).
 Не меняет runtime финансового исполнителя, контракты или экономику.
 
 ## Поведение

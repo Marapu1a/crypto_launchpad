@@ -1,3 +1,5 @@
+> Технический документ с результатами отдельных пакетов. Датированные статусы и «следующие шаги» ниже — история; актуальная готовность — в [CURRENT_CONTEXT](CURRENT_CONTEXT.md), очередь работ — в [ROADMAP](ROADMAP.md).
+
 # USDG/Short: автоматический цикл нового шаблона
 
 10.10.2026. Пакет после `6e8664f`: planner/admission, publisher и PostgreSQL
@@ -5,7 +7,7 @@
 Это внутренний кандидат нового шаблона. QIANQI, сервер, production БД,
 работающий Studio и публичные отправки в этом пакете не менялись.
 
-Дополнение 10.10.2026: следующий [fork Pons пакет](PRODUCTION_PONS_REHEARSAL.md)
+Дополнение 10.10.2026: следующий [fork Pons пакет](archive/reports/PRODUCTION_PONS_REHEARSAL.md)
 проверил эти artifacts и worker на настоящих контрактах, включая opening buy,
 direct и два USDG self-batch маршрута. Ниже сохранены границы первоначального
 стенда; актуальный следующий шаг — owner wallet/IPFS.

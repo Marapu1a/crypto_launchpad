@@ -1,3 +1,5 @@
+> Технический документ с результатами отдельных пакетов. Датированные статусы и «следующие шаги» ниже — история; актуальная готовность — в [CURRENT_CONTEXT](CURRENT_CONTEXT.md), очередь работ — в [ROADMAP](ROADMAP.md).
+
 # Общий сервер: обследование и план размещения
 
 Дата: 09.10.2026. Основа кода: `b9ac5ae`. Обследование SSH только на чтение,
@@ -133,4 +135,4 @@ release платформы при совместимой схеме. При не
 [общий backend](SHARED_BACKEND_BASELINE.md),
 [локальный финансовый worker](POSTGRES_LOCAL_WORKER.md).
 
-Локальная подготовка выполнена 09.10.2026: [SHADOW_SERVER_REHEARSAL](SHADOW_SERVER_REHEARSAL.md). PG18.6 проверен, storage guard/portable paths и templates реализованы; серверная установка и суточное наблюдение ещё не выполнялись.
+Локальная подготовка выполнена 09.10.2026: [SHADOW_SERVER_REHEARSAL](archive/reports/SHADOW_SERVER_REHEARSAL.md). PG18.6 проверен, storage guard/portable paths и templates реализованы; серверная установка и суточное наблюдение ещё не выполнялись.
