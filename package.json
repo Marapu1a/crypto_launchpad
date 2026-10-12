@@ -4,6 +4,7 @@
   "private": true,
   "description": "Pons launch integration and configurable token platform",
   "scripts": {
+    "docs:check": "node scripts/check-docs.mjs",
     "check:upstream": "node scripts/check-upstream.cjs",
     "check:rpc": "node scripts/check-rpc.mjs",
     "check:production": "node scripts/check-production-readiness.mjs",
@@ -60,7 +61,14 @@
     "start:draw": "node server/short-runtime/start.mjs",
     "owner:production:prepare": "node scripts/prepare-owner-production.mjs",
     "owner:production": "node scripts/run-owner-production.mjs",
-    "test:owner-production": "node tests/fork/owner-production.mjs"
+    "test:owner-production": "node tests/fork/owner-production.mjs",
+    "catalog:build": "node scripts/build-project-catalog.mjs",
+    "catalog:check": "node scripts/build-project-catalog.mjs --check",
+    "bot:projects": "node server/project-bot/start.mjs",
+    "bot:preview": "node scripts/preview-project-bot.mjs",
+    "sites:build": "node scripts/build-token-sites.mjs",
+    "sites:preview": "node scripts/preview-token-sites.mjs",
+    "sites:test": "node tests/studio/token-sites.mjs"
   },
   "engines": {
     "node": ">=22"

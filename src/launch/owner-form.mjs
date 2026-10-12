@@ -7,8 +7,10 @@ export function readOwnerForm(previous,data){
  const input=structuredClone(previous),v=n=>String(data.get(n)),v2=input.draws.version===2;
  const mode=v2?v('mode'):'short';
  if(!['short','monthly','both'].includes(mode))throw Error('Выберите режим розыгрышей');
- for(const k of ['name','symbol','logo','creatorFee','openingBuy'])input.draft[k]=v(k);
- input.slug=v('slug');input.team=v('team');input.operations=v('operations');input.draws.ticketPurchase=v('ticketPurchase');
+ for(const k of ['name','symbol','creatorFee','openingBuy'])input.draft[k]=v(k);
+ for(const k of ['logo','website'])if(data.has(k))input.draft[k]=v(k);
+ if(data.has('slug'))input.slug=v('slug');
+ input.team=v('team');input.operations=v('operations');input.draws.ticketPurchase=v('ticketPurchase');
  if(mode!=='monthly'){
   const short=input.draws.short;short.minimumFund=v('minimumFund');short.intervalSeconds=Number(v('hours'))*3600;short.basket.minimumUnit=v('minimumUnit');
   const count=Number(v('count')),weights=v('weights').trim()?v('weights').split(':').map(Number):[];

@@ -1,6 +1,7 @@
+import {scanDrawHistory} from '../../src/tickets/draw-scan.mjs';
 import { digest } from '../../src/tickets/digest.mjs';
 import { bundleHash } from '../../src/tickets/late-recognition.mjs';
-import { newLedger, scanProductionLedger, creditedPurchases, makeBundle, verifiedCandidate, snapshotProductionTickets } from '../../src/tickets/draw-ledger.mjs';
+import { newLedger, scanProductionLedger, creditedPurchases, makeBundle, bundlePurchases, snapshotProductionTickets } from '../../src/tickets/draw-ledger.mjs';
 import {check,same} from '../../src/worker/production-template.mjs';
 import {verifyDrawPolicy,drawContracts as contracts} from '../../src/worker/draw-policy.mjs';
 import {amount} from '../../src/draws/config.mjs';
@@ -12,14 +13,15 @@ import { advanceProductionTransaction } from '../../src/worker/production-journa
 import { admitBeacon } from '../../src/worker/production-timing.mjs';
 import { fetchBeacon, fetchLatest, validateBeacon, GENESIS, PERIOD } from '../../src/randomness/drand.mjs';
 import { runDrawSender } from './draw-sender.mjs';
+import {deferred,prepareDeferredRecognition} from '../../src/tickets/deferred-recognition.mjs';
 
 const wait = reason => { throw Object.assign(Error(reason), { code: 'PRODUCTION_WAIT' }); };
 const json = v => JSON.parse(JSON.stringify(v,(_,x) => typeof x === 'bigint' ? String(x) : x));
 
-// Internal, new-template-only runner. No public route/service enables financial sending.
+// Internal v2 runner. Sending requires explicitly enabled runtime configuration.
 // Both journals and planner/ledger share one session lease and one CAS revision.
 export async function runDrawWorker({ pool, provider, signer, publisher, projectId, moduleId,
-  getBeacon = fetchBeacon, getLatestBeacon = fetchLatest, now = () => Math.floor(Date.now()/1000), hook }) {
+  getBeacon = fetchBeacon, getLatestBeacon = fetchLatest, now = () => Math.floor(Date.now()/1000), hook, recognitionAdapters }) {
   try {
     return await runDrawSender({ pool, provider, signer, projectId, moduleId, operate: async ({ policy, state, save, lease }) => {
       check(same(await publisher.getAddress(),policy.publisher), 'Wrong recognition publisher');
@@ -82,8 +84,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
           check(op.role === 'publisher' && op.kind === 'recognition', 'Publisher role mismatch');
           const bundle = r.ledger.bundles[op.args[0]];
           check(bundle && bundleHash(bundle) === op.args[0] && bundle.policyHash === digest(policy) && bundle.candidates.length === Number(op.args[1]), 'Unbound recognition bundle');
-          for (const id of bundle.candidates) {
-            const event = verifiedCandidate(policy,r.ledger,id);
+          for (const event of bundlePurchases(policy,r.ledger,bundle)) {
             check(event.blockNumber <= observation.finalized.number && same((await provider.getBlock(event.blockNumber))?.hash,event.blockHash), 'Purchase not finalized');
           }
           if (observation.finalized.timestamp < Number(await c.recognition.availableAt())) wait('recognition-finality');
@@ -121,7 +122,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
       if (r.operation) return execute();
       check(!state.pending && !r.publisher.pending, 'Journal missing planner intent');
       const observation = await observe();
-      const caughtUp = await scanProductionLedger(provider,policy,r.ledger,observation.finalized);
+      const caughtUp = await scanDrawHistory(provider,policy,r.ledger,observation.finalized);
       await persist();
       if (!caughtUp) return {status:'waiting',reason:'index-catchup',head:r.ledger.head.number};
 
@@ -129,9 +130,10 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
       const recognitionPlan = async () => {
         if (observation.finalized.timestamp < Number(await c.recognition.availableAt())) return;
         const used = new Set(creditedPurchases(policy,r.ledger).map(e => e.candidateId));
-        const ids = r.ledger.events.filter(e => e.status === 'ELIGIBLE' && !used.has(e.candidateId)).slice(0,50).map(e => e.candidateId);
+        const ids = deferred(policy)?await prepareDeferredRecognition({provider,policy,ledger:r.ledger,creditedIds:used,now:now()*1000,enabledAdapters:recognitionAdapters}):r.ledger.events.filter(e => e.status === 'ELIGIBLE' && !used.has(e.candidateId)).slice(0,50).map(e => e.candidateId);
+        if(deferred(policy))await persist();
         if (!ids.length) return;
-        const bundle = makeBundle(policy,ids), hash = bundleHash(bundle);
+        const bundle = makeBundle(policy,ids,r.ledger), hash = bundleHash(bundle);
         r.ledger.bundles[hash] = bundle;
         return plan('recognition','confirm',[hash,ids.length],{role:'publisher'});
       };

@@ -4,7 +4,7 @@
 const E=require('ethers'),P=require('../../tickets/direct-curve.cjs'),A=require('./pons-channel-attribution.cjs');
 const ROUTER='0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc';
 const low=x=>String(x).toLowerCase(),check=(v,m)=>{if(!v)throw Error(m);};
-function inspect({manifest:m,tx,receipt,trace}){
+function inspect({manifest:m,tx,receipt,trace,routerModule='0x56101165bcf508b288f383113892e6db6be6db0e'}){
  const observed=A.inspect(m,tx,receipt);
  check(low(tx.to)===ROUTER&&tx.input.slice(0,10)==='0x4d819a2a','Unexpected research route');
  const shape=require('./pons-router-calldata-research.cjs').decode(m,tx);
@@ -53,7 +53,7 @@ function inspect({manifest:m,tx,receipt,trace}){
  check(observed.transfers.length===expected.length,'Refund/extra project asset transfer');
  expected.forEach(([asset,from,to,amount],i)=>{const t=observed.transfers[i];check(t.asset===low(asset)&&t.from===low(from)&&t.to===low(to)&&BigInt(t.amountRaw)===amount,'Exact funding/payment flow mismatch');});
  const modules=[...new Set(frames.filter(f=>f.node.type==='DELEGATECALL'&&f.context===ROUTER).map(f=>low(f.node.to)))];
- const expectedModules=['0x56101165bcf508b288f383113892e6db6be6db0e',...(directUsd?[]:['0xd17b21b65cc273a4b342f14b19063da8bb410dbd']),'0x1ab4c5dfe15ff16170201d7fe0edc20c3d0cada3'];
+ const expectedModules=[routerModule,...(directUsd?[]:['0xd17b21b65cc273a4b342f14b19063da8bb410dbd']),'0x1ab4c5dfe15ff16170201d7fe0edc20c3d0cada3'];
  check(JSON.stringify(modules)===JSON.stringify(expectedModules),'Unexpected executed router module');
  return {schema:'pons-router-trace-research-v1',admitted:false,eligibility:null,transactionHash:tx.hash,blockNumber:Number(BigInt(tx.blockNumber)),recipient:low(tx.from),funding:directUsd?'USDG':'ETH',curveQuoteRaw:event.quoteInRaw,
   observedWalletQuoteDebitRaw:walletDelta?String(-BigInt(walletDelta.delta)):null,routerQuoteFunding:funding,routerQuoteDebits:debits,

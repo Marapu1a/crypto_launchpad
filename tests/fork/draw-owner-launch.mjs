@@ -35,18 +35,36 @@ try{
   let state=await co.run(input.id,'create',{input});await assert.rejects(co.run(input.id,'create',{input:{...input,slug:'changed'}}),/immutable/);
   const v1=createOwnerCoordinator(args);await assert.rejects(v1.run(input.id,'next'),/profile\/input changed/);
   let steps=0;
-  while(state.stage!=='deployed'){
+  finalized=anchor.number;
+  while(state.stage!=='awaiting-finality'){
    assert.ok(++steps<15);const candidate=state.candidate;assert.ok(candidate);
    state=await co.run(input.id,'arm',{requestId:candidate.id,revision:state.revision});
+   if(steps===1){
+    const oldRequest=structuredClone(state.pending.request),oldRevision=state.revision;
+    state=await co.run(input.id,'reprice',{requestId:candidate.id,revision:state.revision});
+    assert.equal(state.pending.request.nonce,oldRequest.nonce);assert.equal(state.pending.request.data,oldRequest.data);
+    assert.ok(BigInt(state.pending.request.gasPrice)>BigInt(oldRequest.gasPrice));assert.equal(state.pending.feeRevisions.length,1);
+    await assert.rejects(co.run(input.id,'retry',{requestId:candidate.id,revision:oldRevision}),/Review changed/);
+    state=await co.run(input.id,'retry',{requestId:candidate.id,revision:state.revision});
+   }
    const request={...state.pending.request};delete request.from;if(request.to===null)delete request.to;
    const sent=await signer.sendTransaction(request);await sent.wait();
    co=createDrawOwnerCoordinator(args);state=await co.run(input.id,'next');assert.equal(state.pending.id,candidate.id);
    await assert.rejects(co.run(input.id,'retry',{requestId:candidate.id}),/Nonce already used/);
-   if(steps===1){finalized=anchor.number;state=await co.run(input.id,'attach',{requestId:candidate.id,hash:sent.hash});assert.ok(state.pending);assert.equal(state.history.length,0);finalized=undefined;state=await co.run(input.id,'next');}
-   else state=await co.run(input.id,'attach',{requestId:candidate.id,hash:sent.hash});
+   state=await co.run(input.id,'attach',{requestId:candidate.id,hash:sent.hash});
+   assert.equal(state.pending,null);assert.equal(state.history.length,steps);
+   if(steps===1){
+    assert.ok(state.candidate);assert.equal(state.policy,null);
+    const changedProvider=new Proxy(provider,{get(t,k){if(k==='getTransactionReceipt')return async hash=>{const r=await t.getTransactionReceipt(hash);return r?{...r,status:0}:r;};return Reflect.get(t,k);}});
+    await assert.rejects(createDrawOwnerCoordinator({...args,provider:changedProvider}).run(input.id,'next'),/receipt changed/);
+   }
   }
-  assert.equal(state.executionEnabled,false);assert.equal(state.policy.schema,'draw-production-policy-v2');assert.equal(!!state.contracts.short,bps>0);assert.equal(!!state.contracts.monthly,bps<10000);
-  const before=await provider.getTransactionCount(owner);const resumed=await createDrawOwnerCoordinator(args).run(input.id,'next');assert.equal(resumed.stage,'deployed');assert.equal(await provider.getTransactionCount(owner),before);assert.deepEqual(resumed.history,state.history);
+  assert.equal(state.finality.ready,false);assert.equal(state.policy,null);assert.equal(state.executionEnabled,false);
+  let rowBefore=(await db.admin.query('SELECT completed FROM launchpad.owner_launches WHERE project_id=$1',[input.id])).rows[0];assert.equal(rowBefore.completed,false);
+  const waiting=await createDrawOwnerCoordinator(args).run(input.id,'next');assert.equal(waiting.stage,'awaiting-finality');assert.equal(waiting.candidate,null);
+  finalized=undefined;state=await co.run(input.id,'next');assert.equal(state.stage,'deployed');assert.equal(state.finality.ready,true);
+  assert.equal(state.policy.purchaseAccounting,'deferred-purchases-v1');assert.equal(state.executionEnabled,false);assert.equal(state.policy.schema,'draw-production-policy-v2');assert.equal(!!state.contracts.short,bps>0);assert.equal(!!state.contracts.monthly,bps<10000);
+  const before=await provider.getTransactionCount(owner);const resumed=await createDrawOwnerCoordinator(args).run(input.id,'next');assert.equal(resumed.stage,'deployed');assert.equal(resumed.policy.purchaseAccounting,'deferred-purchases-v1');assert.equal(await provider.getTransactionCount(owner),before);assert.deepEqual(resumed.history,state.history);
   assert.equal(new Set(state.history.map(x=>x.nonce)).size,state.history.length);
   const row=(await db.admin.query('SELECT completed,state_text FROM launchpad.owner_launches WHERE project_id=$1',[input.id])).rows[0];assert.equal(row.completed,true);
   assert.equal((await db.admin.query('SELECT count(*) FROM launchpad.production_senders')).rows[0].count,'0');

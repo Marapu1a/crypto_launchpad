@@ -17,3 +17,10 @@ test('Invalid fields fail without mutating the draft; old version is not upgrade
  for(const [field,value] of [['hours','169'],['shortShare','0'],['creatorFee','1000'],['openingBuy','-1'],['monthlyNext','0'],['prizes','90'],['mode','bogus']]){const {input,data}=fixture(),before=structuredClone(input);data.set(field,value);assert.throws(()=>readOwnerForm(input,data));assert.deepEqual(input,before);}
  const {input,data}=fixture();input.draws.version=1;delete input.draws.allocation;assert.equal(readOwnerForm(input,data).draws.version,1);
 });
+
+test('Full website changes independently of internal slug and prepared logo',()=>{
+ const {input,data}=fixture();data.delete('slug');data.delete('logo');data.set('website','https://another-token.example/');
+ const out=readOwnerForm(input,data);
+ assert.equal(out.draft.website,'https://another-token.example/');assert.equal(out.slug,input.slug);assert.equal(out.draft.logo,input.draft.logo);
+ data.set('website','javascript:alert(1)');assert.throws(()=>readOwnerForm(input,data));assert.equal(input.draft.website,'');
+});

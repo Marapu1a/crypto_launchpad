@@ -1,18 +1,21 @@
 import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
-import {FetchRequest,JsonRpcProvider} from 'ethers';
+import {requestGate,runtimeProvider} from './rpc-provider.mjs';
 import {createPool,verifyRole} from '../shared/store.mjs';
 import {validateRuntimeConfig,privateText,runtimeEnvironment,loadRuntimeProject} from './config.mjs';
 import {runtimePass,runRuntimeLoop} from './runtime.mjs';
 import {writeHealthFile} from './health-file.mjs';
 import {publishShortView} from './projection.mjs';
+import {withTraceProvider} from './trace-provider.mjs';
 
-let pool,provider,phase='configuration';
+let pool,provider,traceProvider,phase='configuration';
 try{
  const config=validateRuntimeConfig(JSON.parse(await readFile(resolve(process.argv[2]??''),'utf8')));
  phase='credentials';
- const rpc=new FetchRequest(await privateText(config.rpcFile));rpc.timeout=15000;
- provider=new JsonRpcProvider(rpc,undefined,{cacheTimeout:-1,batchMaxCount:10});pool=createPool(await privateText(config.databaseFile));
+ const gate=requestGate();
+ provider=runtimeProvider(await privateText(config.rpcFile),{gate});pool=createPool(await privateText(config.databaseFile));
+ if(config.traceRpcFile){
+  traceProvider=runtimeProvider(await privateText(config.traceRpcFile),{gate,timeout:25000});provider=await withTraceProvider(provider,traceProvider);}
  phase='database';
  await verifyRole(pool,'lp_executor');
  phase='network';
@@ -36,4 +39,4 @@ try{
   if(summary!==last){console.log(summary);last=summary;}
  }});
 }catch{console.error('Short runtime stopped at '+phase);process.exitCode=1;}
-finally{await pool?.end();provider?.destroy();}
+finally{await pool?.end();provider?.destroy();traceProvider?.destroy();}

@@ -25,6 +25,8 @@ export function sharedApi(pool,{projectAdapters=new Map()}={}) {
         if(adapter)return await adapter.handle(req,res);
       }
       if(['/api/short','/api/draws'].includes(req.url))return reply(200,await readShortView(pool,route.id));
+      const wallet=/^\/api\/wallet\/(0x[0-9a-f]{40})$/i.exec(req.url??'');
+      if(wallet)return reply(200,await readShortView(pool,route.id,{wallet:wallet[1].toLowerCase()}));
       if(req.url!=='/api/project')return reply(404,{error:'not_found'});
       const result=await readProject(pool,route.id);
       return result?reply(200,result):reply(404,{error:'not_found'});

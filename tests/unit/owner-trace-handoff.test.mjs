@@ -1,0 +1,30 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {resolve} from 'node:path';
+import {createRuntimeHandoff} from '../../server/owner-launch/handoff.mjs';
+import {digest} from '../../src/tickets/digest.mjs';
+
+test('Disabled v2 handoff retains trace configuration without inheriting activation or secrets',async()=>{
+ const projectId='11111111-1111-4111-8111-111111111111',address=n=>'0x'+String(n).padStart(40,'0');
+ const profile={owner:address(1),mode:'production'},policy={projectId,executor:address(2),publisher:address(3),contracts:{fundingRouter:{address:address(4)}}};
+ const state={schema:'owner-launch-v2',stage:'deployed',input:{id:projectId,slug:'igw'},profileHash:digest(profile),policy,launch:{token:address(5)}};
+ const row={owner_address:profile.owner,state_text:JSON.stringify(state),state_hash:digest(state),policy_text:JSON.stringify(policy),policy_hash:digest(policy),config_hash:digest(policy),adapter_version:'draw-candidate-v2',slug:'igw',token_address:address(5),program_address:address(4)};
+ const writes=[];
+ const poolFor=role=>({query:async sql=>({rows:sql.includes('pg_roles')?[{name:role,rolsuper:false,rolbypassrls:false}]:[{id:null}]}),connect:async()=>({query:async sql=>{if(/INSERT|UPDATE|DELETE/.test(sql))writes.push(sql);return {rows:sql.includes('owner_launches')?[row]:[]};},release(){}})});
+ const runtime={schema:'draw-runtime-config-v2',mode:'production',intervalMs:15000,concurrency:1,rpcFile:resolve('rpc'),databaseFile:resolve('db'),healthFile:resolve('health'),traceRpcFile:resolve('trace'),recognitionAdapters:[],allowPublicTransactions:true,secret:'not-exported'};
+ const credentials=Object.fromEntries(['executor','publisher'].map(role=>[role,{keyFile:resolve(role+'.json'),passwordFile:resolve(role+'.password')}]));
+ const handoff=createRuntimeHandoff({pool:poolFor('lp_executor'),apiPool:poolFor('lp_api'),profile,runtime,keys:{[projectId]:credentials},baseDomain:'qianqi.site',loadKey:async()=>({}),readSecret:async()=>'test-only'});
+ const result=await handoff(projectId);
+ assert.equal(result.prepared,true);assert.equal(result.config.traceRpcFile,runtime.traceRpcFile);
+ assert.deepEqual(result.config.recognitionAdapters,[]);assert.equal(result.config.allowPublicTransactions,false);
+ assert.equal(result.config.projects[0].enabled,false);assert.equal(result.config.secret,undefined);
+ assert.equal(result.site.hostname,'igw.qianqi.site');assert.deepEqual(writes,[]);
+ state.input.draft={website:'https://independent-token.example/'};
+ row.state_text=JSON.stringify(state);row.state_hash=digest(state);
+ const external=await handoff(projectId);assert.equal(external.site.hostname,'independent-token.example');assert.equal(external.site.url,'https://independent-token.example/');
+ assert.equal(external.config.projects[0].enabled,false);
+ state.input.draft.website='http://independent-token.example/';row.state_text=JSON.stringify(state);row.state_hash=digest(state);
+ await assert.rejects(handoff(projectId),/https/);
+ state.input.draft.website='https://independent-token.example/';row.state_text=JSON.stringify(state);row.state_hash=digest(state);
+ runtime.traceRpcFile='relative-secret';await assert.rejects(handoff(projectId),/Absolute v2 trace/);
+});

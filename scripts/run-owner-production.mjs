@@ -10,6 +10,7 @@ import {createDrawOwnerCoordinator} from '../server/owner-launch/draw-coordinato
 import {registerDeployedDraw} from '../server/owner-launch/draw-handoff.mjs';
 import {createRuntimeHandoff} from '../server/owner-launch/handoff.mjs';
 import {ownerLaunchHttp} from '../server/owner-launch/http.mjs';
+import {loadPreparedLogo} from '../server/owner-launch/prepared-logo.mjs';
 
 let provider,pools,server,phase='configuration';
 try{
@@ -23,9 +24,10 @@ try{
  const {rows:[schema]}=await pools.admin.query('SELECT max(version) AS version FROM launchpad.schema_migrations');
  if(schema.version!==15)throw Error('Owner v2 requires migrations through 015');
  const coordinator=createDrawOwnerCoordinator({pool:pools.executor,adminPool:pools.admin,provider,profile:c.profile,allowPublicTransactions:c.allowPublicTransactions});
- const runtime={schema:'draw-runtime-config-v2',mode:'production',intervalMs:15000,concurrency:1,rpcFile:c.rpcFile,databaseFile:c.databaseFiles.executor,healthFile:c.healthFile};
+ const runtime={schema:'draw-runtime-config-v2',mode:'production',intervalMs:15000,concurrency:1,rpcFile:c.rpcFile,databaseFile:c.databaseFiles.executor,healthFile:c.healthFile,...(c.traceRpcFile?{traceRpcFile:c.traceRpcFile}:{})};
  const handoff=async projectId=>{await registerDeployedDraw({pool:pools.executor,adminPool:pools.admin,provider,projectId,owner:c.profile.owner});return createRuntimeHandoff({pool:pools.executor,apiPool:pools.api,profile:c.profile,runtime,keys:{[projectId]:c.keys},baseDomain:c.baseDomain})(projectId);};
- const middleware=ownerLaunchHttp({coordinator,defaults:c.defaults,handoff});
+ const preparedLogo=c.logoAsset?await loadPreparedLogo(c.logoAsset,c.defaults.draft.logo):undefined;
+ const middleware=ownerLaunchHttp({coordinator,defaults:c.defaults,handoff,preparedLogo});
  server=createServer((req,res)=>middleware(req,res,async()=>{
   try{
    if(!['GET','HEAD'].includes(req.method)||!/^(127\.0\.0\.1|localhost):\d+$/.test(req.headers.host??''))throw Error();

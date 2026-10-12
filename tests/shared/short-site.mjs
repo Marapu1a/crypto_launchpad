@@ -53,6 +53,21 @@ try{
  await scenario('Missing snapshot is visibly unavailable, never a fabricated zero fund',async()=>{
   await db.admin.query('UPDATE launchpad.short_public_views SET snapshot=NULL,observed_at=NULL WHERE project_id=$1',[a]);await page.reload();await page.getByText('Первого подтверждённого снимка ещё нет.').waitFor();assert.equal(await page.locator('.token-metrics').count(),0);
  });
+ await scenario('Wallet API stays hostname-scoped and only returns the requested wallet',async()=>{
+  const address=addr(7),foreign=addr(8);
+  for(const [id,n] of [[a,64],[b,96]]){
+   const s={...snapshot(n),kind:'short',walletSnapshot:{schema:'draw-wallets-v1',pending:{[address]:{count:n,items:[]},[foreign]:{count:999,items:[]}},items:{[address]:{available:String(n)},[foreign]:{available:'999'}}}};
+   await db.admin.query("UPDATE launchpad.module_instances SET adapter_version='draw-candidate-v2' WHERE project_id=$1",[id]);
+   await db.admin.query('UPDATE launchpad.short_public_views SET snapshot=$2 WHERE project_id=$1',[id,JSON.stringify({schema:'draw-public-v2',draws:[s]})]);
+  }
+  const path='/api/wallet/'+address;
+  assert.equal(JSON.parse((await http('alpha.localhost',path)).body).modules[0].snapshot.wallet.available,'64');
+  assert.equal(JSON.parse((await http('beta.localhost',path)).body).modules[0].snapshot.wallet.available,'96');
+  assert.equal(JSON.parse((await http('alpha.localhost',path)).body).modules[0].snapshot.pendingRecognition.count,64);assert.equal(JSON.parse((await http('beta.localhost',path)).body).modules[0].snapshot.pendingRecognition.count,96);assert.ok(!(await http('alpha.localhost','/api/draws')).body.includes('999'));
+  assert.ok(!(await http('alpha.localhost',path)).body.includes(foreign));assert.ok(!(await http('alpha.localhost','/api/draws')).body.includes('walletSnapshot'));
+  assert.equal((await http('unknown.localhost',path)).status,421);assert.equal((await http('alpha.localhost',path+'?project_id='+b)).status,404);
+  assert.equal((await http('alpha.localhost','/api/wallet/not-an-address')).status,404);assert.equal((await http('alpha.localhost',path,{},'POST')).status,405);
+ });
  report.status='PASS';report.sources={};for(const file of ['server/shared/api.mjs','server/shared/site.mjs','server/shared/short-view.mjs','src/project.mjs','src/project.css','db/migrations/014_short_public_views.sql'])report.sources[file]=digest((await fs.readFile(file,'utf8')).replaceAll('\r\n','\n'));
 }catch(e){report.status='FAIL';report.error=e.message;console.error(e);process.exitCode=1;}
 finally{await fs.writeFile(root+'/report.json',JSON.stringify(report,null,2));console.log(root+'/report.json');await browser?.close();if(server)await new Promise(r=>server.close(r));await db?.close();}

@@ -1,3 +1,4 @@
+import {ownerFinality} from './confirmation.mjs';
 import {withOwnerLaunch,check,same} from './store.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
 import {verifyDrawPolicy} from '../../src/worker/draw-policy.mjs';
@@ -7,6 +8,7 @@ import {inProject} from '../shared/store.mjs';
 export async function registerDeployedDraw({pool,adminPool,provider,projectId,owner}){
  return withOwnerLaunch({pool,projectId,owner},async({state:s,save})=>{
   check(s?.schema==='owner-launch-v2'&&s.stage==='deployed'&&s.policy,'Completed v2 launch required');
+  check((await ownerFinality(provider,s.history)).ready,'Launch finality required before handoff');
   const policy=s.policy;check(policy.projectId===projectId&&same(policy.contracts.token.address,s.launch.token),'Launch policy mismatch');
   await verifyDrawPolicy(provider,policy);
   const c=await adminPool.connect();

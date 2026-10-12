@@ -32,7 +32,7 @@ export function healthProblems(report,{now=Date.now(),maxAgeMs=120000}={}){
  if(report?.schema!=='short-runtime-health-v1'||!Array.isArray(report.projects)||!Number.isFinite(Date.parse(report.completedAt)))return ['invalid-health'];
  if(report.projects.some(p=>!p||typeof p.projectId!=='string'||!['paused','blocked','busy','waiting','confirmed','already-confirmed','idle'].includes(p.status)||(p.alerts!==undefined&&(!Array.isArray(p.alerts)||p.alerts.some(a=>typeof a!=='string')))))return ['invalid-health'];
  const age=now-Date.parse(report.completedAt);if(age>maxAgeMs||age< -30000)return ['stale-health'];
- return report.projects.flatMap(p=>[...(p.alerts??[]).map(a=>p.projectId+':'+a),...(p.status==='blocked'||p.status==='busy'||['native-balance','gas-limit','gas-price','external-pending-nonce','chain-clock','finality-unavailable','finality-regression','latest-beacon-unavailable','beacon-unavailable'].includes(p.reason)?[p.projectId+':'+(p.reason??p.status)]:[])]);
+ return report.projects.flatMap(p=>[...(p.alerts??[]).map(a=>p.projectId+':'+a),...(p.status==='blocked'||p.status==='busy'||['native-balance','gas-limit','gas-price','external-pending-nonce','chain-clock','finality-unavailable','finality-regression','latest-beacon-unavailable','beacon-unavailable','route-evidence-unavailable'].includes(p.reason)?[p.projectId+':'+(p.reason??p.status)]:[])]);
 }
 
 // Stop waits for the active pass. Never abandon an in-flight financial promise.

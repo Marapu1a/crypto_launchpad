@@ -1,0 +1,15 @@
+{
+ "schema":"token-site-v1", "project":"igw", "adapter":"draw-v2",
+ "theme":{"background":"#10100e","foreground":"#eee5cf","accent":"#f4472d"},
+ "art":{
+  "hero":{"src":"/assets/hero.webp","position":"50% 50%","mobilePosition":"50% 50%"},
+  "footer":{"src":"/assets/footer.webp","position":"50% 50%","mobilePosition":"50% 50%"}
+ },
+ "draws":[{"kind":"short","label":"The draw","note":"24 hours after the previous completed draw, subject to funding and participation."}],
+ "footer":{
+  "signature":"We're all fucked. Thanks for stopping by.","email":"mailto:marapulets1987@gmail.com",
+  "mascotWidth":104,"mascotMobileWidth":80,
+  "resources":[{"label":"How it works","url":"#how"},{"label":"Token & links","url":"#launch"}],
+  "risk":"IGW is a speculative token. Its value can fall, including to zero. Buying IGW does not guarantee a prize or financial return."
+ }
+}

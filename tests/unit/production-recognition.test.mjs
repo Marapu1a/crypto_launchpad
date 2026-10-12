@@ -2,6 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Wallet,AbiCoder,id} from 'ethers';
 import {recognizeProduction} from '../../src/tickets/production-recognition.mjs';
+import {recognizeDraw} from '../../src/tickets/draw-recognition.mjs';
+import {ROUTE_PROFILE} from '../../src/tickets/draw-router.mjs';
 import direct from '../../src/tickets/direct-curve.cjs';
 import batch from '../../src/qianqi/routes/pons-batch-buy.cjs';
 import pins from '../../src/qianqi/routes/genesis-fields.json' with {type:'json'};
@@ -48,4 +50,9 @@ test('Ambiguous payment, foreign project and unpinned batch cannot issue tickets
   const payment=structuredClone(f);payment.receipt.logs=payment.receipt.logs.slice(1);assert.notEqual(decode(payment)[0].status,'ELIGIBLE');
   const other=structuredClone(f);other.policy.contracts.curve.address=addr(99);assert.ok(decode(other).every(e=>e.status!=='ELIGIBLE'));
   const unpinned=structuredClone(f);delete unpinned.policy.contracts.batchExecutor;assert.notEqual(decode(unpinned)[0].status,'ELIGIBLE');
+});
+test('V2 route profile admits the reviewed self-batch without changing legacy policy',async()=>{
+ const f=await fixture();f.policy.routes=ROUTE_PROFILE;f.policy.contracts.fundingRouter=f.policy.contracts.program;delete f.policy.contracts.batchExecutor;delete f.policy.contracts.program;
+ assert.equal(recognizeDraw(f.policy,f.transaction,f.receipt,f.context)[0].reason,'SUPPORTED_SELF_BATCH_BUY');
+ delete f.policy.routes;assert.notEqual(recognizeDraw(f.policy,f.transaction,f.receipt,f.context)[0].status,'ELIGIBLE');
 });

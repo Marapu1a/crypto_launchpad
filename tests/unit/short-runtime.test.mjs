@@ -46,5 +46,10 @@ test('Explicit activation, pinned policy, unique projects and correct rehearsal 
  const c={schema:'short-runtime-config-v1',mode:'production',intervalMs:1000,concurrency:2,rpcFile:file,databaseFile:file,healthFile:file,projects:[p]};
  assert.throws(()=>validateRuntimeConfig(c),/activation/);assert.equal(validateRuntimeConfig({...c,allowPublicTransactions:true}).projects.length,1);
  assert.throws(()=>validateRuntimeConfig({...c,allowPublicTransactions:true,projects:[p,p]}),/duplicate/);
+ assert.throws(()=>validateRuntimeConfig({...c,traceRpcFile:file}),/trace RPC/);
+ assert.throws(()=>validateRuntimeConfig({...c,schema:'draw-runtime-config-v2',traceRpcFile:'relative'}),/trace RPC/);
+ assert.equal(validateRuntimeConfig({...c,schema:'draw-runtime-config-v2',traceRpcFile:file,projects:[]}).traceRpcFile,file);
+ assert.equal(validateRuntimeConfig({...c,schema:'draw-runtime-config-v2',allowPublicTransactions:true,recognitionAdapters:[],projects:[p]}).recognitionAdapters.length,0);
+ assert.throws(()=>validateRuntimeConfig({...c,schema:'draw-runtime-config-v2',allowPublicTransactions:true,recognitionAdapters:['unknown'],projects:[p]}),/adapter/);
  await assert.rejects(runtimeEnvironment({getNetwork:async()=>({chainId:4663n}),send:async()=>({instanceId:'different',chainId:4663})},{mode:'rehearsal',instanceId:'expected'}),/instance/);
 });

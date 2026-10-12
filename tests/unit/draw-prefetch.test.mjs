@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {scanProductionLedger,newLedger} from '../../src/tickets/draw-ledger.mjs';
+const policy={anchor:{number:0,hash:'h0'},template:{config:{ticketPurchase:'10'}}};
+function setup(broken=false){let active=0,peak=0;const ledger=newLedger(policy);return {ledger,peak:()=>peak,provider:{getBlock:async n=>({hash:'h'+n}),send:async(method,[hex])=>{const n=Number(BigInt(hex));active++;peak=Math.max(peak,active);await new Promise(r=>setTimeout(r,(11-n%10)%3));active--;return {number:hex,hash:'h'+n,parentHash:broken&&n===11?'wrong':'h'+(n-1),timestamp:'0x1',transactions:[]};}}};}
+test('prefetch is bounded and validates blocks in order across windows',async()=>{const f=setup();assert.equal(await scanProductionLedger(f.provider,policy,f.ledger,{number:25}),true);assert.equal(f.ledger.head.number,25);assert.ok(f.peak()>1&&f.peak()<=10);});
+test('broken parent at window boundary does not advance past it',async()=>{const f=setup(true);await assert.rejects(scanProductionLedger(f.provider,policy,f.ledger,{number:25}),/Discontinuous/);assert.equal(f.ledger.head.number,10);});

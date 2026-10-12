@@ -1,0 +1,48 @@
+{
+  "schema": "project-catalog-v1",
+  "hub": "https://qianqi.site/",
+  "authorX": "https://x.com/ui_uallas",
+  "botUsername": "qianqi_hub_bot",
+  "projects": [
+    {
+      "id": "qianqi",
+      "name": "QIANQI",
+      "symbol": "QIANQI",
+      "status": "launched",
+      "description": "Meme token with short and monthly prize draws in USDG.",
+      "website": "https://init.qianqi.site/",
+      "chainId": 4663,
+      "contract": "0x6EA39A23AA46E51CA6CD2d1cbc0B5bfb29ECB216",
+      "buy": "https://www.ponsfamily.com/launchpad/0x6EA39A23AA46E51CA6CD2d1cbc0B5bfb29ECB216",
+      "art": {
+        "class": "qianqi-art",
+        "image": "/hub-assets/qianqi-banner.webp",
+        "alt": "QIANQI banner with its mouse mascot and Chinese lettering"
+      },
+      "creatorTelegram": "https://t.me/valentin_marapulets",
+      "links": [
+        {
+          "label": "Chart on GeckoTerminal",
+          "url": "https://www.geckoterminal.com/robinhood/pools/0x12ba58b5455fdbc15165e0e8b2096498d2c684f1"
+        }
+      ]
+    },
+    {
+      "id": "igw",
+      "name": "It Gets Worse",
+      "symbol": "IGW",
+      "status": "launched",
+      "description": "IGW is a meme token with ticket-based draws. Eligible purchases earn tickets for a chance to win USDG. Small purchases add up, and unused tickets carry forward.",
+      "story": "Or maybe it’s a magical airship carrying a crew of enchanted acorns on a thousand-year voyage from some distant galaxy to Saratov. To buy dried fish at the market. Who knows.",
+      "website": "https://igw.qianqi.site/",
+      "chainId": 4663,
+      "contract": "0x341849f168833f7578c6E03a7B3Ee9eBC471082f",
+      "buy": "https://www.ponsfamily.com/launchpad/0x341849f168833f7578c6E03a7B3Ee9eBC471082f",
+      "logoSource": "tokens/IGW/igw_logo.png",
+      "art": {
+        "class": "igw-art"
+      },
+      "creatorTelegram": "https://t.me/valentin_marapulets"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import {qianqiPreset} from '../../src/draws/config.mjs';
 import {upgradeProgramDraft} from '../../src/draws/program-config.mjs';
 import {buildDrawSnapshot} from '../../server/short-runtime/draw-projection.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
+import {ROUTE_PROFILE} from '../../src/tickets/draw-router.mjs';
 const build=compileDrawPrograms(),hash=id('head'),code='0x6000',address=n=>'0x'+n.toString(16).padStart(40,'0');
 function fixture(bps,cycle=0n){
  const raw=qianqiPreset();raw.short.enabled=bps>0;raw.monthly.enabled=bps<10000;const config=upgradeProgramDraft(raw,bps);
@@ -28,4 +29,17 @@ test('Settled no-winner snapshots remain distinct and mismatched frozen budgets 
  const f=fixture(7000,1n),s=await buildDrawSnapshot(f);assert.equal(s.draws.length,2);
  for(const d of s.draws){assert.equal(d.draw.settled,true);assert.equal(d.draw.awardedRaw,'0');}
  f.state.runtime.cycles.monthly['1'].budget='51';await assert.rejects(buildDrawSnapshot(f),/snapshot missing/);
+});
+test('Route profile is opt-in, versioned and bound to runtime identity',async()=>{
+ const f=fixture(10000);f.policy.routes=ROUTE_PROFILE;
+ await assert.rejects(buildDrawSnapshot(f),/source/);f.state.identity=digest(f.policy);assert.equal((await buildDrawSnapshot(f)).schema,'draw-public-v2');
+ f.policy.routes='all-aggregators';f.state.identity=digest(f.policy);await assert.rejects(buildDrawSnapshot(f),/route profile/);
+});
+
+
+test('Deferred observations are visible separately even before a wallet has any tickets',async()=>{
+ const f=fixture(10000),sender=address(201),recipient=address(202);
+ f.policy.purchaseAccounting='deferred-purchases-v1';f.state.identity=digest(f.policy);
+ f.state.runtime.ledger.events=[{candidateId:'one',status:'WAITING_RECOGNITION',transactionHash:id('buy'),blockNumber:2,observedSender:sender,observedRecipient:sender},{candidateId:'two',status:'WAITING_RECOGNITION',transactionHash:id('gift'),blockNumber:2,observedSender:sender,observedRecipient:recipient}];
+ const s=await buildDrawSnapshot(f),d=s.draws[0];assert.equal(d.tickets.awaitingRecognition,2);assert.equal(d.tickets.totalIssued,'0');assert.deepEqual(d.walletSnapshot.items,{});assert.equal(d.walletSnapshot.pending[sender].count,2);assert.equal(d.walletSnapshot.pending[recipient].count,1);assert.ok(!JSON.stringify(d.walletSnapshot.pending).includes('candidateId'));
 });

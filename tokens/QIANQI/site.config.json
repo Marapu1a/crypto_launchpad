@@ -1,0 +1,15 @@
+{
+ "schema":"token-site-v1", "project":"qianqi", "adapter":"qianqi-v1",
+ "theme":{"background":"#f5f2e9","foreground":"#20221e","accent":"#ff784c"},
+ "art":{
+  "hero":{"src":"/assets/mouse-thinking.png","position":"50% 50%","mobilePosition":"50% 50%"},
+  "footer":{"src":"/assets/footer_qianqi.png","position":"50% 50%","mobilePosition":"50% 50%"}
+ },
+ "draws":[{"kind":"short","label":"Short","note":"At least 6 hours between draws"},{"kind":"monthly","label":"Monthly","note":"At least 30 days between draws"}],
+ "footer":{
+  "wordmark":"千祺","signature":"On Robinhood Chain.","email":"mailto:marapulets1987@gmail.com",
+  "mascot":true,"mascotWidth":104,"mascotMobileWidth":80,
+  "resources":[{"label":"The rules","url":"#rules"},{"label":"Prize funding","url":"#money"},{"label":"Check for yourself","url":"/transparency/"}],
+  "risk":"A little luck. No promised wins or profits."
+ }
+}

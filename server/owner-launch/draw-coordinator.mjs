@@ -1,3 +1,5 @@
+import {verifyOwnerHistory,ownerFinality} from './confirmation.mjs';
+import {ownerGasPrice,repriceOwnerRequest,checkRetryFee} from './fees.mjs';
 import {Contract,ContractFactory,getAddress,getCreateAddress,id,keccak256,ZeroAddress} from 'ethers';
 import {withOwnerLaunch,check,plain,same} from './store.mjs';
 import {USDG,ESCROW} from '../studio/template.mjs';
@@ -12,6 +14,8 @@ import {amount} from '../../src/draws/config.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
 import {validateProductionProfile,verifyProductionEnvironment,walletGuard} from './production-profile.mjs';
 import {validatePolicy} from '../../src/worker/production-policy.mjs';
+import {ROUTE_PROFILE} from '../../src/tickets/draw-router.mjs';
+import {DEFERRED} from '../../src/tickets/deferred-recognition.mjs';
 
 const BUILD='0x2824a5d90a5160f42449e82ad770e57d68c9124dbf99177da396b74dd853f640';
 const hash=value=>typeof value==='string'&&/^0x[0-9a-f]{64}$/i.test(value);
@@ -55,12 +59,12 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
  const termsIdentity=p=>digest(plain({economics:p.terms.economics,fee:p.terms.fee}));
  function policyFor(s){
   const externals=Object.fromEntries(['quote','escrow','factory','router','hook'].map(k=>[k,profile.externals[k]]));
-  return {schema:'draw-production-policy-v2',chainId:4663,projectId:s.input.id,executor:profile.executor,publisher:profile.publisher,buildHash:BUILD,
+  return {schema:'draw-production-policy-v2',...(s.routes?{routes:s.routes}:{}),...(s.purchaseAccounting?{purchaseAccounting:s.purchaseAccounting}:{}),chainId:4663,projectId:s.input.id,executor:profile.executor,publisher:profile.publisher,buildHash:BUILD,
    anchor:s.launchAnchor,contracts:{...externals,...s.contracts},limits:profile.limits,timing:profile.timing,
    template:{schema:'draw-template-v2',instanceId:id('owner-launch:'+s.input.id),config:s.input.draws,creatorTaxBps:s.creatorTaxBps,team:s.input.team,operations:s.input.operations}};
  }
  async function checkHistory(s){
-  for(const step of s.history)check(same((await provider.getBlock(step.blockNumber))?.hash,step.blockHash),'Confirmed deployment branch changed');
+  await verifyOwnerHistory(provider,s.history);
   for(const pin of Object.values(s.contracts))check(same(keccak256(await provider.getCode(pin.address)),pin.codeHash),'Deployment runtime changed');
  }
  async function pin(s,role,address){
@@ -86,9 +90,6 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
   check(matchesOwnerTransaction(tx,entry,owner),'Wallet transaction differs from reserved request');
   const receipt=await provider.getTransactionReceipt(entry.hash);if(!receipt)return;
   check(same((await provider.getBlock(receipt.blockNumber))?.hash,receipt.blockHash),'Receipt branch changed');
-  let finalized;try{finalized=await provider.getBlock('finalized');}catch{return;}
-  if(!finalized||finalized.number<receipt.blockNumber)return;
-  check(same((await provider.getBlock(finalized.number))?.hash,finalized.hash),'Finalized branch changed');
   if(receipt.status!==1){entry.state='reverted';s.stage='blocked';await save(s);return;}
   await applyReceipt(s,entry,receipt);
   s.spent=String(BigInt(s.spent)+BigInt(tx.value)+receipt.gasUsed*receipt.gasPrice);
@@ -122,7 +123,7 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
   check(pending===latest,'Owner has an unrelated pending transaction');
   const request={to:entry.request.to??null,data:entry.request.data??'0x',value:BigInt(entry.request.value??0),from:owner,chainId:4663,nonce:pending};
   const estimate=await provider.estimateGas(request),gasLimit=(estimate*120n+99n)/100n;
-  const gasPrice=(await provider.getFeeData()).gasPrice;check(gasPrice!==null&&gasPrice>0n&&gasPrice<=BigInt(profile.limits.maxGasPrice),'Gas price budget');
+  const gasPrice=await ownerGasPrice(provider,profile.limits);
   check(gasLimit<=BigInt(profile.limits.maxGasLimit),'Gas limit budget');
   request.gasLimit=gasLimit;request.gasPrice=gasPrice;
   const maximum=request.value+gasLimit*gasPrice;
@@ -131,13 +132,15 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
   const result=plain({...entry,label:labels[entry.kind],request});result.id=digest({kind:result.kind,request:result.request,build:BUILD,identity:s.identity});return result;
  }
  async function register(s,save){
+  s.finality=await ownerFinality(provider,s.history);
+  if(!s.finality.ready){s.stage='awaiting-finality';await save(s);return;}
   const policy=policyFor(s);
   if(s.policy)check(digest(s.policy)===digest(policy),'Deployment policy changed');
   await verifyDrawPolicy(provider,policy);
   s.policy=policy;s.stage='deployed';await save(s);
   // v2 worker registration is deliberately separate; v1 executor rejects this policy.
  }
- function view(s,revision){return plain({id:s.input.id,input:s.input,owner,mode:profile.mode,signingEnabled,...(production?{walletGuard:walletGuard(profile)}:{}),stage:s.stage,executionEnabled:false,policy:s.policy??null,revision,buildHash:BUILD,instanceId:profile.instanceId,profile:{executor:profile.executor,publisher:profile.publisher,timing:profile.timing,limits:profile.limits,funding:profile.funding,totalNativeLimit:profile.totalNativeLimit},candidate:s.candidate,pending:s.pending,history:s.history,contracts:s.contracts,launch:s.launch,spent:s.spent});}
+ function view(s,revision){return plain({id:s.input.id,input:s.input,owner,mode:profile.mode,signingEnabled,...(production?{walletGuard:walletGuard(profile)}:{}),stage:s.stage,confirmationMode:'receipt-then-finality',finality:s.finality??null,executionEnabled:false,policy:s.policy??null,revision,buildHash:BUILD,instanceId:profile.instanceId,profile:{executor:profile.executor,publisher:profile.publisher,timing:profile.timing,limits:profile.limits,funding:profile.funding,totalNativeLimit:profile.totalNativeLimit},candidate:s.candidate,pending:s.pending,history:s.history,contracts:s.contracts,launch:s.launch,spent:s.spent});}
  async function run(projectId,action,body={}){
   if(['arm','retry'].includes(action))check(signingEnabled,'Public signing is disabled; owner approval and operator activation required');
   await environment();
@@ -148,9 +151,9 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
     const existing=await adminPool.query('SELECT id FROM launchpad.projects WHERE id=$1 OR slug=$2',[projectId,input.slug]);check(!existing.rowCount,'Project already exists; cannot replace a lost journal');
     const used=await adminPool.query('SELECT sender FROM launchpad.production_wallets WHERE chain_id=4663 AND sender=ANY($1::text[])',[[profile.executor,profile.publisher].map(x=>x.toLowerCase())]);check(!used.rowCount,'Executor/publisher already belongs to another project');
     const preflight=await preparePlan(provider,input.draft,owner);
-    s={schema:'owner-launch-v2',input,roles:{executor:profile.executor,publisher:profile.publisher},profileHash,identity:digest({input,profileHash,build:BUILD}),termsIdentity:termsIdentity(preflight),creatorTaxBps:preflight.input.params.creatorTaxBps,stage:'deploying',done:{},history:[],contracts:{},spent:'0',candidate:null,pending:null};await save(s);
+    s={schema:'owner-launch-v2',routes:ROUTE_PROFILE,purchaseAccounting:DEFERRED,input,roles:{executor:profile.executor,publisher:profile.publisher},profileHash,identity:digest({input,profileHash,build:BUILD,routes:ROUTE_PROFILE,purchaseAccounting:DEFERRED}),termsIdentity:termsIdentity(preflight),creatorTaxBps:preflight.input.params.creatorTaxBps,stage:'deploying',done:{},history:[],contracts:{},spent:'0',candidate:null,pending:null};await save(s);
    }else{
-    check(s.schema==='owner-launch-v2'&&s.profileHash===profileHash&&s.identity===digest({input:s.input,profileHash,build:BUILD}),'Launch profile/input changed');
+    check((s.purchaseAccounting===undefined||s.purchaseAccounting===DEFERRED)&&(s.routes===undefined||s.routes===ROUTE_PROFILE)&&s.schema==='owner-launch-v2'&&s.profileHash===profileHash&&s.identity===digest({input:s.input,profileHash,build:BUILD,...(s.routes?{routes:s.routes}:{}),...(s.purchaseAccounting?{purchaseAccounting:s.purchaseAccounting}:{})}),'Launch profile/input changed');
     if(action==='create')check(digest(validateLaunch(body.input))===digest(s.input),'Launch input is immutable');
    }
    await checkHistory(s);await lease();
@@ -171,10 +174,21 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
     check(BigInt(s.spent)+maximum<=BigInt(profile.totalNativeLimit)&&await provider.getBalance(owner)>=maximum,'Reserved request exceeds available budget');
     s.pending={...s.candidate,state:'requesting'};s.candidate=null;s.stage='awaiting-wallet';await save(s);
    }
+   if(action==='reprice'){
+    check(String(body.revision)===String(revision()),'Review changed; refresh first');
+    check(s.pending?.id===body.requestId,'Pending request changed');
+    const updated=await repriceOwnerRequest(provider,profile,s.pending,s.spent);
+    s.pending.feeRevisions??=[];s.pending.feeRevisions.push({at:new Date().toISOString(),request:s.pending.request});
+    s.pending.request=updated;await save(s);
+   }
    if(action==='retry'){
     check(s.pending?.id===body.requestId&&!s.pending.hash&&s.pending.state==='requesting','Only an unresolved request without a hash can be retried');
     check(await provider.getTransactionCount(owner,'latest')===s.pending.request.nonce&&await provider.getTransactionCount(owner,'pending')===s.pending.request.nonce,'Nonce already used; recover the hash');
-    // Same exact nonce/request; never create a fresh nonce for an ambiguous send.
+    check(String(body.revision)===String(revision()),'Review changed; refresh first');
+    await checkRetryFee(provider,s.pending.request);
+    const maximum=BigInt(s.pending.request.value)+BigInt(s.pending.request.gasLimit)*BigInt(s.pending.request.gasPrice);
+    check(BigInt(s.spent)+maximum<=BigInt(profile.totalNativeLimit)&&await provider.getBalance(owner)>=maximum,'Reserved request exceeds available budget');
+    // Same nonce and calldata; fees only change through a separate reviewed action.
    }
    if(!s.pending&&s.stage!=='deployed'){
     s.candidate=await candidate(s);

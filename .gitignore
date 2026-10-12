@@ -12,3 +12,7 @@ test-results/
 !.env.example
 *.pem
 *.key
+hub_key
+hub_key.*
+__pycache__/
+*.py[cod]

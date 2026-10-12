@@ -12,6 +12,8 @@ import {runDrawWorker,runDrawProjects} from '../../server/shared/draw-worker.mjs
 import {registerDeployedDraw} from '../../server/owner-launch/draw-handoff.mjs';
 import {withOwnerLaunch} from '../../server/owner-launch/store.mjs';
 import {creditedPurchases,snapshotProductionTickets} from '../../src/tickets/draw-ledger.mjs';
+import {buildDrawSnapshot} from '../../server/short-runtime/draw-projection.mjs';
+import {DEFERRED} from '../../src/tickets/deferred-recognition.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
 import {GENESIS,PERIOD} from '../../src/randomness/drand.mjs';
 const vector=JSON.parse(readFileSync('vendor/qianqi/research/drand-feasibility/vector.json')),preceding=JSON.parse(readFileSync('tests/fixtures/production-pre-freeze-beacon.json'));
@@ -41,9 +43,9 @@ try{
   c.collector=await prod('PonsFeeCollector',[quote.target,escrow.target,c.splitter.target,factory.target]);c.token=await fixture('TestUSDG',[],'Fixtures');c.curve=await fixture('WorkerCurve',[c.token.target,factory.target,quote.target,c.collector.target,escrow.target]);
   await tx(factory.setLaunch([c.token.target,c.curve.target,owner,c.collector.target,quote.target,4200000,3000,60,200,false,0,0,0,0,true]));await tx(c.collector.bind(c.token.target));await tx(c.token.mint(c.curve.target,1000000000000n));
   c.recognition=await prod('PurchaseRecognition',[instance,publisher.address]);const anchor=await provider.getBlock('latest');
-  const policy={schema:'draw-production-policy-v2',chainId:4663,projectId,executor:signer.address,publisher:publisher.address,buildHash:build.manifest.buildHash,anchor:{number:anchor.number,hash:anchor.hash},contracts:{},limits:{maxGasPrice:'100000000000',maxGasLimit:'15000000',nativeFloor:'100000'},timing,template:{schema:'draw-template-v2',instanceId:instance,config,team:wallet(15).address,operations:wallet(16).address,creatorTaxBps:200}};
+  const policy={schema:'draw-production-policy-v2',purchaseAccounting:DEFERRED,chainId:4663,projectId,executor:signer.address,publisher:publisher.address,buildHash:build.manifest.buildHash,anchor:{number:anchor.number,hash:anchor.hash},contracts:{},limits:{maxGasPrice:'100000000000',maxGasLimit:'15000000',nativeFloor:'100000'},timing,template:{schema:'draw-template-v2',instanceId:instance,config,team:wallet(15).address,operations:wallet(16).address,creatorTaxBps:200}};
   for(const [role,obj] of Object.entries(c))policy.contracts[role]={address:obj.target,codeHash:keccak256(await provider.getCode(obj.target))};
-  await withOwnerLaunch({pool:db.pools.executor,projectId,owner},async({save})=>{const s={schema:'owner-launch-v2',stage:'deployed',input:{id:projectId,slug:'worker-'+i,draft:{name:'Worker '+i}},roles:{executor:signer.address,publisher:publisher.address},identity:digest({projectId}),policy,launch:{token:c.token.target}};await save(s);await save(s);});
+  await withOwnerLaunch({pool:db.pools.executor,projectId,owner},async({save})=>{const s={schema:'owner-launch-v2',stage:'deployed',history:[{hash:c.recognition.deploymentTransaction().hash,blockNumber:anchor.number,blockHash:anchor.hash}],input:{id:projectId,slug:'worker-'+i,draft:{name:'Worker '+i}},roles:{executor:signer.address,publisher:publisher.address},identity:digest({projectId}),policy,launch:{token:c.token.target}};await save(s);await save(s);});
   const handoff={pool:db.pools.executor,adminPool:db.admin,provider,projectId,owner};
   // adminPool needs a leased client; use isolated admin connection adapter without closing it.
   handoff.adminPool={connect:async()=>({query:(...a)=>db.admin.query(...a),release:()=>{}})};
@@ -71,17 +73,24 @@ try{
  });
  await scenario('Late credits do not rewrite snapshots; both draw outcomes settle and restart without repeat payouts',async()=>{
   const p=projects[2],snap=digest((await state(p)).runtime.cycles);await buy(p,10000000n);clock=(await base.getBlock('latest')).timestamp;
+  await until({...p,recognitionAdapters:[]},async()=>(await state(p)).runtime.ledger.events.filter(e=>e.status==='WAITING_RECOGNITION').length===2);
+  assert.equal(creditedPurchases(p.policy,(await state(p)).runtime.ledger).length,1);assert.equal(digest((await state(p)).runtime.cycles),snap);
+  const heldSnapshot=await buildDrawSnapshot({provider,policy:p.policy,state:await state(p)});
+  for(const d of heldSnapshot.draws){assert.equal(d.tickets.awaitingRecognition,1);assert.equal(d.walletSnapshot.pending[(await (await base.getSigner(8)).getAddress()).toLowerCase()].count,1);}
   let held=false;
   await until({...p,hook:async phase=>{if(phase==='prepared'&&(await state(p)).runtime.operation.method==='confirm'){finality=(await base.getBlock('latest')).number;held=true;}}},async()=>held&&Boolean((await state(p)).runtime.publisher.pending));
   assert.equal(creditedPurchases(p.policy,(await state(p)).runtime.ledger).length,1);
   assert.equal((await pass(p)).reason,'receipt-finality');finality=undefined;await pass(p);
   await until(p,async()=>creditedPurchases(p.policy,(await state(p)).runtime.ledger).length===2);assert.equal(digest((await state(p)).runtime.cycles),snap);
+  const buyer=(await (await base.getSigner(8)).getAddress()).toLowerCase();
+  for(const d of (await buildDrawSnapshot({provider,policy:p.policy,state:await state(p)})).draws){const w=d.walletSnapshot.items[buyer];assert.equal(w.totalIssued,'41');assert.equal(w.reserved,'40');assert.equal(w.available,'1');}
   await move(time+30);
   for(const p of projects){for(const k of ['short','monthly'])if(p.c[k])await until(p,async()=>(await p.c[k].draws(1)).settled&&await p.c[k].liabilities()===0n);
    await until(p,async()=>await p.c.curve.creatorTaxBalance()===0n&&await p.c.curve.quoteFeeBalance()===0n&&await quote.balanceOf(p.c.collector.target)===0n&&await p.c.escrow.balanceOfToken(p.c.collector.target,quote.target)===0n&&await p.c.splitter.credit(0)===0n&&await p.c.splitter.credit(1)===0n&&await p.c.splitter.credit(2)===0n&&await p.c.fundingRouter.credit(0)===0n&&await p.c.fundingRouter.credit(1)===0n);
    const n=await provider.getTransactionCount(p.signer.address);await pass(p);await pass(p);assert.equal(await provider.getTransactionCount(p.signer.address),n);
   }
   const s=await state(p);for(const k of ['short','monthly']){const next=await snapshotProductionTickets(p.policy,s.runtime.ledger,p.c[k]);assert.equal(next.participants.length,1);assert.equal(next.participants[0].firstAttempt,'41');assert.equal(next.participants[0].lastAttempt,'41');}
+  for(const d of (await buildDrawSnapshot({provider,policy:p.policy,state:s})).draws){const w=d.walletSnapshot.items[buyer];assert.equal(w.used,'40');assert.equal(w.reserved,'0');assert.equal(w.available,'1');assert.equal(w.latestUnpaidRewardRaw,'0');}
  });
  report.status='PASS';
 }catch(e){report.status='FAIL';report.error=e.shortMessage||e.message;console.error(e);process.exitCode=1;}

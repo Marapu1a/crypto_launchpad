@@ -4,10 +4,12 @@ import {UUID} from '../../src/launch/template.mjs';
 import {validateRuntimeConfig,privateText} from '../short-runtime/config.mjs';
 import {loadExecutorKeystore} from '../../src/worker/executor-keystore.mjs';
 import {check,same} from './store.mjs';
+import {httpsUrl} from '../../src/pons/validation.mjs';
 
 // Preparation only: no provider, signer transport, DB writes or service activation.
 export function createRuntimeHandoff({pool,apiPool,profile,runtime,keys={},baseDomain,loadKey=loadExecutorKeystore,readSecret=privateText}){
- check(typeof baseDomain==='string'&&/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z][a-z0-9-]*$/.test(baseDomain)&&baseDomain.length<=200,'Invalid site base domain');
+ const validHost=host=>typeof host==='string'&&/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z][a-z0-9-]*$/.test(host)&&host.length<=200;
+ check(baseDomain===undefined||validHost(baseDomain),'Invalid site base domain');
  return async projectId=>{
   check(UUID.test(projectId),'Invalid launch ID');await verifyRole(pool,'lp_executor');await verifyRole(apiPool,'lp_api');
   const source=await inProject(pool,projectId,async c=>{
@@ -24,7 +26,10 @@ export function createRuntimeHandoff({pool,apiPool,profile,runtime,keys={},baseD
    check(row.adapter_version===(v2?'draw-candidate-v2':'production-candidate-v1')&&row.slug===state.input.slug&&same(row.token_address,state.launch.token)&&same(row.program_address,policy.contracts[v2?'fundingRouter':'program'].address),'Registered project mismatch');
    return {state,policy,hash:row.policy_hash,slug:row.slug};
   });
-  const {state,policy,hash,slug}=source,hostname=slug+'.'+baseDomain;
+  const {state,policy,hash,slug}=source;
+  const siteUrl=state.input.draft?.website?httpsUrl(state.input.draft.website):'https://'+slug+'.'+baseDomain;
+  const site=new URL(siteUrl),hostname=site.hostname;
+  check(validHost(hostname)&&!site.port&&(state.input.draft?.website||baseDomain),'Invalid project website');
   const {rows:[domain]}=await apiPool.query('SELECT launchpad.resolve_host($1) AS id',[hostname]);
   check(!domain?.id||domain.id===projectId,'Site domain belongs to another project');
   const credentials=keys[projectId],checks=[];let config=null;
@@ -34,7 +39,7 @@ export function createRuntimeHandoff({pool,apiPool,profile,runtime,keys={},baseD
     entry[role]={keyFile:credentials[role]?.keyFile,passwordFile:credentials[role]?.passwordFile};
    }
    // Never inherit another project's entry or an existing activation flag.
-   const base=Object.fromEntries(['schema','mode','instanceId','intervalMs','concurrency','rpcFile','databaseFile','healthFile'].map(k=>[k,runtime[k]]));
+   const base=Object.fromEntries(['schema','mode','instanceId','intervalMs','concurrency','rpcFile','databaseFile','healthFile','traceRpcFile','recognitionAdapters'].filter(k=>runtime[k]!==undefined).map(k=>[k,runtime[k]]));
    config=validateRuntimeConfig({...base,allowPublicTransactions:false,projects:[entry]});
    check(config.mode===profile.mode&&(config.mode!=='rehearsal'||config.instanceId===profile.instanceId),'Rehearsal instance binding required');
    for(const role of ['executor','publisher']){
@@ -43,7 +48,7 @@ export function createRuntimeHandoff({pool,apiPool,profile,runtime,keys={},baseD
    }
   }else for(const role of ['executor','publisher'])checks.push({role,address:policy[role],ready:false});
   return {projectId,policyHash:hash,activation:'disabled',credentials:checks,config,
-   site:{hostname,url:'https://'+hostname,registered:domain?.id===projectId},
+   site:{hostname,url:siteUrl,registered:domain?.id===projectId},
    prepared:checks.every(c=>c.ready),approvalRequired:true};
  };
 }

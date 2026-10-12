@@ -28,7 +28,7 @@ export async function registerDrawSender({ pool, provider, projectId, moduleId, 
 }
 
 // Internal transport. The caller supplies a concrete contract/dataset admission planner.
-// No HTTP route or service unit enables it. Session lock lasts across committed writes.
+// Public read API never invokes it. Session lock lasts across committed writes.
 export async function runDrawSender({ pool, provider, signer, projectId, moduleId, request, action, admit, hook, operate }) {
   await verifyRole(pool, 'lp_executor');
   const c = await pool.connect(); let broken = false, held = false, lock;

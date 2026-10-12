@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodic backup of launchpad draw state
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:30:00
+RandomizedDelaySec=300
+Persistent=true
+Unit=crypto-launchpad-draw-backup.service
+
+[Install]
+WantedBy=timers.target

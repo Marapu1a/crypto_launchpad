@@ -36,7 +36,7 @@ export async function buildShortSnapshot({provider,policy,state,metadata={}}){
 export async function publishShortView({pool,provider,projectId,moduleId,status,reason,alerts=[]}){
  await verifyRole(pool,'lp_executor');
  const allowed=['paused','blocked','busy','waiting','confirmed','already-confirmed','idle'];check(allowed.includes(status),'Invalid public status');
- const attention=alerts.length>0||['chain-clock','finality-unavailable','finality-regression','native-balance','gas-limit','gas-price','external-pending-nonce','latest-beacon-unavailable','beacon-unavailable'].includes(reason);
+ const attention=alerts.length>0||['chain-clock','finality-unavailable','finality-regression','native-balance','gas-limit','gas-price','external-pending-nonce','latest-beacon-unavailable','beacon-unavailable','route-evidence-unavailable'].includes(reason);
  const publicStatus=status==='paused'?'paused':attention?'blocked':status;
  let failed=false;
  try{

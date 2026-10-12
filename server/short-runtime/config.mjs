@@ -6,6 +6,7 @@ import {validateDrawPolicy} from '../../src/worker/draw-policy.mjs';
 import {validatePolicy} from '../../src/worker/production-policy.mjs';
 import {loadExecutorKeystore} from '../../src/worker/executor-keystore.mjs';
 import {UUID} from '../../src/launch/template.mjs';
+import {validateAdapters} from '../../src/tickets/deferred-recognition.mjs';
 
 const check=(v,m)=>{if(!v)throw Error(m);};
 export async function privateText(file){
@@ -20,6 +21,8 @@ export function validateRuntimeConfig(c){
  check(Number.isInteger(c.concurrency)&&c.concurrency>=1&&c.concurrency<=2,'Invalid concurrency');
  check(Array.isArray(c.projects)&&c.projects.length<=8,'At most eight projects in this runtime');
  for(const key of ['rpcFile','databaseFile','healthFile'])check(typeof c[key]==='string'&&isAbsolute(c[key]),'Absolute runtime paths required');
+ if(c.traceRpcFile!==undefined)check(c.schema==='draw-runtime-config-v2'&&typeof c.traceRpcFile==='string'&&isAbsolute(c.traceRpcFile),'Absolute v2 trace RPC path required');
+ if(c.recognitionAdapters!==undefined){check(c.schema==='draw-runtime-config-v2','Adapter selection requires v2');validateAdapters(c.recognitionAdapters);}
  if(c.mode==='rehearsal')check(typeof c.instanceId==='string'&&c.instanceId.length>0,'Fork instance required');
  const ids=new Set();
  for(const p of c.projects){
@@ -46,7 +49,7 @@ export async function loadRuntimeProject({pool,provider,config,entry,loadKey=loa
  });
  const keys={};
  for(const role of ['executor','publisher'])keys[role]=await loadKey({file:entry[role].keyFile,password:await readSecret(entry[role].passwordFile),expectedAddress:policy[role],provider});
- return {policySchema:policy.schema,projectId:entry.projectId,moduleId:entry.moduleId,enabled:entry.enabled,pool,provider,nativeFloor:policy.limits.nativeFloor,signer:keys.executor,publisher:keys.publisher,
+ return {policySchema:policy.schema,recognitionAdapters:config.recognitionAdapters,projectId:entry.projectId,moduleId:entry.moduleId,enabled:entry.enabled,pool,provider,nativeFloor:policy.limits.nativeFloor,signer:keys.executor,publisher:keys.publisher,
   guard:async()=>{
    await runtimeEnvironment(provider,config);
    await inProject(pool,entry.projectId,async c=>{const {rows:[r]}=await c.query('SELECT policy_hash FROM launchpad.production_senders WHERE project_id=$1 AND module_id=$2',[entry.projectId,entry.moduleId]);check(r?.policy_hash===entry.policyHash,'Activated policy changed');});

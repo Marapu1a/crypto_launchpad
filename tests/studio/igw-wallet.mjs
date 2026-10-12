@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import {chromium} from 'playwright';
+import {demoServer,demoAddress,demoModule} from '../fixtures/igw-wallet-site.mjs';
+const root='.local/test-results/igw-wallet-'+new Date().toISOString().replace(/[:.]/g,'-');await fs.mkdir(root,{recursive:true});
+const server=demoServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch();const report={scenarios:[],limits:['Local simulated API and injected wallet; no public sends']};
+try{
+ const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>{window.walletCalls=[];window.walletHandlers={};window.ethereum={request:async({method})=>{window.walletCalls.push(method);if(method!=='eth_requestAccounts')throw Error('Unexpected wallet method');return ['0x'+'1'.repeat(40)];},on:(name,f)=>window.walletHandlers[name]=f};});
+ await page.goto('http://127.0.0.1:'+server.address().port+'/#account');await page.locator('#wallet-connect').click();await page.waitForFunction(()=>document.querySelector('.wallet-card'));
+ assert.match(await page.locator('#wallet-results').innerText(),/7.5 USDG/);assert.deepEqual(await page.locator('.wallet-stats dd').allTextContents(),['1','3','8','7.5 USDG']);
+ assert.deepEqual(await page.evaluate(()=>window.walletCalls),['eth_requestAccounts']);report.scenarios.push('read-only connect and exact counters');
+ assert.match(await page.locator('.pending-purchases').innerText(),/1 purchase linked.*No tickets counted yet/);
+ await page.route('**/api/wallet/*',r=>r.fulfill({json:{address:demoAddress,modules:[{...demoModule(),snapshot:{...demoModule().snapshot,pendingRecognition:{count:0,items:[]}}}]}}));await page.getByRole('button',{name:'LOOK UP',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.wallet-card')&&!document.querySelector('.pending-purchases'));assert.deepEqual(await page.locator('.wallet-stats dd').allTextContents(),['1','3','8','7.5 USDG']);await page.unroute('**/api/wallet/*');report.scenarios.push('pending purchase separate from counters and removed on refresh');
+ await page.screenshot({path:root+'/desktop.png',fullPage:true});
+ await page.route('**/api/wallet/*',r=>{const m=demoModule();m.snapshot.wallet=Object.fromEntries(Object.keys(m.snapshot.wallet).map(k=>[k,'0']));return r.fulfill({json:{address:demoAddress,modules:[m]}});});await page.getByRole('button',{name:'LOOK UP',exact:true}).click();await page.locator('.pending-purchases').waitFor();assert.deepEqual(await page.locator('.wallet-stats dd').allTextContents(),['0','0','0','10 USDG']);await page.unroute('**/api/wallet/*');report.scenarios.push('first pending purchase visible with zero issued tickets');
+
+ await page.locator('#wallet-connect').click();await page.waitForFunction(()=>document.querySelector('.wallet-card'));
+ await page.evaluate(()=>window.walletHandlers.accountsChanged(['0x'+'2'.repeat(40)]));await page.waitForFunction(()=>document.querySelector('#account-status').textContent.startsWith('0x'+'2'.repeat(40))&&document.querySelector('.wallet-card'));
+ await page.evaluate(()=>window.walletHandlers.disconnect());assert.equal(await page.locator('.wallet-card').count(),0);report.scenarios.push('account switch and disconnect');
+ await page.route('**/api/wallet/*',r=>r.fulfill({json:{address:r.request().url().split('/').at(-1),modules:[{...demoModule(),stale:true}]}}));
+ await page.locator('#wallet-address').fill(demoAddress);await page.getByRole('button',{name:'LOOK UP',exact:true}).click();await page.getByText('Delayed snapshot — these values may have changed.',{exact:false}).waitFor();report.scenarios.push('manual address and stale snapshot');
+ await page.setViewportSize({width:320,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:root+'/mobile.png',fullPage:true});
+ await page.unroute('**/api/wallet/*');await page.route('**/api/wallet/*',r=>r.fulfill({status:503,json:{}}));await page.getByRole('button',{name:'LOOK UP',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#account-status').textContent.includes('temporarily unavailable'));assert.equal(await page.locator('.wallet-card').count(),0);report.scenarios.push('offline clears counters');
+ await page.unroute('**/api/wallet/*');await page.route('**/api/wallet/*',r=>r.fulfill({json:{address:demoAddress,modules:[{...demoModule(),snapshot:{...demoModule().snapshot,wallet:{...demoModule().snapshot.wallet,available:'1000'}}}]}}));await page.getByRole('button',{name:'LOOK UP',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#account-status').textContent.includes('temporarily unavailable'));assert.equal(await page.locator('.wallet-card').count(),0);report.scenarios.push('inconsistent counters rejected');
+ await page.unroute('**/api/wallet/*');let release;const held=new Promise(r=>release=r);let seen=false;
+ await page.route('**/api/wallet/*',async r=>{const address=r.request().url().split('/').at(-1);if(address===demoAddress){seen=true;await held;}try{await r.fulfill({json:{address,modules:[demoModule()]}});}catch{}});
+ await page.locator('#wallet-address').fill(demoAddress);await page.getByRole('button',{name:'LOOK UP',exact:true}).click();for(let i=0;i<30&&!seen;i++)await new Promise(r=>setTimeout(r,20));assert.ok(seen);
+ const next='0x'+'2'.repeat(40);await page.locator('#wallet-address').fill(next);await page.getByRole('button',{name:'LOOK UP',exact:true}).click();await page.waitForFunction(a=>document.querySelector('#account-status').textContent.startsWith(a)&&document.querySelector('.wallet-card'),next);release();await page.waitForTimeout(100);assert.ok((await page.locator('#account-status').innerText()).startsWith(next));report.scenarios.push('late response cannot replace selected wallet');
+ await page.setViewportSize({width:390,height:844});await page.locator('#account').screenshot({path:root+'/account.png'});
+ await page.route('**/api/project',r=>r.fulfill({status:421,json:{error:'unknown_project_host'}}));await page.reload();await page.waitForFunction(()=>document.querySelector('#network-state').textContent.includes('Contract data is unavailable'));assert.equal(await page.locator('#account-controls').isVisible(),true);report.scenarios.push('wallet lookup remains visible without invented ticket balances');
+ assert.deepEqual(errors,[]);report.status='PASS';console.log('PASS '+report.scenarios.join('; '));
+}catch(e){report.status='FAIL';report.error=e.message;console.error(e);process.exitCode=1;}
+finally{await fs.writeFile(root+'/report.json',JSON.stringify(report,null,2));console.log(root+'/report.json');await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));}
