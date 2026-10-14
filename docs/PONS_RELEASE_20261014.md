@@ -1,3 +1,61 @@
+# Production release: Pons servicing, 2026-10-14
+
+Status: **activated**. Runtime, collector and both public APIs use
+`/opt/crypto-launchpad/releases/pons-c75fdb9-20261014`.
+Manifest SHA256: `886f68deb69f441462894440aa1318697696af9002f0c5ff03339516ba059b56`.
+The earlier staging report below is historical, superseded by this section.
+
+## Deployment and preserved state
+
+- Owner authorized release. Both project inspections qualified at 13:27 UTC
+  using free Alchemy, chain4663; no request was sent to QuickNode.
+- QIANQI retained cutoff reconciled as history-only. Original journals remain
+  unchanged. Migration preserves old credited purchases, consumed draws and payouts.
+- Shared runtime owns servicing for both projects. Old automation/indexer/draw
+  services remain disabled with their disabling overrides intact.
+- Pons collector refreshes both accounting reports every five minutes, without RPC.
+  Quiet runtime ticks perform local checks; contract control is scheduled every
+  30 minutes or earlier when purchases/obligations require it.
+- RPC budget persists across restarts: 2000 requests/hour, minimum 150ms spacing.
+  Diagnostic limit was raised from 250 without resetting the used count/window.
+  This is a request ceiling, not a provider CU estimate or free-tier guarantee.
+- QIANQI API registry now uses pons-api-v1 and a separate readable public snapshot;
+  IGW keeps its existing projection table with Pons accounting. APIs do not make
+  RPC calls for visitors. Source and contract verification timestamps stay separate.
+- Encrypted credentials remain server-owned. No keys or live journals entered Git.
+
+## Verification
+
+- Initial qualification, first financial-service passes and public projection
+  succeeded for both tokens. Subsequent idle checks kept RPC usage at 1130
+  through 13:43 UTC (includes preflight and initial startup, not steady-state cost).
+- HTTPS sites return 200. Both public APIs are fresh. QIANQI reserves total
+  226.915834 USDG, with two historical draws preserved. IGW fund 26.966887 USDG;
+  38 tickets from six eligible purchases across five wallets.
+- Fixed API service freshness to match five-minute Pons heartbeat instead of the
+  old two-minute threshold; contract freshness remains independently enforced.
+- Existing operational monitor now checks shared runtime/collector, both APIs and
+  verified Pons backup age. Disabled legacy workers are no longer false incidents.
+  No manual Telegram test message was sent.
+- Backup includes PostgreSQL, shared journals/public snapshots/config, legacy
+  journal evidence, transactional SQLite copy and the persistent RPC budget.
+  Checksums and archive/database listings verified. Live backup drained the worker
+  and restarted it with preserved state. Daily timer enabled. Not a full restore drill.
+- Changed-path tests: handoff/binding/inspection/migration (11), credential access,
+  monitoring (7) and freshness/heartbeat (2) passed. Pinned adapter/upstream source
+  checks passed. Contract artifact built once; later ops release reused identical
+  verified artifact only after byte comparison of all runtime sources.
+
+## Operational limits and next checks
+
+No new raffle was forced during release; both tokens currently await funding.
+Measure an ordinary day of provider usage before promising a monthly cost.
+First-migration inspector must not be rerun over the new state. Never delete
+journals, reset quota or enable an old financial worker to recover a failure.
+See [release procedure and rollback](PONS_RELEASE.md).
+
+---
+
 # Release attempt: 2026-10-14
 
 Owner authorized release. Candidate: `394adb9927c5533b9cc8999046b103c1859bfb20`.

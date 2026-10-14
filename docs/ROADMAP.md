@@ -1,8 +1,6 @@
 # Очередь работ
 
-2026-10-14 review follow-up: [targeted fixes and verification](PONS_REVIEW_FIXES.md) cover external funding wait, idempotent heartbeat and strict first-migration inspection. Not deployed; server qualification remains required.
-
-**2026-10-14 release candidate:** shared production composition and persistent RPC gate implemented locally; both host financial cycles passed. Not deployed. Current scope, test limits and next release procedure: [PONS_RUNTIME](PONS_RUNTIME.md), [PONS_RELEASE](PONS_RELEASE.md). Earlier pending/rehearsal-only statuses below describe previous checkpoints and are superseded by this paragraph. QuickNode and old production workers remain disabled.
+**2026-10-14 production release:** shared Pons servicing is active for QIANQI and IGW, with free Alchemy RPC, persistent budget, five-minute Pons collection, both public APIs and daily verified backup. Release `c75fdb9`. QuickNode and old workers remain disabled. [Deployment evidence and limits](PONS_RELEASE_20261014.md). Earlier status paragraphs below are historical checkpoints, superseded by this release.
 
 Актуализировано 13.10.2026, МСК. Здесь только порядок следующих пакетов;
 реализованное состояние — [CURRENT_CONTEXT](CURRENT_CONTEXT.md).

@@ -3,7 +3,7 @@
 2026-10-14. Local candidate only; activation is a separate owner-approved release.
 Implementation and evidence: [PONS_RUNTIME](PONS_RUNTIME.md).
 
-Latest attempt: [2026-10-14 server staging and handoff blocker](PONS_RELEASE_20261014.md).
+Latest deployment: [2026-10-14 activated release, verification and limits](PONS_RELEASE_20261014.md).
 
 1. Pin release files/checksums. Back up server DB, journals, bindings and registry.
    Keep legacy indexer/automation/draw/sandbox-check disabled, including existing
