@@ -7,23 +7,25 @@ import {amount,validateBasket} from '../../src/draws/config.mjs';
 import {check,same} from '../../src/worker/production-template.mjs';
 import {projectWallets} from './draw-wallets.mjs';
 import {deferred,pendingPurchases} from '../../src/tickets/deferred-recognition.mjs';
+import {ponsWallets} from '../../src/tickets/pons-accounting.mjs';
 
 // Whitelisted, finalized public data. No journal, signer, policy or purchase evidence.
 export async function buildDrawSnapshot({provider,policy,state,metadata={}}){
  const config=validateDrawPolicy(policy);
  check(state.identity===digest(policy)&&state.runtime?.schema==='draw-runtime-v2','Invalid draw projection source');
- const ledger=state.runtime.ledger,head=await provider.getBlock(ledger.head.number),finalized=await provider.getBlock('finalized');
- check(head&&finalized&&head.number<=finalized.number&&same(head.hash,ledger.head.hash),'Projection is not finalized/canonical');
+ const ledger=state.runtime.ledger,pons=state.runtime.ponsAccounting,reference=pons?.head??ledger.head,head=await provider.getBlock(reference.number),finalized=await provider.getBlock('finalized');
+ check(head&&finalized&&head.number<=finalized.number&&same(head.hash,reference.hash),'Projection is not finalized/canonical');
  const c=drawContracts({call:r=>provider.call({...r,blockTag:head.number})},policy);
- const thresholdRaw=String(amount(config.ticketPurchase)),credited=creditedPurchases(policy,ledger,head.number),wallets=replayTickets(credited,thresholdRaw),ids=new Set(credited.map(e=>e.candidateId));
- const waiting=deferred(policy)?pendingPurchases(ledger,ids):[],pendingByWallet={};
+ const thresholdRaw=String(amount(config.ticketPurchase)),credited=creditedPurchases(policy,ledger,head.number),wallets=pons?ponsWallets(pons,thresholdRaw):replayTickets(credited,thresholdRaw),ids=new Set(credited.map(e=>e.candidateId));
+ const waiting=!pons&&deferred(policy)?pendingPurchases(ledger,ids):[],pendingByWallet={};
  for(const e of waiting)for(const address of new Set([e.observedSender,e.observedRecipient].filter(Boolean))){
   const bucket=pendingByWallet[address]??={count:0,items:[]};bucket.count++;
   if(bucket.items.length<20)bucket.items.push({transactionHash:e.transactionHash,blockNumber:e.blockNumber,status:e.status});
  }
  const common={checkpoint:{number:head.number,hash:head.hash,timestamp:head.timestamp},finalized:{number:finalized.number,timestamp:finalized.timestamp},
+  ...(pons?{purchaseAccounting:{source:'Pons API',mode:state.runtime.ponsMode??'rehearsal',checkedAt:pons.checkedAt,revision:pons.revision}}:{}),
   metadata:Object.fromEntries(['symbol','description','logo'].map(k=>[k,String(metadata[k]??'')])),
-  tickets:{creditedPurchases:credited.length,wallets:Object.keys(wallets).length,totalIssued:String(Object.values(wallets).reduce((n,w)=>n+BigInt(w.tickets),0n)),awaitingRecognition:deferred(policy)?waiting.length:ledger.events.filter(e=>e.status==='ELIGIBLE'&&!ids.has(e.candidateId)).length}};
+  tickets:{source:pons?'pons-api-v1':'chain-recognition',creditedPurchases:pons?new Set([...Object.values(pons.records).filter(r=>r.content.eligible).map(r=>r.content.id),...pons.legacyCredits.map(e=>e.transactionHash.toLowerCase()+':'+Number(e.logIndex))]).size:credited.length,wallets:Object.keys(wallets).length,totalIssued:String(Object.values(wallets).reduce((n,w)=>n+BigInt(w.tickets),0n)),awaitingRecognition:pons?0:deferred(policy)?waiting.length:ledger.events.filter(e=>e.status==='ELIGIBLE'&&!ids.has(e.candidateId)).length}};
  const draws=[];
  for(const kind of ['short','monthly'])if(config[kind].enabled){
   check(same(keccak256(await provider.getCode(policy.contracts[kind].address,head.number)),policy.contracts[kind].codeHash),'Program runtime changed');

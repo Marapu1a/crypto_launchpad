@@ -27,17 +27,20 @@ async function main(){
  const wallet=await ethers.Wallet.fromEncryptedJson(fs.readFileSync(o['--keystore'],'utf8'),password);
  if(wallet.address.toLowerCase()!==c.executor.toLowerCase())throw Error('Wrong executor');
  const request=new ethers.FetchRequest(url.href);request.timeout=20000;
- const provider=require('./pace-public-rpc.cjs').paceProvider(new ethers.JsonRpcProvider(request,undefined,{cacheTimeout:-1})),executor=wallet.connect(provider),stop=new AbortController();
+ const gate=c.rpcBudget?require('../../../../shared/rpc-budget.cjs').configuredRpcGate(c.rpcBudget):undefined;
+ const provider=require('./pace-public-rpc.cjs').paceProvider(new ethers.JsonRpcProvider(request,undefined,{cacheTimeout:-1,batchMaxCount:1}),{gate}),executor=wallet.connect(provider),stop=new AbortController();
  const halt=()=>stop.abort();process.once('SIGINT',halt);process.once('SIGTERM',halt);
+ const nextDelay=require('./pons-cadence.cjs').createEconomyDelay(c.pollSeconds);
  try{await require('./ops-session.cjs').withOpsSession(o['--state'],async ops=>{
   do{
    ops.beforePass();const r=await require('./pons-automation.cjs').runPonsAutomation({provider,executor,config:c,publicProfile:p,rpcUrl:url.href,statePath:o['--state'],signal:stop.signal,drain:!!o['--drain']});
    ops.publish(r);
+   const pollDelayMs=nextDelay(r);
    // Child modules may carry provider errors. Emit only the sanitized operational projection.
-   console.log(JSON.stringify({status:r.status,publicExecution:true,steps:r.steps.length,...diagnostics(r),operational:require('./pons-delay-status.cjs').explain(r)}));
+   console.log(JSON.stringify({status:r.status,publicExecution:true,steps:r.steps.length,pollDelayMs,...diagnostics(r),operational:require('./pons-delay-status.cjs').explain(r)}));
    if(['blocked','error'].includes(r.status)){process.exitCode=1;break;}
    if(!o['--watch']||stop.signal.aborted)break;
-   await require('./pons-cadence.cjs').pause(require('./pons-cadence.cjs').delayMs(r,c.pollSeconds),stop.signal);
+   await require('./pons-cadence.cjs').pause(pollDelayMs,stop.signal);
   }while(!stop.signal.aborted);
  },{publicExecution:true});}finally{provider.destroy();process.removeListener('SIGINT',halt);process.removeListener('SIGTERM',halt);}
 }

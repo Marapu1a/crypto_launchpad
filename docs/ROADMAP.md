@@ -1,5 +1,7 @@
 # Очередь работ
 
+**2026-10-14 release candidate:** shared production composition and persistent RPC gate implemented locally; both host financial cycles passed. Not deployed. Current scope, test limits and next release procedure: [PONS_RUNTIME](PONS_RUNTIME.md), [PONS_RELEASE](PONS_RELEASE.md). Earlier pending/rehearsal-only statuses below describe previous checkpoints and are superseded by this paragraph. QuickNode and old production workers remain disabled.
+
 Актуализировано 13.10.2026, МСК. Здесь только порядок следующих пакетов;
 реализованное состояние — [CURRENT_CONTEXT](CURRENT_CONTEXT.md).
 
@@ -14,20 +16,49 @@
 
 Источник решений — [MONITOR_PRODUCT](MONITOR_PRODUCT.md).
 
-1. Сохранить ограничение первым часом токена. Показать уникальные кошельки рядом
-   с количеством покупок, объём покупок и крупнейшие покупки, ссылку X.
-2. До изменения сигнала определить единицы/окна/обработку отсутствующих данных.
-   Продажи, медиана, концентрация и новые покупатели — предложения, не утверждённые
-   условия платного продукта.
+1. Локально выполнено 13.10: первый час сохранён, кошельки рядом с числом покупок,
+   объёмы, максимум со ссылкой на транзакцию, X, медиана и топ-3. [Отчёт](archive/reports/MONITOR_METRICS_20261013.md).
+2. Ручное обновление, история 28 дней и экспериментальные состояния рынка реализованы
+   локально. Накопить полные интервалы и проверить полезность порогов; уведомления
+   и условия платного продукта ещё не настроены.
 3. После локального просмотра — интеграция радара в хаб и постоянный сбор на сервере.
 4. Отдельный пакет — Telegram-уведомления, подписка, ETH-счета и скидка держателям.
    Перед реализацией выбрать цену, срок и процент; серверные проверки и хранение
    платежей спроектировать отдельно. Запуск платной услуги — отдельный шаг.
 
+## RPC: ближайший технический пакет
+
+Приоритет 14.10: [единая модель обслуживания всех токенов](TOKEN_SERVICE_MODEL.md).
+Общий расчёт интервала и [supervisor по событиям Pons](PONS_EVENT_SERVICE.md)
+подключены локально; далее общий RPC-бюджет, сокращение повторных проверок
+и production wiring с квалификацией бесплатного endpoint.
+
+Уточнение владельца после аудита: доверяем данным Pons, receipt-only verifier
+больше не целевой путь. [Первый пакет](PONS_PURCHASE_ACCOUNTING.md) выполнен локально.
+[Адаптер и локальная репетиция](PONS_WORKER_REHEARSAL.md) реализованы: новый журнал
+подключён к v2 worker/public projection только на стенде; старые начисления
+сохраняются. Сравнение копий QIANQI/IGW выполнено. Production/QuickNode отключены.
+[Перенос QIANQI](QIANQI_PONS_MIGRATION.md): версионированное состояние, эпохи
+новых начислений, прежние форматы jobs и экономный опрос реализованы локально.
+[QIANQI scheduler](QIANQI_PONS_SCHEDULER.md) подключён локально: квитанции
+freeze/terminal/epoch, drand и выплаты. [Funding/projection и замеры RPC](PONS_FUNDING_PUBLIC_RPC.md)
+подключены локально. Следующий пакет — сокращение повторных проверок v2,
+общий бюджет/частота запросов, production wiring и отдельный release.
+Публикации нового Pons scheduler уже читаются по receipts. Остановленные службы не включать.
+
+Приоритет изменён: работа без платного RPC. Основание и критерии —
+[аудит необходимости](RPC_NECESSITY_AUDIT_20261013.md). Покупки берём из Pons;
+receipt-only verifier и сканирование пустых блоков не развиваем. Остаётся
+оптимизировать scheduler/projection и проверить бесплатный RPC для контрактных действий.
+
+Read/trace/send разделены локально; [проверки Alchemy](archive/reports/ALCHEMY_READ_SPLIT_20261013.md).
+Далее ограниченный catch-up с учётом запросов, бюджет эксплуатации и отдельный
+проверенный release. Production ещё не переключён.
+
 ## Эксплуатационные вопросы
 
-- Проверить фактическое продвижение recognition IGW и отдельно покрывать неизвестные
-  маршруты. Не подменять подтверждение билетов обнаружением покупки.
+- Перенести IGW на явно обозначенный источник Pons, сохранив старые credits,
+  consumed/frozen и происхождение начислений. Не выдавать API-учёт за on-chain recognition.
 - Настроить выбранный канал уведомлений об остановке worker/недостатке ETH.
 - Проверить восстановление свежей копии в изолированной БД без отправок.
 - Решить перенос каталожного бота на VPS; не запускать второго Telegram poller.
@@ -39,3 +70,10 @@
 профилю; наличие IGW не означает готовность произвольной конфигурации.
 
 История прошлых этапов: [старый ROADMAP](archive/snapshots/ROADMAP.md).
+
+14.10: [RPC gate and service loop](PONS_RPC_GATE.md) validated locally. Persistent shared-file request quota now wired to both runtime transports; Pons
+production startup composition and release qualification remain pending. Production services remain stopped.
+
+14.10: [Pons rehearsal runtime](PONS_RUNTIME.md) assembled locally with shared
+budget, startup lock, gated providers, heartbeat and graceful shutdown. Full
+contract cycles through this host and production activation remain pending.

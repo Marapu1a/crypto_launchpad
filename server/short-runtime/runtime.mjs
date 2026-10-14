@@ -1,5 +1,6 @@
 import {runDrawWorker} from '../shared/draw-worker.mjs';
 import {runProductionWorker} from '../shared/production-worker.mjs';
+import {economyCadence} from './economy.mjs';
 import {sharedScanProvider} from './reader.mjs';
 
 const safe=value=>typeof value==='string'&&/^[a-z0-9.,:-]{1,100}$/.test(value)?value:undefined;
@@ -31,15 +32,19 @@ export function healthProblems(report,{now=Date.now(),maxAgeMs=120000}={}){
  if(!Number.isFinite(maxAgeMs)||maxAgeMs<=0)return ['invalid-health-age'];
  if(report?.schema!=='short-runtime-health-v1'||!Array.isArray(report.projects)||!Number.isFinite(Date.parse(report.completedAt)))return ['invalid-health'];
  if(report.projects.some(p=>!p||typeof p.projectId!=='string'||!['paused','blocked','busy','waiting','confirmed','already-confirmed','idle'].includes(p.status)||(p.alerts!==undefined&&(!Array.isArray(p.alerts)||p.alerts.some(a=>typeof a!=='string')))))return ['invalid-health'];
- const age=now-Date.parse(report.completedAt);if(age>maxAgeMs||age< -30000)return ['stale-health'];
+ const scheduled=report.schedule?.delayMs;
+ const allowance=Number.isInteger(scheduled)&&scheduled>=0&&scheduled<=600000?Math.max(maxAgeMs,scheduled+maxAgeMs):maxAgeMs;
+ const age=now-Date.parse(report.completedAt);if(age>allowance||age< -30000)return ['stale-health'];
  return report.projects.flatMap(p=>[...(p.alerts??[]).map(a=>p.projectId+':'+a),...(p.status==='blocked'||p.status==='busy'||['native-balance','gas-limit','gas-price','external-pending-nonce','chain-clock','finality-unavailable','finality-regression','latest-beacon-unavailable','beacon-unavailable','route-evidence-unavailable'].includes(p.reason)?[p.projectId+':'+(p.reason??p.status)]:[])]);
 }
 
 // Stop waits for the active pass. Never abandon an in-flight financial promise.
-export async function runRuntimeLoop({pass,publish,intervalMs,signal}){
+export async function runRuntimeLoop({pass,publish,intervalMs,signal,economy=false}){
  if(!Number.isInteger(intervalMs)||intervalMs<100||intervalMs>300000)throw Error('Invalid interval');
+ const cadence=economy?economyCadence({activeMs:intervalMs}):()=>({mode:'fixed',delayMs:intervalMs});
  while(!signal.aborted){
-  await publish(await pass());if(signal.aborted)break;
-  await new Promise(resolve=>{const done=()=>{clearTimeout(timer);signal.removeEventListener('abort',done);resolve();};const timer=setTimeout(done,intervalMs);signal.addEventListener('abort',done,{once:true});if(signal.aborted)done();});
+  const report=await pass();report.schedule=cadence(report);
+  await publish(report);if(signal.aborted)break;
+  await new Promise(resolve=>{const done=()=>{clearTimeout(timer);signal.removeEventListener('abort',done);resolve();};const timer=setTimeout(done,report.schedule.delayMs);signal.addEventListener('abort',done,{once:true});if(signal.aborted)done();});
  }
 }

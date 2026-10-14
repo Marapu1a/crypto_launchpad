@@ -14,6 +14,7 @@ import { admitBeacon } from '../../src/worker/production-timing.mjs';
 import { fetchBeacon, fetchLatest, validateBeacon, GENESIS, PERIOD } from '../../src/randomness/drand.mjs';
 import { runDrawSender } from './draw-sender.mjs';
 import {deferred,prepareDeferredRecognition} from '../../src/tickets/deferred-recognition.mjs';
+import {advancePonsAccounting,snapshotPonsTickets} from '../../src/tickets/pons-accounting.mjs';
 
 const wait = reason => { throw Object.assign(Error(reason), { code: 'PRODUCTION_WAIT' }); };
 const json = v => JSON.parse(JSON.stringify(v,(_,x) => typeof x === 'bigint' ? String(x) : x));
@@ -21,8 +22,14 @@ const json = v => JSON.parse(JSON.stringify(v,(_,x) => typeof x === 'bigint' ? S
 // Internal v2 runner. Sending requires explicitly enabled runtime configuration.
 // Both journals and planner/ledger share one session lease and one CAS revision.
 export async function runDrawWorker({ pool, provider, signer, publisher, projectId, moduleId,
-  getBeacon = fetchBeacon, getLatestBeacon = fetchLatest, now = () => Math.floor(Date.now()/1000), hook, recognitionAdapters }) {
+  getBeacon = fetchBeacon, getLatestBeacon = fetchLatest, now = () => Math.floor(Date.now()/1000), hook, recognitionAdapters, ponsRehearsal,ponsSourceMode='rehearsal',guard:sourceGuard }) {
   try {
+    // Deliberately unavailable on production RPC. No runtime/config switch exposes this yet.
+    if(ponsRehearsal){
+      check(['rehearsal','production'].includes(ponsSourceMode),'Invalid Pons source mode');
+      if(ponsSourceMode==='production'){check(typeof sourceGuard==='function','Production source guard required');await sourceGuard();}
+      else{const local=await provider.send('hardhat_metadata',[]);check(/^(Hardhat|edr\/)/.test(local?.clientVersion??'')&&local.chainId===4663&&/^0x[0-9a-f]{64}$/i.test(local.instanceId),'Pons source is rehearsal-only');}
+    }
     return await runDrawSender({ pool, provider, signer, projectId, moduleId, operate: async ({ policy, state, save, lease }) => {
       check(same(await publisher.getAddress(),policy.publisher), 'Wrong recognition publisher');
       await verifyDrawPolicy(provider,policy);const latestContracts=contracts(provider,policy),t=policy.template.config;
@@ -38,6 +45,9 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
         await save(state);
       }
       const r = state.runtime, persist = () => save(state);
+      if(ponsRehearsal)r.ponsMode=ponsSourceMode;
+      check(!r.ponsAccounting||ponsRehearsal,'Pons rehearsal state requires its source');
+      const ticketSnapshot=(program,cutoff,source,revision)=>ponsRehearsal&&(!cutoff||source==='pons-api-v1')?snapshotPonsTickets(policy,r.ponsAccounting,program,cutoff,revision):snapshotProductionTickets(policy,r.ledger,program,cutoff);
       check(r.schema === 'draw-runtime-v2', 'Wrong runtime schema');
       if (state.failure || r.publisher.failure) return { status: 'blocked', reason: 'reverted-transaction' };
       const observe = async () => {
@@ -48,7 +58,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
           check(same((await provider.getBlock(last.blockNumber))?.hash,last.blockHash), 'Finalized sender history changed');
           if (last.blockNumber > o.finalized.number) wait('finality-regression');
         }
-        const admitted = await admitFinalizedSnapshot({ provider, policy, snapshot: r.ledger.head, now: o.now });
+        const admitted = await admitFinalizedSnapshot({ provider, policy, snapshot: r.ponsAccounting?.head??r.ledger.head, now: o.now });
         if (admitted.status !== 'observed') wait(admitted.reason);
         readBlock = o.finalized.number;
         return o;
@@ -95,7 +105,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
             const s = r.cycles[draw][op.cycle];
             check(s && !await c[draw].pending() && await c[draw].cycle() + 1n === BigInt(op.cycle), 'Freeze cycle mismatch');
             const cutoff = { number:s.checkpoint.number, hash:s.checkpoint.blockHash, timestamp:s.checkpoint.timestamp };
-            const snapshot = await snapshotProductionTickets(policy,r.ledger,c[draw],cutoff);
+            const snapshot = await ticketSnapshot(c[draw],cutoff,s.accountingSource,s.accountingRevision);
             check(digest(snapshot) === digest({ participants:s.participants, participantsHash:s.participantsHash, checkpoint:s.checkpoint }), 'Freeze dataset changed');
             check(await c[draw].freeFund() === BigInt(s.budget) && await latestContracts[draw].freeFund() === BigInt(s.budget), 'Freeze budget changed');
             if (observation.finalized.timestamp < Number(await c[draw].lastTerminal() + await c[draw].interval())) wait('interval-finality');
@@ -122,12 +132,19 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
       if (r.operation) return execute();
       check(!state.pending && !r.publisher.pending, 'Journal missing planner intent');
       const observation = await observe();
-      const caughtUp = await scanDrawHistory(provider,policy,r.ledger,observation.finalized);
+      let caughtUp,sourceUnavailable=false;
+      if(ponsRehearsal){
+        try{r.ponsAccounting=advancePonsAccounting({policy,report:await ponsRehearsal.load(),prior:r.ponsAccounting,
+          legacyCredits:r.ponsAccounting?[]:creditedPurchases(policy,r.ledger),head:observation.finalized,now:now()});}
+        catch(error){if(!r.ponsAccounting)throw error;sourceUnavailable=true;}
+        caughtUp=true;
+      }else caughtUp = await scanDrawHistory(provider,policy,r.ledger,observation.finalized);
       await persist();
       if (!caughtUp) return {status:'waiting',reason:'index-catchup',head:r.ledger.head.number};
 
       const plan = (kind,method,args=[],extra={}) => ({role:'executor',draw,kind,method,args:json(args),...extra});
       const recognitionPlan = async () => {
+        if(ponsRehearsal)return;
         if (observation.finalized.timestamp < Number(await c.recognition.availableAt())) return;
         const used = new Set(creditedPurchases(policy,r.ledger).map(e => e.candidateId));
         const ids = deferred(policy)?await prepareDeferredRecognition({provider,policy,ledger:r.ledger,creditedIds:used,now:now()*1000,enabledAdapters:recognitionAdapters}):r.ledger.events.filter(e => e.status === 'ELIGIBLE' && !used.has(e.candidateId)).slice(0,50).map(e => e.candidateId);
@@ -144,7 +161,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
         if (await c.escrow.balanceOfToken(c.collector.target,c.quote.target) > 0n) return plan('collector','collect');
         if (!await c.curve.graduated() && (await c.curve.quoteFeeBalance() > 0n || await c.curve.creatorTaxBalance() > 0n)) return plan('collector','sweepCurve');
       };
-      let waiting = 'conditions';
+      let waiting = sourceUnavailable?'source-unavailable':'conditions',nextCheckAt=Infinity,serviceIdle=!sourceUnavailable;
       const drawPlan = async kind => {
         draw=kind;const cycle=String(await c[draw].cycle()),pending=await c[draw].pending();if(cycle!=='0')await verifyDraw(cycle);
         for (const id of Object.keys(r.cycles[draw])) {
@@ -154,6 +171,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
             if (await c[draw].rewards(id,person.wallet) > 0n) return plan(draw,'claim',[id,person.wallet],{cycle:id});
         }
         if (pending) {
+          serviceIdle=false; // Another lane must not overwrite this obligation with an idle reason.
           const requestId = await c[draw].requestForCycle(cycle), rng = await c[draw+'Adapter'].requests(requestId);
           if (!rng.proven) {
             if (observation.finalized.timestamp < GENESIS+(Number(rng.round)-1)*PERIOD) { waiting = 'beacon-time-finality'; return; }
@@ -163,16 +181,20 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
           if (!rng.delivered) return plan(draw+'Adapter','deliver',[requestId],{cycle});
           return plan(draw,'settle',[r.cycles[draw][cycle].participants],{cycle});
         }
+        if(sourceUnavailable)return; // Existing frozen draws and claims above remain serviceable.
         const budget = await c[draw].freeFund();
-        if (observation.finalized.timestamp < Number(await c[draw].lastTerminal()+await c[draw].interval()) || budget < amount(t[draw].minimumFund)
+        const eligibleAt=Number(await c[draw].lastTerminal()+await c[draw].interval());
+        if(eligibleAt>observation.finalized.timestamp)nextCheckAt=Math.min(nextCheckAt,eligibleAt);
+        if (observation.finalized.timestamp < eligibleAt || budget < amount(t[draw].minimumFund)
           || (draw==='short'&&!previewBasket(budget,t.short.basket).ready)
           || (draw==='monthly'&&await c.monthly.freeNext()!==await c.monthly.nextTarget())) return;
         const next = String(BigInt(cycle)+1n);
         let s = r.cycles[draw][next];
         if (!s) {
-          s = await snapshotProductionTickets(policy,r.ledger,c[draw]);
+          s = await ticketSnapshot(c[draw]);
+          if(ponsRehearsal){s.accountingSource='pons-api-v1';s.accountingRevision=r.ponsAccounting.revision;}
           if (!s.participants.length) { waiting = 'participants'; return; }
-          try { await checkBeacon(); } catch(e) { if(e.code === 'PRODUCTION_WAIT') {waiting=e.message;return;} throw e; }
+          try { await checkBeacon(); } catch(e) { if(e.code === 'PRODUCTION_WAIT') {serviceIdle=false;waiting=e.message;return;} throw e; }
           s.budget = String(budget); r.cycles[draw][next] = s;
         }
         return plan(draw,'freeze',[s.participants,s.checkpoint],{cycle:next});
@@ -187,7 +209,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
         r.operation = op; r.lane = (lane+1)%planners.length;
         await persist(); return execute();
       }
-      return {status:'waiting',reason:waiting};
+      return {status:'waiting',reason:waiting,serviceIdle,...(Number.isFinite(nextCheckAt)?{nextCheckAt}:{})};
     } });
   } catch(e) {
     if (['PRODUCTION_WAIT','FINALITY_WAIT'].includes(e.code)) return {status:'waiting',reason:e.message};

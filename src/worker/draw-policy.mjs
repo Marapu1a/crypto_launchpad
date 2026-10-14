@@ -6,6 +6,8 @@ import {amount} from '../draws/config.mjs';
 import {compileDrawPrograms,matchesArtifact} from './draw-build.mjs';
 import {ROUTE_PROFILE} from '../tickets/draw-router.mjs';
 import {DEFERRED} from '../tickets/deferred-recognition.mjs';
+import {digest} from '../tickets/digest.mjs';
+import {cachedVerification,rememberVerification} from './verification-cache.mjs';
 const check=(x,m)=>{if(!x)throw Error(m);};
 const same=(a,b)=>String(a).toLowerCase()===String(b).toLowerCase();
 let trustedBuild;
@@ -33,6 +35,8 @@ export async function verifyDrawPolicy(provider,p){
  check((await provider.getNetwork()).chainId===4663n,'Wrong chain');
  const block=await provider.getBlock('latest');check(block&&block.number>=p.anchor.number,'Missing observation');const at={blockTag:block.number};
  check(same((await provider.getBlock(p.anchor.number))?.hash,p.anchor.hash),'Anchor changed');
+ const cacheKey=digest(p),cached=cachedVerification(provider,cacheKey,block);
+ if(cached){check(same((await provider.getBlock(block.number))?.hash,block.hash),'Observation branch changed');return cached;}
  const own={collector:'PonsFeeCollector',splitter:'FeeSplitter',recognition:'PurchaseRecognition',fundingRouter:'DrawFundingRouter',...(config.short.enabled?{short:'ShortProgram',shortAdapter:'ShortDrandAdapter'}:{}),...(config.monthly.enabled?{monthly:'MonthlyProgram',monthlyAdapter:'ShortDrandAdapter'}:{})};
  for(const [role,pin] of Object.entries(p.contracts)){
   const code=await provider.getCode(pin.address,block.number);check(code!=='0x'&&same(keccak256(code),pin.codeHash),'Runtime pin mismatch: '+role);
@@ -66,7 +70,8 @@ export async function verifyDrawPolicy(provider,p){
  const launch=await contracts.factory.getLaunchedToken(address('token'),at);
  check(launch.exists&&same(launch.token,address('token'))&&same(launch.curve,address('curve'))&&same(launch.pairToken,address('quote'))&&same(launch.creatorFeeRecipient,address('collector'))&&!launch.buybackEnabled&&launch.creatorTaxBps===BigInt(p.template.creatorTaxBps),'Factory launch mismatch');
  check(same((await provider.getBlock(block.number))?.hash,block.hash),'Observation branch changed');
- return {schema:p.schema,blockNumber:block.number,blockHash:block.hash,authorizationToSend:false};
+ const result={schema:p.schema,blockNumber:block.number,blockHash:block.hash,authorizationToSend:false};
+ rememberVerification(provider,cacheKey,result);return result;
 }
 
 export function drawContracts(provider,p){

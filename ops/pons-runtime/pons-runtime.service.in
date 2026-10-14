@@ -1,0 +1,20 @@
+[Unit]
+Description=Pons runtime
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=@ACTIVATION_MARKER@
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@ROOT@
+ExecStart=@NODE@ @ROOT@/scripts/run-pons-runtime.mjs @CONFIG@
+Restart=on-failure
+RestartSec=60
+TimeoutStopSec=300
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

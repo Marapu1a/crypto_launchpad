@@ -45,6 +45,8 @@ for(const id of ['qianqi','igw']){
   await writeFile(join(output,'live.js'),await source('tokens/IGW/site/live.js'));
   html=html.replace('<script src="/wallet.js', '<script src="/site-kit/footer.js" defer></script><script src="/site-kit/draws.js" defer></script>\n <script src="/wallet.js');
  }
+ html=html.replace('</header>', '</header><project-pulse adapter="'+(id==='igw'?'draw-v2':'overview')+'" src="'+(id==='igw'?'/api/draws':'/v1/overview?offset=0&amp;limit=1')+'"></project-pulse>');
+ html=html.replace('</head>','<link rel="stylesheet" href="/site-kit/project-pulse.css"><script src="/site-kit/project-pulse.js" defer></script></head>');
  html=html.replace(/(<meta (?:name="description"|property="og:description") content=")[^"]*/g,(_,prefix)=>prefix+escape(project.description));
  html=html.replace(/(<link rel="canonical" href=")[^"]*/,(_,prefix)=>prefix+escape(project.website));
  html=html.replace('<body',`<body data-site-theme="${id}"`).replace('</head>','<link rel="stylesheet" href="/site-kit/site.css"><link rel="stylesheet" href="/site-kit/theme.css">\n</head>');
@@ -53,12 +55,18 @@ for(const id of ['qianqi','igw']){
  const theme=`:root{${palette}--kit-bg:${config.theme.background};--kit-fg:${config.theme.foreground};--kit-accent:${config.theme.accent};--kit-mascot-size:${config.footer.mascotWidth}px;--kit-mascot-mobile:${config.footer.mascotMobileWidth}px}\n${hero}{object-position:${config.art.hero.position}}${foot}{object-position:${config.art.footer.position}}\n@media(max-width:760px){${hero}{object-position:${config.art.hero.mobilePosition}}${foot}{object-position:${config.art.footer.mobilePosition}}`;
  for(const art of Object.values(config.art))await access(join(output,art.src.slice(1)));
  await mkdir(join(output,'site-kit'),{recursive:true});
- for(const file of ['footer.js','draws.js','site.css'])await cp('src/site-kit/'+file,join(output,'site-kit',file));
+ for(const file of ['footer.js','draws.js','site.css','project-pulse.js','project-pulse.css'])await cp('src/site-kit/'+file,join(output,'site-kit',file));
  await writeFile(join(output,'site-kit/theme.css'),theme);
  await writeFile(join(output,'index.html'),html);
+ await writeFile(join(output,'project-status.html'),`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/site-kit/project-pulse.css"><style>body{margin:0;background:#181817;color:#eee5cf;font-family:Arial,sans-serif}project-pulse{margin:0;max-width:100%;border:0;background:none}</style><script src="/site-kit/project-pulse.js" defer></script><project-pulse adapter="${id==='igw'?'draw-v2':'overview'}" src="${id==='igw'?'/api/draws':'/v1/overview?offset=0&amp;limit=1'}"></project-pulse></html>`);
  console.log(id+': '+output);
 }
 const outputs={};
 async function hashTree(dir,prefix){for(const entry of await readdir(dir,{withFileTypes:true})){const file=join(dir,entry.name),key=prefix+'/'+entry.name;if(entry.isDirectory())await hashTree(file,key);else outputs[key]=createHash('sha256').update(await readFile(file)).digest('hex');}}
 for(const id of ['qianqi','igw'])await hashTree(join(root,id),id);
 await writeFile(join(root,'build.json'),JSON.stringify({schema:'token-site-build-v1',createdAt:new Date().toISOString(),baseline,sources,outputs},null,2)+'\n');
+
+await cp('tokens/hub/site',join(root,'hub'),{recursive:true});
+let hub=await readFile(join(root,'hub/index.html'),'utf8');
+hub=hub.replaceAll('https://init.qianqi.site/project-status.html','http://127.0.0.1:4200/project-status.html').replaceAll('https://igw.qianqi.site/project-status.html','http://127.0.0.1:4201/project-status.html');
+await writeFile(join(root,'hub/index.html'),hub);

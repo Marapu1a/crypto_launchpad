@@ -24,14 +24,14 @@ async function beforeSend({journaled=false}={}){
  const metadata=await c.provider.send('hardhat_metadata',[]);
  check(metadata.instanceId===c.instanceId,'Rehearsal node instance changed');
 }
-async function withRobinhoodNetwork({provider,rpcUrl,mode='robinhood-inspect',publicGuard},action){
+async function withRobinhoodNetwork({provider,rpcUrl,mode='robinhood-inspect',publicGuard,sharedReader},action){
  check(['robinhood-inspect','robinhood-rehearsal','robinhood-public'].includes(mode),'Explicit Robinhood mode required');
  if(mode==='robinhood-public')check(typeof publicGuard==='function','Explicit Pons public guard required');
  const context={mode,chainId:4663n,provider,publicGuard};
  return scope.run(context,async()=>{
   checkRpc(rpcUrl);checkChain((await provider.getNetwork()).chainId);
   const request=new ethers.FetchRequest(rpcUrl);request.timeout=20000;
-  const reader=new ethers.JsonRpcProvider(request,undefined,{cacheTimeout:-1});
+  const reader=sharedReader||new ethers.JsonRpcProvider(request,undefined,{cacheTimeout:-1});
   try{
    checkChain((await reader.getNetwork()).chainId);
    const a=await provider.getBlock('latest'),b=await reader.getBlock(a.number);
@@ -41,7 +41,7 @@ async function withRobinhoodNetwork({provider,rpcUrl,mode='robinhood-inspect',pu
     check(typeof local.instanceId==='string'&&/^0x[0-9a-fA-F]{64}$/.test(local.instanceId)&&local.instanceId===remote.instanceId&&Number(local.chainId)===4663,'Same local Hardhat rehearsal node required');
     context.instanceId=local.instanceId;
    }
-  }finally{reader.destroy();}
+  }finally{if(!sharedReader)reader.destroy();}
   return action();
  });
 }

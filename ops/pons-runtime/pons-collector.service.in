@@ -1,0 +1,20 @@
+[Unit]
+Description=Pons collector
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=@COLLECTOR_MARKER@
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@ROOT@
+ExecStart=@PYTHON@ @ROOT@/scripts/pons-accounting/accounting.py --profiles @PROFILES@ --db @SQLITE@ --output @REPORT_DIRECTORY@ --watch --interval 300
+Restart=on-failure
+RestartSec=60
+TimeoutStopSec=300
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

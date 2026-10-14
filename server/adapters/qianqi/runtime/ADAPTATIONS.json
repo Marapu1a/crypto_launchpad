@@ -4,8 +4,8 @@
     "reason": "Check project execution fence before preparing and broadcasting."
   },
   "scripts/pons-transaction-journal.cjs": {
-    "sha256": "78774c57993578ec0d6aa3a7eb17db58c8620ea10fe7942c8face806ebfbaf6a",
-    "reason": "Check fence before signing and after durable signed intent; public mode rejects missing fence."
+    "sha256": "3230bfc5d62850ecc7b34c1d6a6cede0ee03cbd0dc58ce306e6b628b12ebdb44",
+    "reason": "Execution fence and durable signed intent; opt-in exact-raw recovery with nonce and signature checks."
   },
   "scripts/compile.cjs": {
     "sha256": "8bfe453ea3730529a6b2d656ee7d3305fd4098b36384e3d842786d8b0fbdb17c",
@@ -16,8 +16,8 @@
     "reason": "Expose HTTP handler and prepared public projection for shared API."
   },
   "scripts/indexer-service-child.cjs": {
-    "sha256": "1122470918b25a411e319d14d341aaa20d0ef2ed4c4396a1a569c663d4364780",
-    "reason": "Publish verified public view into project-scoped PostgreSQL."
+    "sha256": "0bca3fbc20f413586fb217f9157d6192f230196493ad888e25ac7f5dfada2a3b",
+    "reason": "Project-scoped public projection plus sanitized per-method RPC counters."
   },
   "test/fixtures/attempt-history.cjs": {
     "sha256": "45c55af754532c8b7f29519ce6f9db35534df564cc9ccf16c8fec23b0b8404f6",
@@ -32,11 +32,35 @@
     "reason": "Inline test gas action names; omit unrelated operations market modules."
   },
   "scripts/runtime-network.cjs": {
-    "sha256": "1f3266a25ace4a8f87d00da694dd5e329fc90d66522ba5f7009156a67289259a",
-    "reason": "Require an active executor fence for public sends; local and fork modes retain their existing guards."
+    "sha256": "1bf7e4acdef82856c4940ac0fec83988deee06b10f644e80aebbb4027ad1d1c3",
+    "reason": "Allow a borrowed gated reader; preserve legacy reader ownership."
   },
   "scripts/run-pons-public.cjs": {
-    "sha256": "02bfe053a5d64480969832e147f840a65c4b36007829fea3d95d829c6e243337",
-    "reason": "Reject direct public CLI invocation without executor lease before reading custody."
+    "sha256": "cd346a2bb5236d4618ef4006dab37381b588ffe6419055b21262a95dbe440d7b",
+    "reason": "Optional shared quota and conservative economy cadence; not the new Pons host."
+  },
+  "scripts/pons-cadence.cjs": {
+    "sha256": "b5ddf2866c29f7e8c5fba0dc47e55ad235d94194d6ddf68bb1e39409400fa812",
+    "reason": "Conservative idle detection and shared economy backoff."
+  },
+  "scripts/drand-delivery-worker.cjs": {
+    "sha256": "954b916d1cc1f6223c03657ab1f917023d3df1e3dada42ff96add8bd7c9683a5",
+    "reason": "Optional durable raw signing and exact-hash recovery for Pons RNG; legacy default unchanged."
+  },
+  "scripts/monthly-dataset.cjs": {
+    "sha256": "99f7c7c42016dcc0d1140303ae49dcc15d55acfa66d989526833a8b8ac9533a5",
+    "reason": "Expose ledger builder for validated Pons migration; legacy history replay retained."
+  },
+  "scripts/short-dataset.cjs": {
+    "sha256": "d93318b3effa5601652edf367b420c0e1eed2bd97e9eabc9cd69fee260d6d772",
+    "reason": "Expose ledger builder for validated Pons migration; legacy history replay retained."
+  },
+  "scripts/pace-public-rpc.cjs": {
+    "sha256": "e96e82fae6128a846b95544cf87e24c5b8b155aa4380d95a7cc695dc7884a6d8",
+    "reason": "Optional shared transport quota, disabled internal HTTP retries and redirects."
+  },
+  "scripts/run-indexer-service.cjs": {
+    "sha256": "16af61c8fca557bf1efdb3c6d64e50bf00f554d49148dc6da439bbacc06d4949",
+    "reason": "Failure backoff and sanitized RPC counters; legacy indexer remains disabled."
   }
 }

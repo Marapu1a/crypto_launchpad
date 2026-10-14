@@ -1,5 +1,25 @@
 # Текущий контекст
 
+**2026-10-14 release candidate:** shared production composition and persistent RPC gate implemented locally; both host financial cycles passed. Not deployed. Current scope, test limits and next release procedure: [PONS_RUNTIME](PONS_RUNTIME.md), [PONS_RELEASE](PONS_RELEASE.md). Earlier pending/rehearsal-only statuses below describe previous checkpoints and are superseded by this paragraph. QuickNode and old production workers remain disabled.
+
+14.10: зафиксирована [общая модель обслуживания токенов](TOKEN_SERVICE_MODEL.md).
+Тайминг v2, прежнего QIANQI adapter и локального Pons scheduler использует общий
+модуль. [Supervisor по изменениям Pons](PONS_EVENT_SERVICE.md) подключён локально:
+пустые ticks не вызывают RPC, публикации QIANQI проверяются по receipts.
+Общий RPC-бюджет и production wiring ещё впереди.
+
+**Приоритетный статус 13.10.2026:** RPC-потребители production остановлены по
+просьбе владельца; описанное ниже состояние запуска 12.10 — исторический снимок.
+QuickNode не опрашивать. [Локальная репетиция Pons](PONS_WORKER_REHEARSAL.md):
+адаптер v2 worker/projection и сравнение сохранённых данных готовы.
+14.10: [перенос QIANQI](QIANQI_PONS_MIGRATION.md) готовит прежние форматы jobs,
+сохраняя epochs/consumed/frozen; тихий опрос локально замедлен до пяти минут.
+[Локальный планировщик](QIANQI_PONS_SCHEDULER.md) подключает учёт Pons к прежним
+исполнителям и квитанциям контроллеров. [Комиссии и публичный снимок](PONS_FUNDING_PUBLIC_RPC.md)
+подключены локально: sweep/escrow → collector → vault, API без RPC на запрос посетителя.
+Production wiring, реальная миграция и публикация не выполнены; остаётся
+подключить production supervisor/бюджет и сократить повторные проверки v2.
+
 Сверка документации: 13.10.2026, МСК. Основание: код поверх c50337a,
 результаты проверок текущего пакета и read-only чтение сервера/API
 12.10.2026 около 23:59 МСК (20:59 UTC). Это датированный снимок, не live dashboard.
@@ -40,7 +60,12 @@
 
 Репозиторий упорядочен: код/ассеты сохранены в 6fa15a2, текущие страницы отделены
 от архивных. [Проверки уборки](archive/reports/REPOSITORY_CLEANUP_20261013.md).
-Далее — [монитор первого часа и уведомления](MONITOR_PRODUCT.md).
+Локальный [монитор первого часа](MONITOR_PRODUCT.md) доработан: кошельки/покупки,
+объёмы, максимум со ссылкой, X, медиана/топ-3, окна5минут/с запуска.
+[Проверки13.10](archive/reports/MONITOR_METRICS_20261013.md). Далее локальный просмотр,
+Добавлены ручной снимок, фоновая история 28 дней и сравнения по МСК;
+подробности и границы — в MONITOR_PRODUCT. Затем интеграция в хаб;
+уведомления и оплата остаются отдельным пакетом.
 Согласованы ETH-оплата и скидка за любой положительный баланс токена из JSON-списка;
 оплата/подписки пока не существуют в коде. Цена, период и процент скидки не выбраны.
 
@@ -54,3 +79,53 @@
 При продолжении: прочитать этот файл, ROADMAP и `git status`; живые суммы,
 очереди и состояние служб проверять заново. Не дописывать сюда хронологию каждого
 шага: подробности хранить в отдельном датированном отчёте.
+
+## RPC: текущий пакет, 13.10.2026
+
+Последующее решение владельца: источник покупок — Pons API, без независимой
+реконструкции маршрутов. [Локальный сборщик и журнал](PONS_PURCHASE_ACCOUNTING.md)
+готовы: 12 тестов, полные API-истории IGW/QIANQI, по одному запросу при тихом
+повторе. Сумма quoteAmount отличается от старого wallet-net-debit. Gross результаты
+38/27 билетов — чистый расчёт Pons, не доступные production-билеты.
+Локальный v2 worker подключён на изолированном стенде; сравнение миграции сохраняет
+QIANQI 28 начисленных, Short 16 использованных/12 доступных, Monthly 28 доступных.
+Адаптация прежнего QIANQI executor проверяется локальным scheduler;
+реальная миграция и публикация не выполнены.
+
+**Остановка по запросу владельца, 13.10 около 20:22 UTC:** QuickNode больше
+не опрашивать, включая диагностические пробы, до нового разрешения владельца.
+На VPS остановлены и отключены qianqi-public-indexer, qianqi-public-automation,
+crypto-launchpad-draw, crypto-launchpad-sandbox-check; остановлен static
+crypto-launchpad-owner. Для каждого создан systemd drop-in
+`zzzz-rpc-disabled.conf` с `[Unit] ConditionPathExists=!/`: он запрещает запуск
+также из backup scripts/зависимостей. Проверка старта indexer: ConditionResult=no,
+MainPID=0. У всех пяти MainPID=0; failed у ранее упавших не означает живой процесс.
+API и backups оставлены; indexer API также остановлен вместе с collector,
+поэтому его потребители могут показывать недоступность, не только старые данные.
+Локально среди node/python остался только Pons monitor PID1060, без RPC.
+Подписка в кабинете QuickNode НЕ отменена, provider-side pause не выполнялась;
+поздние начисления и расход сторонних клиентов этим не исключены.
+Возобновление требует удаления только названных drop-ins, daemon-reload и
+отдельного решения о запуске/enable; не делать автоматически после восстановления RPC.
+
+Новое требование владельца: исключить платную RPC-подписку. Выполнен
+[аудит необходимости](RPC_NECESSITY_AUDIT_20261013.md): trace нужен одному
+маршрутному verifier, не самому draw; основная открытая задача — полное бесплатное
+обнаружение событий при высокой скорости блоков. Изменений production в аудите нет.
+
+На сервере применена пауза read-only индексатора QIANQI 60 секунд.
+Последняя проверка QuickNode выявила TLS-сбой; финансовый worker QIANQI
+не возобновляли. Это состояние нужно перепроверить перед восстановлением.
+Локально подготовлены economy/backoff/счётчики и отдельный read provider Alchemy.
+22 адресных теста разделения RPC PASS; небольшие read-only проверки на копиях
+QIANQI/IGW с VPS прошли. Новый runtime НЕ опубликован. Free Alchemy ограничивает
+logs десятью блоками и не даёт trace; полный catch-up и месячная квота не проверены.
+Источники: [аудит нагрузки](RPC_ECONOMY_20261013.md),
+[разделение RPC и пределы проверки](archive/reports/ALCHEMY_READ_SPLIT_20261013.md).
+
+14.10: [RPC gate and service loop](PONS_RPC_GATE.md) validated locally. Persistent shared-file request quota now wired to both runtime transports; Pons
+production startup composition and release qualification remain pending. Production services remain stopped.
+
+14.10: [Pons rehearsal runtime](PONS_RUNTIME.md) assembled locally with shared
+budget, startup lock, gated providers, heartbeat and graceful shutdown. Full
+contract cycles through this host and production activation remain pending.

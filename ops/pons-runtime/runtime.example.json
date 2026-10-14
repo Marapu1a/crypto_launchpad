@@ -1,0 +1,8 @@
+{
+ "schema":"pons-runtime-config-v1", "mode":"production",
+ "allowPublicTransactions":false, "allowedRpcHosts":[],
+ "lockFile":"/var/lib/pons-runtime/host.lock",
+ "healthFile":"/var/lib/pons-runtime/health.json",
+ "rpcBudget":{"file":"/var/lib/pons-runtime/rpc-budget.json","maxRequests":1000,"windowMs":3600000},
+ "pollMs":15000, "projects":[]
+}

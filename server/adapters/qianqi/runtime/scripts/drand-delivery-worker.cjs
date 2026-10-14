@@ -28,7 +28,7 @@ async function fetchBeacon(round,{signal}={}){
  if(!response.ok)throw Error('Beacon HTTP '+response.status);
  return response.json();
 }
-async function runDrandDelivery({provider,adapter,executor,job,statePath,signal,receiptTimeoutMs=30000,reconcileOnly=false,transactionGuard,transactionGasLimit,transactionEstimateFailed,kinds=['short','monthly']},{getBeacon=fetchBeacon,onStep=()=>{}}={}){
+async function runDrandDelivery({provider,adapter,executor,job,statePath,signal,receiptTimeoutMs=30000,reconcileOnly=false,transactionGuard,transactionGasLimit,transactionEstimateFailed,durableSigning=false,kinds=['short','monthly']},{getBeacon=fetchBeacon,onStep=()=>{}}={}){
  check(!transactionGasLimit||typeof transactionGasLimit==='function'&&typeof transactionGuard==='function','Estimated gas policy requires parent guard');
  check(Array.isArray(kinds)&&kinds.length>0&&new Set(kinds).size===kinds.length&&kinds.every(k=>['short','monthly'].includes(k)),'Invalid delivery kinds');
  job=JSON.parse(JSON.stringify(validateJob(job)));receiptOptions(receiptTimeoutMs);
@@ -44,7 +44,8 @@ async function runDrandDelivery({provider,adapter,executor,job,statePath,signal,
   try{
    if(signal?.aborted)return result('stopped','aborted');
    check(same((await provider.getBlock(job.anchor.number))?.hash,job.anchor.hash),'Deployment anchor mismatch');
-   if(state.pending){
+   if(durableSigning){const unresolved=await require('./pons-transaction-journal.cjs').reconcilePending(state,save,provider,sender,{recoverSigned:true});if(unresolved)return blocked(unresolved.reason);}
+   else if(state.pending){
     if(!state.pending.transactionHash)return blocked('unknownHash');
     const r=await provider.getTransactionReceipt(state.pending.transactionHash);if(!r)return blocked('pendingReceipt');
     const b=await provider.getBlock(r.blockNumber),tx=await provider.getTransaction(state.pending.transactionHash);
@@ -79,11 +80,13 @@ async function runDrandDelivery({provider,adapter,executor,job,statePath,signal,
    }
    const boundary={maxGasPrice:job.maxGasPrice,gasLimit:transactionGasLimit,estimateFailed:transactionEstimateFailed,preflight:async(request,action)=>{await transactionGuard?.(request,action,false);await budget(request,action);},before:async(request,action)=>{
     await transactionGuard?.(request,action,true);await budget(request,action);check(!state.pending,'Unresolved intent');
-    state.pending={worker:'drand',action,target:request.to,data:request.data,from:sender,stage:'broadcast'};save(state);
+    state.pending={worker:'drand',action,target:request.to,data:request.data,from:sender,stage:'broadcast',...(durableSigning?{signingMode:'durable-raw-v1'}:{})};save(state);
    },sent:async tx=>{state.pending={...state.pending,transactionHash:tx.hash,nonce:tx.nonce,stage:'confirm'};save(state);},confirmed:async r=>{
     check(same(r.hash,state.pending?.transactionHash),'Receipt mismatch');const block=await provider.getBlock(r.blockNumber);check(same(block?.hash,r.blockHash),'Receipt not canonical');
-    state.lastResolved={...state.pending,status:r.status,blockHash:r.blockHash};delete state.pending;save(state);
+    const {signedTransaction,...intent}=state.pending;
+    state.lastResolved={...intent,status:r.status,blockHash:r.blockHash};delete state.pending;save(state);
    }};
+   if(durableSigning)boundary.broadcast=require('./pons-transaction-journal.cjs').createBoundary({state,save,provider,sender,signer:executor}).broadcast;
    async function send(action,args){
     const price=(await provider.getFeeData()).gasPrice;if(price==null||price>BigInt(job.maxGasPrice))wait('gasPrice');
     const receipt=await withTransactionBoundary(boundary,()=>sendLocalTransaction(adapter.connect(executor)[action],args,{from:sender,type:2,maxFeePerGas:price,maxPriorityFeePerGas:0},{signal,receiptTimeoutMs}));

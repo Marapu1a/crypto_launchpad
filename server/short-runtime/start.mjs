@@ -1,6 +1,9 @@
+import {withReadProvider} from './read-provider.mjs';
+import {rpcMeter} from './economy.mjs';
+import rpcBudget from '../shared/rpc-budget.cjs';
 import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
-import {requestGate,runtimeProvider} from './rpc-provider.mjs';
+import {runtimeProvider} from './rpc-provider.mjs';
 import {createPool,verifyRole} from '../shared/store.mjs';
 import {validateRuntimeConfig,privateText,runtimeEnvironment,loadRuntimeProject} from './config.mjs';
 import {runtimePass,runRuntimeLoop} from './runtime.mjs';
@@ -8,14 +11,16 @@ import {writeHealthFile} from './health-file.mjs';
 import {publishShortView} from './projection.mjs';
 import {withTraceProvider} from './trace-provider.mjs';
 
-let pool,provider,traceProvider,phase='configuration';
+let pool,provider,signerProvider,readProvider,traceProvider,phase='configuration';
 try{
  const config=validateRuntimeConfig(JSON.parse(await readFile(resolve(process.argv[2]??''),'utf8')));
  phase='credentials';
- const gate=requestGate();
- provider=runtimeProvider(await privateText(config.rpcFile),{gate});pool=createPool(await privateText(config.databaseFile));
+ const gate=rpcBudget.configuredRpcGate(config.rpcBudget),meter=rpcMeter();
+ provider=runtimeProvider(await privateText(config.rpcFile),{gate,meter});pool=createPool(await privateText(config.databaseFile));
+ signerProvider=provider;
+ if(config.readRpcFile){readProvider=runtimeProvider(await privateText(config.readRpcFile),{gate,meter});provider=await withReadProvider(provider,readProvider,{logBlockRange:config.readLogBlockRange,scanBlockLimit:config.readScanBlockLimit});}
  if(config.traceRpcFile){
-  traceProvider=runtimeProvider(await privateText(config.traceRpcFile),{gate,timeout:25000});provider=await withTraceProvider(provider,traceProvider);}
+  traceProvider=runtimeProvider(await privateText(config.traceRpcFile),{gate,meter,timeout:25000});provider=await withTraceProvider(provider,traceProvider);}
  phase='database';
  await verifyRole(pool,'lp_executor');
  phase='network';
@@ -23,20 +28,22 @@ try{
  const projects=[];
  for(const entry of config.projects){
   if(!entry.enabled){projects.push(entry);continue;}
-  try{projects.push(await loadRuntimeProject({pool,provider,config,entry}));}
+  try{projects.push(await loadRuntimeProject({pool,provider,signerProvider,config,entry}));}
   catch{projects.push({...entry,error:true});}
  }
  const controller=new AbortController();process.once('SIGINT',()=>controller.abort());process.once('SIGTERM',()=>controller.abort());
  let last='';
  phase='pass-or-health';
- await runRuntimeLoop({signal:controller.signal,intervalMs:config.intervalMs,pass:()=>runtimePass({provider,projects,concurrency:config.concurrency}),publish:async report=>{
+ await runRuntimeLoop({signal:controller.signal,intervalMs:config.intervalMs,economy:config.economy===true,pass:()=>runtimePass({provider,projects,concurrency:config.concurrency}),publish:async report=>{
   for(const result of report.projects){
    try{const view=await publishShortView({pool,provider,...result,status:result.status});if(view?.failed)(result.alerts??=[]).push('public-view-failed');}
    catch{(result.alerts??=[]).push('public-view-failed');}
   }
+  report.rpc=meter.snapshot();
+  report.rpcBudget=gate.snapshot();
   await writeHealthFile(config.healthFile,report);
   const summary=JSON.stringify(report.projects.map(({projectId,status,reason,alerts})=>({projectId,status,reason,alerts})));
   if(summary!==last){console.log(summary);last=summary;}
  }});
 }catch{console.error('Short runtime stopped at '+phase);process.exitCode=1;}
-finally{await pool?.end();provider?.destroy();traceProvider?.destroy();}
+finally{await pool?.end();provider?.destroy();readProvider?.destroy();traceProvider?.destroy();}

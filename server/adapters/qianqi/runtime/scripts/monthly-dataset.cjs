@@ -10,8 +10,12 @@ function rootFor(ps){
   return ps.reduce((root,p)=>ethers.keccak256(coder.encode(['bytes32','address','uint128','uint128'],[root,p.wallet,p.firstAttempt,p.lastAttempt])),ethers.id('MONTHLY_DATASET_V1'));
 }
 function buildFromHistory(input){
+  return buildFromLedger(input,replayAttempts(input.manifest,input.lifecycle,input.blocks));
+}
+// Internal builder; public scheduler still uses independently replayed history.
+function buildFromLedger(input,ledger){
   check(input.lifecycle.schema==='attempt-lifecycle-v4','Monthly epochs require lifecycle v4');
-  const ledger=replayAttempts(input.manifest,input.lifecycle,input.blocks),r=input.request,state=ledger.monthlyRules;
+  const r=input.request,state=ledger.monthlyRules;
   check(!ledger.pending.MONTHLY,'Monthly already pending');validateDrawId(r.drawId,'MONTHLY');
   check(!ledger.draws.some(d=>d.drawId===r.drawId.toLowerCase()),'Draw identity already used');
   check(BigInt(ledger.head.number)===BigInt(r.cutoff)&&ledger.head.hash.toLowerCase()===r.cutoffHash.toLowerCase(),'Replay must end exactly at cutoff');
@@ -70,4 +74,4 @@ async function verifyPublication(provider,source,artifact,{blockTag='latest'}={}
   }
   return {drawId:r.drawId,status:m.phase===2n?'READY':'SEALED',context,publications,artifactHash:hash(artifact)};
 }
-module.exports={buildFromHistory,rootFor,INPUT,verifyPublication};
+module.exports={buildFromHistory,buildFromLedger,rootFor,INPUT,verifyPublication};

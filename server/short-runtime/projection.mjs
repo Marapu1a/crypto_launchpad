@@ -33,7 +33,7 @@ export async function buildShortSnapshot({provider,policy,state,metadata={}}){
  check(same((await provider.getBlock(head.number))?.hash,head.hash),'Projection branch changed');return snapshot;
 }
 
-export async function publishShortView({pool,provider,projectId,moduleId,status,reason,alerts=[]}){
+export async function publishShortView({pool,provider,projectId,moduleId,status,reason,alerts=[],serviceObservation}){
  await verifyRole(pool,'lp_executor');
  const allowed=['paused','blocked','busy','waiting','confirmed','already-confirmed','idle'];check(allowed.includes(status),'Invalid public status');
  const attention=alerts.length>0||['chain-clock','finality-unavailable','finality-regression','native-balance','gas-limit','gas-price','external-pending-nonce','latest-beacon-unavailable','beacon-unavailable','route-evidence-unavailable'].includes(reason);
@@ -49,6 +49,11 @@ export async function publishShortView({pool,provider,projectId,moduleId,status,
    return {policy,state,metadata,revision:r.revision};
   });
   const snapshot=await (source.policy.schema==='draw-production-policy-v2'?buildDrawSnapshot:buildShortSnapshot)({provider,...source});
+  if(serviceObservation&&snapshot.purchaseAccounting?.source==='Pons API'){
+   const proof=source.state.runtime.ponsAccounting.sourceFingerprint===serviceObservation.sourceFingerprint?serviceObservation:{sourceFingerprint:null,sourceCheckedAt:source.state.runtime.ponsAccounting.checkedAt};
+   snapshot.serviceObservation=proof;
+   for(const draw of snapshot.draws??[])draw.serviceObservation=proof;
+  }
   const saved=await inProject(pool,projectId,c=>c.query(`INSERT INTO launchpad.short_public_views(project_id,module_id,source_revision,snapshot,observed_at,service_status)
    VALUES($1,$2,$3,$4,clock_timestamp(),$5) ON CONFLICT(project_id,module_id) DO UPDATE SET
    source_revision=EXCLUDED.source_revision,snapshot=EXCLUDED.snapshot,observed_at=EXCLUDED.observed_at,

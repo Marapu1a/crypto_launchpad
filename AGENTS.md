@@ -1,5 +1,8 @@
 # Работа с платформой
 
+Постоянное обращение для независимого GPT-ревью — `docs/GPT_REVIEW_BRIEF.md`.
+При запросе ревью читать его; актуальный пакет и формат ответа описаны там.
+
 В начале читать `docs/CURRENT_CONTEXT.md`, текущий шаг `docs/ROADMAP.md` и git status.
 Правила продукта — `docs/PRODUCT_SPEC.md`; исходный brief — `PLATFORM_START.md`.
 Карта переноса — `docs/REUSE_MAP.md`; индекс документации — `docs/README.md`.

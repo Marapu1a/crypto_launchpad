@@ -26,6 +26,10 @@ function contextFor(binding,request,policyHash,basketHash){return ethers.keccak2
   [ethers.id('SHORT_DATASET_CONTEXT_V1'),binding.chainId,binding.controller,binding.instance,binding.registry,binding.vault,binding.quote,request,policyHash,basketHash]));}
 function buildFromHistory(input){
   const ledger=replayAttempts(input.manifest,input.lifecycle,input.blocks);
+  return buildFromLedger(input,ledger);
+}
+// Internal builder; caller must establish the accounting source separately.
+function buildFromLedger(input,ledger){
   check(!ledger.pending.SHORT,'A Short draw is already pending at cutoff');
   const r=input.request;
   check(!ledger.draws.some(d=>d.drawId.toLowerCase()===r.drawId.toLowerCase()),'Draw identity already used');
@@ -117,4 +121,4 @@ async function verifyPublication(provider,source,id,artifact,{blockTag='latest'}
   if(p.status===4n)check(p.context===context,'Sealed context mismatch');
   return {proposalId:id,status:p.status===4n?'SEALED':'READY',context,publications,artifactHash:hash(artifact)};
 }
-module.exports={rootFor,rulesHash,contextFor,buildFromHistory,verifyPublication,verifyEpochGenesis,REQUEST};
+module.exports={rootFor,rulesHash,contextFor,buildFromHistory,buildFromLedger,verifyPublication,verifyEpochGenesis,REQUEST};

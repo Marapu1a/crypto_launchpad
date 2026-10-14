@@ -5,6 +5,8 @@ import {createTestPostgres} from '../contracts/production-postgres.mjs';
 import {ABI} from '../../src/worker/production-template.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
 import {publishShortView} from '../../server/short-runtime/projection.mjs';
+import {refreshDrawHeartbeat} from '../../server/shared/pons-heartbeat.mjs';
+import {readShortView} from '../../server/shared/short-view.mjs';
 const root='.local/test-results/short-projection-'+new Date().toISOString().replace(/[:.]/g,'-');await fs.mkdir(root,{recursive:true});
 const report={at:new Date().toISOString(),scenarios:[],limits:['Isolated PostgreSQL, deterministic RPC fixture; no public transactions']};let db;
 try{
@@ -27,5 +29,13 @@ try{
  await db.admin.query(`UPDATE launchpad.short_public_views SET snapshot=NULL`);
  assert.equal((await publishShortView({...args,reason:'native-balance'})).failed,false);assert.equal((await read()).service_status,'blocked');
  await publishShortView({...args,status:'paused',provider:{getBlock(){throw Error('must not read');}}});assert.equal((await read()).service_status,'paused');assert.equal((await read()).snapshot.fundRaw,'50000000');report.scenarios.push('Gas attention and paused retention PASS');
+ const observedAt=(await read()).observed_at,checkedAt=Math.floor(Date.now()/1000),proof={sourceFingerprint:'same-source',sourceCheckedAt:checkedAt};
+ await db.admin.query("UPDATE launchpad.short_public_views SET snapshot=$1",[JSON.stringify({schema:'draw-public-v2',serviceObservation:proof,draws:[{kind:'short',program:addr(1),serviceObservation:proof,fundRaw:'123'}]})]);
+ const heartbeat={...proof,sourceCheckedAt:checkedAt+600};await refreshDrawHeartbeat(args,heartbeat);
+ assert.equal((await read()).observed_at.toISOString(),observedAt.toISOString());assert.equal((await read()).snapshot.draws[0].fundRaw,'123');
+ assert.equal((await readShortView(db.pools.api,id,{now:(checkedAt+600)*1000})).modules[0].stale,false);
+ assert.equal((await readShortView(db.pools.api,id,{now:(checkedAt+1261)*1000})).modules[0].stale,true);
+ await assert.rejects(refreshDrawHeartbeat(args,{...heartbeat,sourceFingerprint:'changed-source'}),/identity changed/);
+ report.scenarios.push('Pons heartbeat updates source freshness without RPC or changing contract observation PASS');
  report.status='PASS';report.sources={};for(const f of ['server/short-runtime/projection.mjs','server/shared/short-view.mjs','db/migrations/014_short_public_views.sql'])report.sources[f]=digest((await fs.readFile(f,'utf8')).replaceAll('\r\n','\n'));
 }catch(e){report.status='FAIL';report.error=e.message;console.error(e);process.exitCode=1;}finally{await fs.writeFile(root+'/report.json',JSON.stringify(report,null,2));console.log(report.status,report.scenarios,root+'/report.json');await db?.close();}

@@ -41,6 +41,16 @@
 
 ### Покупки, финансы и инфраструктура
 
+- [Учёт покупок по данным Pons](PONS_PURCHASE_ACCOUNTING.md).
+- [Pons → исполнитель: локальная интеграция и перенос истории](PONS_WORKER_REHEARSAL.md).
+- [QIANQI: перенос учёта Pons и экономный опрос](QIANQI_PONS_MIGRATION.md).
+- [QIANQI: локальный полный цикл Pons → розыгрыши → выплаты](QIANQI_PONS_SCHEDULER.md).
+- [Pons: funding, public snapshots and RPC budget](PONS_FUNDING_PUBLIC_RPC.md).
+- [Shared token service model: QIANQI, IGW and future tokens](TOKEN_SERVICE_MODEL.md).
+- [Pons event service and receipt-based publications](PONS_EVENT_SERVICE.md).
+
+- [Аудит необходимости RPC: без платной подписки](RPC_NECESSITY_AUDIT_20261013.md).
+
 - [Отложенное распознавание покупок](DEFERRED_PURCHASE_RECOGNITION.md).
 - [Первый экземпляр: проект графа запуска](DEPLOYMENT_BLUEPRINT.md).
 - [Проверяемая случайность Short — 08.10.2026](DRAND_SHORT.md).
@@ -112,3 +122,6 @@
 проверки. Старые снимки не заменяются незаметно. Секреты и подробные локальные логи
 остаются в игнорируемом `.local/`. Ссылки на него — указатели для владельца,
 а не обещание наличия этих данных в публичном checkout.
+
+- [Shared Pons runtime and validation](PONS_RUNTIME.md)
+- [Pons release and rollback procedure](PONS_RELEASE.md)
