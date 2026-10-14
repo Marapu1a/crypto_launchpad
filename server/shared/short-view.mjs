@@ -1,5 +1,5 @@
 import {inProject} from './store.mjs';
-import {ponsFreshness} from './pons-freshness.mjs';
+import {ponsFreshness,SOURCE_MAX_AGE_MS} from './pons-freshness.mjs';
 
 export function publicSnapshot(snapshot,wallet){
  if(!snapshot)return null;
@@ -18,6 +18,6 @@ export async function readShortView(pool,projectId,{now=Date.now(),maxAgeMs=1200
   return {...(wallet?{address:wallet}:{}),modules:rows.flatMap(row=>row.snapshot?.schema==='draw-public-v2'?row.snapshot.draws.map(s=>({...row,id:row.id+':'+s.kind,program_address:s.program,snapshot:s})):[row]).map(r=>({id:r.id,program:r.program_address,snapshot:publicSnapshot(r.snapshot,wallet),observedAt:r.observed_at??null,
    ...(r.snapshot?.serviceObservation?{freshness:ponsFreshness({observedAt:new Date(r.observed_at).toISOString(),sourceCheckedAt:r.snapshot.serviceObservation.sourceCheckedAt,now})}:{}),
    stale:r.snapshot?.serviceObservation?ponsFreshness({observedAt:r.observed_at?new Date(r.observed_at).toISOString():null,sourceCheckedAt:r.snapshot.serviceObservation.sourceCheckedAt,now}).stale:!r.observed_at||now-new Date(r.observed_at).getTime()>maxAgeMs||new Date(r.observed_at).getTime()>now+30000,
-   service:{status:r.service_status??'unavailable',observedAt:r.service_at??null,stale:!r.service_at||now-new Date(r.service_at).getTime()>maxAgeMs,projectionFailed:r.projection_failed??false}}))};
+   service:{status:r.service_status??'unavailable',observedAt:r.service_at??null,stale:!r.service_at||now-new Date(r.service_at).getTime()>(r.snapshot?.serviceObservation?SOURCE_MAX_AGE_MS:maxAgeMs)||new Date(r.service_at).getTime()>now+30000,projectionFailed:r.projection_failed??false}}))};
  });
 }

@@ -23,3 +23,13 @@ test('fresh Pons cannot conceal stale contracts; contract timestamp never become
   await assert.rejects(refreshQianqiHeartbeat(file,{sourceFingerprint:'b',sourceCheckedAt:2100}),/identity changed/);
  }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+import {readShortView} from '../../server/shared/short-view.mjs';
+test('Pons service freshness follows five-minute source polling while legacy keeps two minutes',async()=>{
+ const now=2000000,row={id:'m',program_address:'p',observed_at:new Date(now-300000),service_at:new Date(now-300000),service_status:'waiting',snapshot:{serviceObservation:{sourceCheckedAt:(now-300000)/1000}}};
+ const pool={connect:async()=>({query:async sql=>({rows:sql.startsWith('SELECT m.id')?[row]:[]}),release(){}})};
+ const read=()=>readShortView(pool,'534ed9bc-35b5-4884-8044-d047537bd52f',{now});
+ assert.equal((await read()).modules[0].service.stale,false);
+ row.service_at=new Date(now-661000);assert.equal((await read()).modules[0].service.stale,true);
+ row.service_at=new Date(now-300000);row.snapshot={};assert.equal((await read()).modules[0].service.stale,true);
+});

@@ -39,3 +39,13 @@ test('existing channel deduplicates incident, reminds, recovers and retries deli
   assert.equal(summarize({state:'waiting',reasons:[{code:'prizeFunding'}]},{ready:true}),'ok');
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+const {evaluatePons}=require('../../ops/qianqi/monitor.cjs');
+test('Pons monitor accepts sleeping services but catches stale source and failed worker',()=>{
+ const now=2000000,base={now,health:{checkedAt:new Date(now).toISOString(),projects:[{status:'waiting'},{status:'waiting'}]},services:Object.fromEntries(['pons-runtime.service','pons-collector.service','crypto-launchpad-api.service','crypto-launchpad-draw-api.service'].map(u=>[u,'active'])),api:{status:'observed'},drawApi:{modules:[{stale:false,service:{projectionFailed:false}}]},backupAt:now-1000,backupRunning:false};
+ assert.deepEqual(evaluatePons(base),{planned:false,alarms:[]});
+ assert(evaluatePons({...base,drawApi:{modules:[{stale:true}]}}).alarms.length);
+ assert(evaluatePons({...base,health:{...base.health,projects:[{status:'error'},{status:'waiting'}]}}).alarms.length);
+ assert(evaluatePons({...base,now:now+900001,backupRunning:true}).alarms.some(a=>a.includes('overdue')));
+ assert.equal(evaluatePons({...base,backupRunning:true,services:{...base.services,'pons-runtime.service':'inactive'}}).alarms.length,0);
+});

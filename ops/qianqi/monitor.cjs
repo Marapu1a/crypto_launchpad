@@ -21,6 +21,21 @@ function evaluate({backup,backupRunning,services,api,now=Date.now()/1000}){
  return {planned,alarms};
 }
 function service(unit){try{return execFileSync('systemctl',['show',unit,'-p','ActiveState','--value'],{encoding:'utf8',timeout:3000}).trim();}catch{return 'unknown';}}
+function evaluatePons({health,services,api,drawApi,backupAt,backupRunning,now=Date.now()}){
+ const alarms=[],age=now-Date.parse(health?.checkedAt),planned=backupRunning&&Number.isFinite(age)&&age>=0&&age<900000;
+ if(backupRunning&&!planned)alarms.push('Pons backup stop overdue or health unavailable');
+ for(const unit of ['pons-runtime.service','pons-collector.service','crypto-launchpad-api.service','crypto-launchpad-draw-api.service'])
+  if(services[unit]!=='active'&&!(planned&&unit==='pons-runtime.service'))alarms.push(unit+' inactive');
+ if(!Number.isFinite(backupAt)||now-backupAt>30*3600000||backupAt>now)alarms.push('Pons verified backup older than 30h or missing');
+ if(!planned){
+  const age=now-Date.parse(health?.checkedAt);
+  if(!Number.isFinite(age)||age<0||age>300000||health?.projects?.length!==2)alarms.push('Pons runtime health stale or unavailable');
+  else for(const p of health.projects)if(!['waiting','idle','complete','completed'].includes(p.status))alarms.push('Pons project requires attention');
+  if(api?.status!=='observed')alarms.push('QIANQI public API stale or unavailable');
+  if(!drawApi?.modules?.length||drawApi.modules.some(m=>m.stale||m.service?.projectionFailed))alarms.push('IGW public API stale or unavailable');
+ }
+ return {planned,alarms};
+}
 async function main(){
  const old=require('./notify.cjs');
  const credentials=process.env.CREDENTIALS_DIRECTORY;
@@ -35,6 +50,17 @@ async function main(){
  if(process.argv.includes('--test-delivery')){
   await send('QIANQI: тест оповещения backup/monitor. Финансовые операции не выполнялись.');
   console.log('TEST_DELIVERY_CONFIRMED');return;
+ }
+ if(fs.existsSync('/etc/crypto-launchpad/pons/activated')){
+  const read=file=>{try{return JSON.parse(fs.readFileSync(file));}catch{return null;}};
+  const get=async url=>{try{const r=await fetch(url,{signal:AbortSignal.timeout(5000)});return r.ok?await r.json():null;}catch{return null;}};
+  const [api,drawApi]=await Promise.all([get('https://qianqi.site/v1/overview?limit=1'),get('https://igw.qianqi.site/api/draws')]);
+  const services=Object.fromEntries(['pons-runtime.service','pons-collector.service','crypto-launchpad-api.service','crypto-launchpad-draw-api.service'].map(u=>[u,service(u)]));
+  const result=evaluatePons({health:read('/var/lib/crypto-launchpad/pons-runtime/health.json'),services,api,drawApi,backupAt:read('/var/lib/crypto-launchpad/pons-public/backup-status.json')?.at,backupRunning:['active','activating'].includes(service('pons-runtime-backup.service'))});
+  if(result.planned&&!result.alarms.length){console.log('PLANNED_PONS_BACKUP');return;}
+  const summary=[...new Set(result.alarms)].sort().join(', ')||'ok';
+  await old.deliver({file:'/var/lib/qianqi-monitor/telegram.json',summary,send});
+  console.log('Pons operational checks: '+summary);if(result.alarms.length)process.exitCode=1;return;
  }
  let backup=null,indexer=null,api=null;
  try{backup=JSON.parse(fs.readFileSync(STATUS));if(backup.schema!=='qianqi-backup-status-v1')backup=null;}catch{}
@@ -55,4 +81,4 @@ async function main(){
  if(alarms.length)process.exitCode=1;
 }
 if(require.main===module)main().catch(()=>{console.error('Notification unavailable; inspect monitor credentials/network/state');process.exitCode=1;});
-module.exports={evaluate};
+module.exports={evaluate,evaluatePons};

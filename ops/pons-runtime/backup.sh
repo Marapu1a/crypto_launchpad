@@ -33,3 +33,10 @@ cp /var/lib/crypto-launchpad/pons-preflight/profiles.json "$dest/profiles.json"
 pg_restore --list "$dest/database.dump" >/dev/null
 tar -tzf "$dest/state.tar.gz" >/dev/null
 touch "$dest/COMPLETE"
+python3 - <<'PY'
+import json,time,pathlib,os,pwd,grp
+p=pathlib.Path('/var/lib/crypto-launchpad/pons-public/backup-status.json')
+t=p.with_suffix('.tmp');t.write_text(json.dumps({'at':int(time.time()*1000)}))
+os.chown(t,pwd.getpwnam('qianqi').pw_uid,grp.getgrnam('launchpad-api').gr_gid)
+t.chmod(0o640);t.replace(p)
+PY
