@@ -1,4 +1,5 @@
-import {readFile,lstat} from 'node:fs/promises';
+import {readFile,lstat,realpath} from 'node:fs/promises';
+import {privateCredentialMode} from '../shared/credential-access.mjs';
 import {isAbsolute} from 'node:path';
 import {inProject,verifyRole} from '../shared/store.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
@@ -12,7 +13,10 @@ const check=(v,m)=>{if(!v)throw Error(m);};
 export async function privateText(file){
  check(typeof file==='string'&&isAbsolute(file),'Absolute credential path required');
  const s=await lstat(file);check(s.isFile()&&!s.isSymbolicLink()&&s.size>0&&s.size<=65536,'Invalid credential file');
- if(process.platform!=='win32')check((s.mode&0o077)===0,'Credential file must be private');
+ if(process.platform!=='win32'){
+  const directory=process.env.CREDENTIALS_DIRECTORY;
+  check(privateCredentialMode({file,stat:s,directory,realDirectory:directory?await realpath(directory):undefined,gid:process.getgid()}),'Credential file must be private');
+ }
  return (await readFile(file,'utf8')).trim();
 }
 export function validateRuntimeConfig(c){
