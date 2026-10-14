@@ -33,7 +33,7 @@ export async function inspectFirstPonsHandoff({entry,binding,migration,handoff,p
  // Existing new state, even valid and idle, needs a different resume inspection.
  for(const suffix of suffixes)for(const extra of ['','.lock','.service.lock','.tmp'])check(await absent(fresh+suffix+extra));
  check(Array.isArray(handoff.legacyJournals)&&handoff.legacyJournals.length===3&&new Set(handoff.legacyJournals.map(x=>x.suffix)).size===3);
- const jobs=[];
+ const jobs=[],cutoffs=[];
  for(const suffix of suffixes){
   const pin=handoff.legacyJournals.find(x=>x.suffix===suffix);check(pin);
   const file=old+suffix;check(await absent(file+'.lock')&&await absent(file+'.service.lock')&&await absent(file+'.tmp'));
@@ -42,7 +42,13 @@ export async function inspectFirstPonsHandoff({entry,binding,migration,handoff,p
   const {checksum,...state}=JSON.parse(await readFile(file,'utf8'));
   check(state.schema==='local-scheduler-state-v1'&&checksum===hash(state)&&checksum===pin.checksum&&state.configHash===pin.configHash&&typeof state.configHash==='string');
   check(state.configHash===identities[suffix]);
-  check(!state.pending&&!state.operation&&!Object.keys(state.cutoffs??{}).length);
+  check(!state.pending&&!state.operation);
+  for(const [kind,candidate] of Object.entries(state.cutoffs??{})){
+   check(suffix==='.scheduler'&&['SHORT','MONTHLY'].includes(kind));
+   const ack=handoff.retainedCheckpoints?.find(x=>x.kind===kind);
+   check(ack?.disposition==='preserve-history-only'&&digest(ack.candidate)===digest(candidate));
+   cutoffs.push({kind,candidate});
+  }
   check(Array.isArray(state.jobs?.SHORT)&&Array.isArray(state.jobs?.MONTHLY));
   for(const kind of ['SHORT','MONTHLY'])for(const job of state.jobs[kind]){
    // Parent and RNG journals must not contain planner jobs.
@@ -55,6 +61,7 @@ export async function inspectFirstPonsHandoff({entry,binding,migration,handoff,p
  check(await provider.getTransactionCount(binding.sender,'latest')===await provider.getTransactionCount(binding.sender,'pending'));
  check(!Object.values(migration.ledger.pending).some(Boolean));
  const at={blockTag:head.number};
+ check((handoff.retainedCheckpoints??[]).length===cutoffs.length);
  for(const kind of ['SHORT','MONTHLY']){
   const short=kind==='SHORT',active=short?'activeProposal':'activeMonth',pending=short?'pendingDatasetDraw':'pendingMonth';
   const c=new Contract(migration.domain[short?'source':'monthlySource'],[`function ${active}() view returns(bytes32)`,`function ${pending}() view returns(bytes32)`],provider);
@@ -65,6 +72,14 @@ export async function inspectFirstPonsHandoff({entry,binding,migration,handoff,p
   check(migration.ledger.draws.some(d=>d.kind===kind&&d.drawId===drawId&&d.status==='CONSUMED'));
   check(job.terminalChecked.number<=head.number&&(await provider.getBlock(job.terminalChecked.number))?.hash===job.terminalChecked.hash);
  }
+ for(const {kind,candidate} of cutoffs){
+  check(Number.isSafeInteger(candidate.number)&&candidate.number>=0&&candidate.number<=migration.boundary.number);
+  check((await provider.getBlock(candidate.number))?.hash===candidate.hash);
+  // This is a later, unsubmitted checkpoint, not a saved artifact or a frozen set.
+  check(jobs.filter(j=>j.kind===kind).every(j=>j.entry.terminalChecked.number<candidate.number));
+  const source=new Contract(migration.domain[kind==='SHORT'?'source':'monthlySource'],['function cutoffHashes(uint256) view returns(bytes32)'],provider);
+  check(await source.cutoffHashes(candidate.number,at)===candidate.hash);
+ }
  // Claims with remaining credit require an explicit obligation handoff, not a clean migration.
  const vault=new Contract(migration.domain.vault,['function reward(bytes32,address) view returns(uint256)','function draws(bytes32) view returns(address asset,uint64 campaignId,uint8 status,uint256 budget,uint256 awarded,uint256 paid)'],provider);
  for(const draw of migration.ledger.draws){const value=await vault.draws(draw.drawId,at);check(value.awarded===value.paid);}
@@ -72,5 +87,5 @@ export async function inspectFirstPonsHandoff({entry,binding,migration,handoff,p
   check(typeof reward.drawId==='string'&&typeof reward.winner==='string');
   check(await vault.reward(reward.drawId,reward.winner,at)===0n);
  }
- return {mode:'first-migration',boundary:migration.boundary,legacyJournals:handoff.legacyJournals.map(({suffix,checksum})=>({suffix,checksum}))};
+ return {mode:'first-migration',boundary:migration.boundary,retainedCheckpoints:handoff.retainedCheckpoints??[],legacyJournals:handoff.legacyJournals.map(({suffix,checksum})=>({suffix,checksum}))};
 }

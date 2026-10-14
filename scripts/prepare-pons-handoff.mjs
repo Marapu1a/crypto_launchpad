@@ -13,9 +13,10 @@ const config=await read(configuration),entry=config.projects?.find(p=>p.id===pro
 if(!entry)throw Error('QIANQI project required');
 const binding=await read(entry.bindingFile),migration=validateMigration(await read(entry.migrationFile)),evidence=await read(evidenceFile);
 // Evidence: {lifecycle,legacyCredits,rewards,legacyRpcIdentity}; omit endpoint URLs/credentials.
-const {legacyRpcIdentity,...legacyEvidence}=evidence;
+const {legacyRpcIdentity,retainedCheckpoints,...legacyEvidence}=evidence;
 if(digest(legacyEvidence)!==migration.legacyHash)throw Error('Migration evidence mismatch');
 const handoff={schema:'qianqi-pons-first-handoff-v1',mode:'first-migration',bindingHash:hash(binding),migrationChecksum:migration.checksum,legacyHash:migration.legacyHash,boundary:migration.boundary,schedulerHash:digest(await read(entry.schedulerFile)),legacyEvidence,legacyRpcIdentity,legacyJournals:[]};
+if(retainedCheckpoints!==undefined)handoff.retainedCheckpoints=retainedCheckpoints;
 const identities=legacyJournalIdentities({binding,publicConfig:await read(entry.publicConfigFile),profile:await read(entry.publicProfileFile),handoff});
 for(const suffix of ['','.rng','.scheduler']){
  const file=binding.statePath+suffix;let stat;

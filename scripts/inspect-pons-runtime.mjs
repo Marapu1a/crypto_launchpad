@@ -12,6 +12,7 @@ import {advanceMigration} from '../server/adapters/qianqi/pons-migration.mjs';
 import {buildPonsPublicSnapshot} from '../server/adapters/qianqi/pons-projection.mjs';
 import {withQianqiExecutor} from '../server/adapters/qianqi/executor.mjs';
 import {inspectFirstPonsHandoff} from '../server/adapters/qianqi/pons-handoff.mjs';
+import {validatePonsExecutionBinding} from '../server/adapters/qianqi/pons-execution-binding.mjs';
 import {digest} from '../src/tickets/digest.mjs';
 import budget from '../server/shared/rpc-budget.cjs';
 const require=createRequire(import.meta.url),read=async f=>JSON.parse(await readFile(f,'utf8'));
@@ -44,6 +45,7 @@ for(const entry of config.projects){
    advancePonsAccounting({policy,report:source,prior:state.runtime?.ponsAccounting,legacyCredits:state.runtime?.ledger?creditedPurchases(policy,state.runtime.ledger):[],head:{number:head.number,hash:head.hash,timestamp:head.timestamp},now});
   }else if(entry.adapter==='qianqi'){
    const binding=await read(entry.bindingFile),publicConfig=await read(entry.publicConfigFile),profile=await read(entry.publicProfileFile);
+   validatePonsExecutionBinding({config:c.scheduler,funding:c.funding,deliveryJob:c.deliveryJob,publicConfig,sender:binding.sender});
    if(binding.projectId!==entry.id||binding.token.toLowerCase()!==c.scheduler.manifest.token.toLowerCase())throw Error('Binding mismatch');
    const inspect=require('../server/adapters/qianqi/runtime/scripts/pons-public-profile.cjs').inspect;
    const admission=await inspect(provider,profile,publicConfig);if(admission.status!=='matched'){result.admissionReasons=admission.reasons;throw Error('Public admission refused');}

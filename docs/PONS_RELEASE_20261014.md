@@ -4,6 +4,14 @@ Owner authorized release. Candidate: `394adb9927c5533b9cc8999046b103c1859bfb20`.
 Status: **staged, NOT activated**. First-migration preparation found retained
 legacy QIANQI cutoff; do not bypass the handoff gate or delete the old state.
 
+Follow-up at 13:16 UTC: finalized88384176; both SHORT proposal statuses4,
+settlement phases3, canonical terminal blocks, awarded=paid (6963644 and
+53115936 raw USDG). Retained cutoff82251661 is canonical and checkpointed;
+activeProposal/pendingDatasetDraw are zero. A tested explicit history-only
+checkpoint handoff now supports this case without modifying the native journal.
+Also fixed the production binding to the pinned legacy 90/5/5 profile: the
+original automation config does not contain a bps field. Not a universal default.
+
 ## Verified on server
 
 - SSH host ams-1-vm-wjus, 201.51.22.244; checks around 13:09–13:15 UTC.

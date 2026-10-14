@@ -40,6 +40,12 @@ Latest attempt: [2026-10-14 server staging and handoff blocker](PONS_RELEASE_202
    checkpoints. Pending nonce, controller jobs or unpaid vault rewards also block.
    Any existing new journal requires a separate resume/reconciliation procedure;
    never delete it to make first-migration inspection pass.
+   A retained scheduler checkpoint may be explicitly listed in evidence as
+   retainedCheckpoints: [{kind,candidate:{number,hash},disposition:'preserve-history-only'}].
+   Inspector accepts it only when canonical, checkpointed, covered by the migration
+   boundary, later than all terminal jobs of that kind, with no active/pending
+   controllers or unpaid rewards. It is kept in handoff evidence, never resumed
+   as a job and never removed from the original journal. Unknown cutoffs still block.
 6. After qualification and config review, set allowPublicTransactions=true and
    create the runtime activation marker. Verify both first passes, journals,
    receipts, quota and public snapshots. Switch QIANQI API registry to pons-api-v1;

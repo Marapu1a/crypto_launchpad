@@ -6,6 +6,7 @@ import {validateMigration,advanceMigration,prepareMigrationJob,sealMigration} fr
 import {applyControllerReceipt} from './pons-controller-events.mjs';
 import {fundFromPons} from './pons-funding.mjs';
 import {rememberPublications,receiptPublicationSource} from './pons-publications.mjs';
+import {validatePonsExecutionBinding} from './pons-execution-binding.mjs';
 const require=createRequire(import.meta.url),base='./runtime/scripts/';
 const network=require(base+'runtime-network.cjs'),{withState}=require(base+'local-scheduler-state.cjs');
 const {createBoundary,reconcilePending}=require(base+'pons-transaction-journal.cjs');
@@ -21,9 +22,7 @@ export async function runPonsScheduler({provider,short,monthly,executor,config,r
   await require('./fence.cjs').checkFence({required:true});
   const c=execution.config;
   require(base+'pons-automation.cjs').validate(c,{publicMode:true});
-  check(digest(c.manifest)===digest(config.manifest)&&digest(c.lifecycle)===digest(config.lifecycle),'Public scheduler config mismatch');
-  check(digest(c.deliveryJob)===digest(deliveryJob)&&same(await executor.getAddress(),c.executor),'Public RNG/sender mismatch');
-  check(funding&&same(funding.collector,c.collector)&&same(funding.escrow,c.escrow)&&same(funding.quote,c.manifest.quote)&&funding.campaignId===c.campaignId&&digest(funding.recipients)===digest(c.recipients)&&digest(funding.bps)===digest(c.bps)&&digest(funding.codeHashes)===digest(c.codeHashes),'Public funding config mismatch');
+  validatePonsExecutionBinding({config,funding,deliveryJob,publicConfig:c,sender:await executor.getAddress()});
   publicGuard=require(base+'pons-public-execution.cjs').createGuard({provider,config:c,publicProfile:execution.profile,compiled:require(base+'compile.cjs').compile()});
  }else{
   meta=await provider.send('hardhat_metadata',[]);

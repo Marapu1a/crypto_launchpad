@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {createRequire} from 'node:module';
-import {ZeroHash} from 'ethers';
+import {ZeroHash,id} from 'ethers';
 import {digest} from '../../src/tickets/digest.mjs';
 import {sealMigration} from '../../server/adapters/qianqi/pons-migration.mjs';
 import {inspectFirstPonsHandoff,legacyJournalIdentities} from '../../server/adapters/qianqi/pons-handoff.mjs';
@@ -25,7 +25,8 @@ test('first handoff qualifies clean state and blocks occupied paths, stale pins,
   const save=async(suffix,data,pin=true)=>{data={...data,configHash:identities[suffix]};const checksum=hash(data);await writeFile(binding.statePath+suffix,JSON.stringify({...data,checksum}));if(pin){handoff.legacyJournals=handoff.legacyJournals.filter(x=>x.suffix!==suffix);handoff.legacyJournals.push({suffix,checksum,configHash:data.configHash});}};
   for(const suffix of ['','.rng','.scheduler'])await save(suffix,state);
   let pendingNonce=0,boundaryHash=block.hash,active=ZeroHash;
-  const provider={getBlock:async n=>({...block,hash:n==='finalized'?block.hash:boundaryHash}),getTransactionCount:async(a,tag)=>tag==='pending'?pendingNonce:0,call:async()=>active};
+  let checkpoint=block.hash;
+  const provider={getBlock:async n=>({...block,hash:n==='finalized'?block.hash:boundaryHash}),getTransactionCount:async(a,tag)=>tag==='pending'?pendingNonce:0,call:async tx=>tx.data.slice(0,10)===id('cutoffHashes(uint256)').slice(0,10)?checkpoint:active};
   const run=()=>inspectFirstPonsHandoff({entry,binding,migration,handoff,provider,config,publicConfig,profile});
   assert.equal((await run()).mode,'first-migration');
   // The offline preparation command creates exactly these pins, without a signer/RPC.
@@ -49,5 +50,14 @@ test('first handoff qualifies clean state and blocks occupied paths, stale pins,
   active=block.hash;await assert.rejects(run(),/reconciliation/);active=ZeroHash;
   handoff.boundary={...block,number:49};await assert.rejects(run(),/reconciliation/);handoff.boundary=block;
   assert.equal((await run()).mode,'first-migration');
+  const candidate={number:40,hash:block.hash};await save('.scheduler',{...state,cutoffs:{SHORT:candidate}});
+  await assert.rejects(run(),/reconciliation/);
+  handoff.retainedCheckpoints=[{kind:'SHORT',candidate,disposition:'preserve-history-only'}];
+  const before=await readFile(binding.statePath+'.scheduler','utf8');
+  assert.deepEqual((await run()).retainedCheckpoints,handoff.retainedCheckpoints);
+  assert.equal(await readFile(binding.statePath+'.scheduler','utf8'),before);
+  checkpoint=ZeroHash;await assert.rejects(run(),/reconciliation/);checkpoint=block.hash;
+  active=block.hash;await assert.rejects(run(),/reconciliation/);active=ZeroHash;
+  handoff.retainedCheckpoints[0].candidate={...candidate,number:41};await assert.rejects(run(),/reconciliation/);
  }finally{await rm(dir,{recursive:true,force:true});}
 });
