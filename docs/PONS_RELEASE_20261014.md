@@ -1,5 +1,7 @@
 # Production release: Pons servicing, 2026-10-14
 
+Superseded at 15:37 UTC by [event-driven release e2731ea](PONS_EVENT_WAKE.md#production-deployment). The c75fdb9 evidence below is retained as release history.
+
 Status: **activated**. Runtime, collector and both public APIs use
 `/opt/crypto-launchpad/releases/pons-c75fdb9-20261014`.
 Manifest SHA256: `886f68deb69f441462894440aa1318697696af9002f0c5ff03339516ba059b56`.

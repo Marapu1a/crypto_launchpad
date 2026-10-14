@@ -1,8 +1,8 @@
 # Очередь работ
 
-2026-10-14 follow-up: [event-driven wake policy](PONS_EVENT_WAKE.md) removes the flat 30-minute RPC check for proven-idle tokens. Implemented locally; production remains c75fdb9 until a separate release. Earlier periodic-control descriptions below describe the previous policy.
+2026-10-14 follow-up: [event-driven wake policy](PONS_EVENT_WAKE.md) removes the flat 30-minute RPC check for proven-idle tokens. Activated on the server as e2731ea at 15:37 UTC; both projects entered event-only sleep with nextCheckAt=null. Alchemy remains the sole allowed RPC host. Earlier periodic-control descriptions below describe the previous policy.
 
-**2026-10-14 production release:** shared Pons servicing is active for QIANQI and IGW, with free Alchemy RPC, persistent budget, five-minute Pons collection, both public APIs and daily verified backup. Release `c75fdb9`. QuickNode and old workers remain disabled. [Deployment evidence and limits](PONS_RELEASE_20261014.md). Earlier status paragraphs below are historical checkpoints, superseded by this release.
+**2026-10-14 production release:** shared Pons servicing is active for QIANQI and IGW, with free Alchemy RPC, persistent budget, five-minute Pons collection, both public APIs and daily verified backup. Release `e2731ea` (event-driven wake). QuickNode and old workers remain disabled. [Deployment evidence and limits](PONS_RELEASE_20261014.md). Earlier status paragraphs below are historical checkpoints, superseded by this release.
 
 Актуализировано 13.10.2026, МСК. Здесь только порядок следующих пакетов;
 реализованное состояние — [CURRENT_CONTEXT](CURRENT_CONTEXT.md).
