@@ -106,13 +106,14 @@ export async function runPonsScheduler({provider,short,monthly,executor,config,r
      if(sourceError){waits.push({kind,reason:'sourceUnavailable',detail:sourceError});continue;}
      if(state.migration.ledger.pending[kind]){waits.push({kind,reason:'missingFrozenJob'});continue;}
      const interval=Number(await source[isShort?'SHORT_INTERVAL':'monthlyInterval'](at));
-     if(head.timestamp<r.lastTerminalAt+interval){waits.push({kind,reason:'schedule',nextCheckAt:r.lastTerminalAt+interval});continue;}
      if(finalized.number<r.epochs.find(e=>e.epoch===r.currentEpoch).firstBlock){waits.push({kind,reason:'epochBoundary'});continue;}
      const epoch=r.drainingEpoch||r.currentEpoch,open=state.migration.ledger.wallets.some(w=>w[kind].byEpoch.some(e=>Number(e.epoch)===epoch&&BigInt(e.open)>0n));
      if(!open&&!r.drainingEpoch){waits.push({kind,reason:'empty'});continue;}
      let policy=await source[isShort?'shortEpochPolicy':'monthlyEpochPolicy'](epoch,{blockTag:finalized.number});
      let budget=isShort?config.shortBudgetMode==='FREE_SHORT'?String(await vault.freeShort({blockTag:finalized.number})):config.shortBudget:undefined;
      if(open&&isShort&&BigInt(budget)/Array.from(policy.weights).reduce((n,x)=>n+x,0n)<policy.minimumUnit){waits.push({kind,reason:'prizeFunding'});continue;}
+     if(open&&!isShort&&(await vault.freeCurrent(at)<await source.minimumMonthlyBudget(at)||await vault.freeNext(at)!==await vault.nextStartTarget(at))){waits.push({kind,reason:'prizeFunding'});continue;}
+     if(head.timestamp<r.lastTerminalAt+interval){waits.push({kind,reason:'schedule',nextCheckAt:r.lastTerminalAt+interval});continue;}
      state.cutoffs??={};
      if(!state.cutoffs[kind]){
       const number=Math.max(head.number-1,state.migration.ledger.head.number),block=await provider.getBlock(number);

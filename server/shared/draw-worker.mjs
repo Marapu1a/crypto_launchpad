@@ -184,10 +184,10 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
         if(sourceUnavailable)return; // Existing frozen draws and claims above remain serviceable.
         const budget = await c[draw].freeFund();
         const eligibleAt=Number(await c[draw].lastTerminal()+await c[draw].interval());
-        if(eligibleAt>observation.finalized.timestamp)nextCheckAt=Math.min(nextCheckAt,eligibleAt);
-        if (observation.finalized.timestamp < eligibleAt || budget < amount(t[draw].minimumFund)
+        if (budget < amount(t[draw].minimumFund)
           || (draw==='short'&&!previewBasket(budget,t.short.basket).ready)
           || (draw==='monthly'&&await c.monthly.freeNext()!==await c.monthly.nextTarget())) return;
+        if(eligibleAt>observation.finalized.timestamp){nextCheckAt=Math.min(nextCheckAt,eligibleAt);return;}
         const next = String(BigInt(cycle)+1n);
         let s = r.cycles[draw][next];
         if (!s) {

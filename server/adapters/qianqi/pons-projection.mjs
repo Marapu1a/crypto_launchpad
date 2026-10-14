@@ -60,10 +60,10 @@ export function renderPonsPublic(config,snapshot,{wallet,offset=0,limit=25,now=D
  check((wallet===undefined||isAddress(wallet))&&Number.isSafeInteger(offset)&&offset>=0&&Number.isInteger(limit)&&limit>=1&&limit<=100,'Invalid public query');
  check(snapshot.schema==='qianqi-pons-public-v1'&&snapshot.manifestHash===hash(config.manifest)&&snapshot.configHash===digest({manifest:config.manifest,lifecycle:config.lifecycle}),'Invalid Pons public snapshot');
  const age=now-Date.parse(snapshot.observedAt),sourceAge=now-snapshot.checkedAt*1000;
- const freshness=snapshot.serviceObservation?ponsFreshness({observedAt:snapshot.observedAt,sourceCheckedAt:snapshot.serviceObservation.sourceCheckedAt,now}):null;
+ const freshness=snapshot.serviceObservation?ponsFreshness({...snapshot.serviceObservation,observedAt:snapshot.observedAt,now}):null;
  const fresh=freshness?!freshness.stale:age>=0&&age<=maxAgeSeconds*1000&&sourceAge>=0&&sourceAge<=maxAgeSeconds*1000;
  const view={publicView:snapshot.publicView,index:{observedAt:snapshot.observedAt,ledgerHash:snapshot.ledgerHash},state:{status:{state:fresh?'caughtUp':'stale'}},ledger:{head:snapshot.head},manifestHash:snapshot.manifestHash};
- const overview=renderPublic({...config,indexer:{maxAgeSeconds:freshness?CONTRACT_MAX_AGE_MS/1000:maxAgeSeconds}},view,{offset,limit,now});
+ const overview=renderPublic({...config,indexer:{maxAgeSeconds:freshness?.awaitingActivity?Math.max(CONTRACT_MAX_AGE_MS/1000,age/1000+1):freshness?CONTRACT_MAX_AGE_MS/1000:maxAgeSeconds}},view,{offset,limit,now});
  const provenance={...overview.provenance,canonicality:'saved-finalized-contract-observation; purchases-from-pons-api',purchaseAccounting:snapshot.purchaseAccounting,mode:snapshot.mode,...(freshness?{freshness}:{})};
  if(wallet===undefined)return structuredClone({...overview,provenance});
  const address=wallet.toLowerCase(),empty=()=>({mintedTotal:'0',open:'0',consumedTotal:'0',frozenByDraw:{},byEpoch:[]});

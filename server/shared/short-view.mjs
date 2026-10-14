@@ -16,8 +16,8 @@ export async function readShortView(pool,projectId,{now=Date.now(),maxAgeMs=1200
    FROM launchpad.module_instances m LEFT JOIN launchpad.short_public_views v ON v.project_id=m.project_id AND v.module_id=m.id
    WHERE m.project_id=$1 AND m.adapter_version IN ('production-candidate-v1','draw-candidate-v2') ORDER BY m.id`,[projectId]);
   return {...(wallet?{address:wallet}:{}),modules:rows.flatMap(row=>row.snapshot?.schema==='draw-public-v2'?row.snapshot.draws.map(s=>({...row,id:row.id+':'+s.kind,program_address:s.program,snapshot:s})):[row]).map(r=>({id:r.id,program:r.program_address,snapshot:publicSnapshot(r.snapshot,wallet),observedAt:r.observed_at??null,
-   ...(r.snapshot?.serviceObservation?{freshness:ponsFreshness({observedAt:new Date(r.observed_at).toISOString(),sourceCheckedAt:r.snapshot.serviceObservation.sourceCheckedAt,now})}:{}),
-   stale:r.snapshot?.serviceObservation?ponsFreshness({observedAt:r.observed_at?new Date(r.observed_at).toISOString():null,sourceCheckedAt:r.snapshot.serviceObservation.sourceCheckedAt,now}).stale:!r.observed_at||now-new Date(r.observed_at).getTime()>maxAgeMs||new Date(r.observed_at).getTime()>now+30000,
+   ...(r.snapshot?.serviceObservation?{freshness:ponsFreshness({...r.snapshot.serviceObservation,observedAt:r.observed_at?new Date(r.observed_at).toISOString():null,now})}:{}),
+   stale:r.snapshot?.serviceObservation?ponsFreshness({...r.snapshot.serviceObservation,observedAt:r.observed_at?new Date(r.observed_at).toISOString():null,now}).stale:!r.observed_at||now-new Date(r.observed_at).getTime()>maxAgeMs||new Date(r.observed_at).getTime()>now+30000,
    service:{status:r.service_status??'unavailable',observedAt:r.service_at??null,stale:!r.service_at||now-new Date(r.service_at).getTime()>(r.snapshot?.serviceObservation?SOURCE_MAX_AGE_MS:maxAgeMs)||new Date(r.service_at).getTime()>now+30000,projectionFailed:r.projection_failed??false}}))};
  });
 }

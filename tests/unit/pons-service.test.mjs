@@ -6,16 +6,16 @@ import {schedulerObservation} from '../../server/adapters/qianqi/pons-service.mj
 import {createRequire} from 'node:module';
 const {runFundingPass}=createRequire(import.meta.url)('../../server/adapters/qianqi/runtime/scripts/pons-funding-pass.cjs');
 
-test('external operator wait sleeps with a bounded control deadline; uncertain work never sleeps',async()=>{
+test('external operator wait needs new activity; uncertain work never sleeps',async()=>{
  const actions=Object.fromEntries(['pull','sync','pay-prizes','pay-ops','pay-team'].map(a=>[a,{status:'empty'}]));
  actions.sweep={status:'waiting',reason:'awaiting-pons-operator',phase:2};
  const funding=await runFundingPass({loadPlan:async()=>({actions}),send:()=>{throw Error('no send');}});
  const idle={status:'waiting',sourceStatus:'current',steps:[],funding,results:[{kind:'SHORT',reason:'empty'},{kind:'MONTHLY',reason:'schedule'}]};
  assert.equal(schedulerObservation(idle).status,'idle');
  const f=fixture();f.result(idle);const tick=createPonsService({...f.options,observe:schedulerObservation});
- // One simulated hour: control passes at 0 and 30 minutes, no RPC work on 238 idle ticks.
+ // One simulated hour: initial pass only; all subsequent quiet ticks are local.
  for(let i=0;i<240;i++){f.clock(1000000+i*15000);await tick();}
- assert.equal(f.runs,2);
+ assert.equal(f.runs,1);
  for(const row of [{action:'sweep',status:'waiting'}, {action:'sweep',status:'waiting',reason:'graduation-incomplete',phase:1},{action:'sweep',status:'waiting',reason:'awaiting-pons-operator',phase:2,budget:{}},{action:'pay-prizes',status:'ready'}])
   assert.notEqual(schedulerObservation({...idle,funding:[row]}).status,'idle');
  assert.notEqual(schedulerObservation({...idle,results:[{kind:'SHORT',reason:'claimable'},{kind:'MONTHLY',reason:'empty'}]}).status,'idle');
@@ -27,20 +27,20 @@ function fixture(){
  const options={now:()=>clock,loadReport:async()=>report,run:async()=>{runs++;return result;},observe:r=>r,publish:async()=>{published++;}};
  return {report,options,get runs(){return runs;},get published(){return published;},clock(t){clock=t;report.checkedAt=Math.floor(t/1000);},result(r){result=r;}};
 }
-test('source heartbeat does not trigger RPC or refresh contract snapshot; changes and timer do',async()=>{
+test('source heartbeat and elapsed time do not trigger RPC; trade batches do',async()=>{
  const f=fixture(),tick=createPonsService(f.options);
  assert.equal((await tick()).service.reason,'initial-or-pending');
  for(let n=1;n<6;n++){f.clock(1000000+n*300000);assert.equal((await tick()).service.ran,false);}
  assert.equal(f.runs,1);assert.equal(f.published,1);
- f.clock(2800000);assert.equal((await tick()).service.reason,'scheduled-check');assert.equal(f.runs,2);
- f.report.activity.push({id:'new-buy'});f.report.tradeCount=1;assert.equal((await tick()).service.reason,'pons-changed');assert.equal(f.runs,3);
+ f.clock(2800000);assert.equal((await tick()).service.ran,false);assert.equal(f.runs,1);
+ f.report.activity.push({id:'new-buy'});f.report.tradeCount=1;assert.equal((await tick()).service.reason,'pons-changed');assert.equal(f.runs,2);
 });
-test('pending work, due draw, stale source and corrupt report cannot sleep',async()=>{
+test('pending work and due draws run; idle source outages do not trigger RPC',async()=>{
  const f=fixture(),tick=createPonsService(f.options);
  f.result({status:'unknown'});await tick();await tick();assert.equal(f.runs,2);
  f.result({status:'idle',nextCheckAt:1001000});await tick();f.clock(1001000);await tick();assert.equal(f.runs,4);
- f.result({status:'idle'});await tick();f.report.checkedAt=0;await tick();assert.equal(f.runs,6);
- f.report.checkedAt=1001;f.report.tradeCount=99;await tick();assert.equal(f.runs,7);
+ f.result({status:'idle'});await tick();f.report.checkedAt=0;assert.equal((await tick()).status,'source-unavailable');assert.equal(f.runs,5);
+ f.report.checkedAt=1001;f.report.tradeCount=99;assert.equal((await tick()).status,'source-unavailable');assert.equal(f.runs,5);
 });
 test('failures and process restart invalidate sleep; tokens are independent',async()=>{
  const f=fixture(),g=fixture(),a=createPonsService(f.options),b=createPonsService(g.options);
@@ -57,4 +57,16 @@ test('v2 requires explicit all-lanes idle evidence, never a last-lane reason alo
  for(const serviceIdle of [undefined,false])assert.equal(drawServiceObservation({status:'waiting',reason:'participants',serviceIdle}).status,'unknown');
  assert.equal(drawServiceObservation({status:'waiting',reason:'participants',serviceIdle:true}).status,'idle');
  assert.equal(drawServiceObservation({status:'waiting',reason:'beacon-time-finality',serviceIdle:true}).status,'unknown');
+});
+
+test('two quiet days do not wake the worker; outage recovery retains the idle proof',async()=>{
+ const f=fixture(),tick=createPonsService(f.options);await tick();
+ f.clock(1000000+2*86400000);assert.equal((await tick()).service.ran,false);
+ f.report.checkedAt=0;assert.equal((await tick()).status,'source-unavailable');
+ f.clock(1000000+2*86400000+300000);assert.equal((await tick()).service.ran,false);
+ assert.equal(f.runs,1);assert.equal(f.published,1);
+ // Several small trades in one Pons report cause a single pass, not a pass per trade.
+ f.report.activity=Array.from({length:20},(_,i)=>({id:'buy-'+i,quoteRaw:'10000'}));f.report.tradeCount=20;
+ assert.equal((await tick()).service.reason,'pons-changed');assert.equal(f.runs,2);
+ assert.equal((await tick()).service.ran,false);
 });

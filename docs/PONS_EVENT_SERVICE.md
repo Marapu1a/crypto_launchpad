@@ -1,5 +1,7 @@
 # Обслуживание по изменениям Pons
 
+2026-10-14 follow-up: [event-driven wake policy](PONS_EVENT_WAKE.md) removes the flat 30-minute RPC check for proven-idle tokens. Implemented locally; production remains c75fdb9 until a separate release. Earlier periodic-control descriptions below describe the previous policy.
+
 14.10.2026, рабочее дерево поверх e3585b6. Локальная реализация общей
 [модели токенов](TOKEN_SERVICE_MODEL.md). VPS и платный RPC не запускались.
 

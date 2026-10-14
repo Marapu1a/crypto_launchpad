@@ -33,3 +33,28 @@ test('Pons service freshness follows five-minute source polling while legacy kee
  row.service_at=new Date(now-661000);assert.equal((await read()).modules[0].service.stale,true);
  row.service_at=new Date(now-300000);row.snapshot={};assert.equal((await read()).modules[0].service.stale,true);
 });
+
+test('explicit event idle keeps source health current without pretending contracts were reverified',()=>{
+ const observedAt=new Date(1000000).toISOString(),now=1000000+86400000;
+ const input={observedAt,sourceCheckedAt:now/1000,now,eventIdle:true,nextCheckAt:null};
+ const idle=ponsFreshness(input);
+ assert.equal(idle.stale,false);assert.equal(idle.contractStale,true);assert.equal(idle.awaitingActivity,true);
+ assert.equal(idle.contractVerifiedAt,observedAt);
+ assert.equal(ponsFreshness({...input,eventIdle:false}).stale,true);
+ assert.equal(ponsFreshness({...input,nextCheckAt:now}).stale,true);
+ assert.equal(ponsFreshness({...input,sourceCheckedAt:(now-661000)/1000}).stale,true);
+ assert.equal(ponsFreshness({...input,observedAt:null}).stale,true);
+});
+
+import {renderPonsPublic} from '../../server/adapters/qianqi/pons-projection.mjs';
+import {digest} from '../../src/tickets/digest.mjs';
+import {createRequire} from 'node:module';
+const {hash}=createRequire(import.meta.url)('../../server/adapters/qianqi/runtime/scripts/direct-buy.cjs');
+test('QIANQI public renderer preserves old contract time during event idle and expires missing heartbeat',()=>{
+ const config={manifest:{chainId:4663},lifecycle:{}},observedAt=new Date(1000000).toISOString(),now=1000000+86400000;
+ const snapshot={schema:'qianqi-pons-public-v1',manifestHash:hash(config.manifest),configHash:digest(config),observedAt,checkedAt:1000,serviceObservation:{eventIdle:true,nextCheckAt:null,sourceCheckedAt:now/1000},publicView:{asset:{},reserves:{freeShort:'0',freeCurrent:'0',freeNext:'0',nextStartTarget:'100'},timing:{SHORT:{earliestAt:'0',minimumRaw:'100'},MONTHLY:{earliestAt:'0',minimumRaw:'100'}},pending:{},history:[]}};
+ const current=renderPonsPublic(config,snapshot,{now});
+ assert.equal(current.status,'observed');assert.equal(current.provenance.observedAt,observedAt);assert.equal(current.provenance.freshness.contractStale,true);
+ assert.equal(renderPonsPublic(config,snapshot,{now:now+661000}).status,'stale');
+ snapshot.serviceObservation.eventIdle=false;assert.equal(renderPonsPublic(config,snapshot,{now}).status,'stale');
+});

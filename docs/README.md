@@ -48,6 +48,7 @@
 - [Pons: funding, public snapshots and RPC budget](PONS_FUNDING_PUBLIC_RPC.md).
 - [Shared token service model: QIANQI, IGW and future tokens](TOKEN_SERVICE_MODEL.md).
 - [Pons event service and receipt-based publications](PONS_EVENT_SERVICE.md).
+- [Event-driven wake policy without periodic idle RPC](PONS_EVENT_WAKE.md).
 
 - [Аудит необходимости RPC: без платной подписки](RPC_NECESSITY_AUDIT_20261013.md).
 

@@ -1,8 +1,8 @@
 import {digest} from '../../src/tickets/digest.mjs';
 // One instance per token. Restart deliberately discards sleep and rechecks durable obligations.
 // loadReport reads Pons/local storage only. run retains all transaction guards and leases.
-export function createPonsService({loadReport,run,observe,publish,now=Date.now,controlMs=1800000,maxSourceAgeMs=660000}){
- if(!Number.isSafeInteger(controlMs)||controlMs<1000||!Number.isSafeInteger(maxSourceAgeMs)||maxSourceAgeMs<1)throw Error('Invalid Pons service timing');
+export function createPonsService({loadReport,run,observe,publish,now=Date.now,maxSourceAgeMs=660000}){
+ if(!Number.isSafeInteger(maxSourceAgeMs)||maxSourceAgeMs<1)throw Error('Invalid Pons service timing');
  let sleeping=null,running=false;
  return async()=>{
   if(running)return {status:'busy',reason:'service-pass-running'};
@@ -15,18 +15,23 @@ export function createPonsService({loadReport,run,observe,publish,now=Date.now,c
     &&Array.isArray(report.activity)&&report.tradeCount===report.activity.length;
    // checkedAt is a source heartbeat, not a new purchase. All business content is retained.
    const fingerprint=fresh?digest({profile:report.profile,activity:report.activity,tradeCount:report.tradeCount}):null;
+   // A source outage is not a reason to inspect an otherwise idle contract.
+   // Preserve the idle proof, but publish no heartbeat until the source recovers.
+   if(!fresh&&sleeping&&at>=sleeping.startedAt&&at<sleeping.until)
+    return {status:'source-unavailable',reason:'pons-source-unavailable',service:{ran:false,nextCheckAt:Number.isFinite(sleeping.until)?sleeping.until:null,lastContractCheckAt:sleeping.startedAt}};
    if(fresh&&sleeping?.fingerprint===fingerprint&&at>=sleeping.startedAt&&at<sleeping.until)
-    return {status:'waiting',reason:'service-sleep',service:{ran:false,nextCheckAt:sleeping.until,lastContractCheckAt:sleeping.startedAt,sourceFingerprint:fingerprint,sourceCheckedAt:report.checkedAt}};
+    return {status:'waiting',reason:'service-sleep',service:{ran:false,nextCheckAt:Number.isFinite(sleeping.until)?sleeping.until:null,lastContractCheckAt:sleeping.startedAt,sourceFingerprint:fingerprint,sourceCheckedAt:report.checkedAt}};
    const reason=!sleeping?'initial-or-pending':!fresh?'source-unavailable':sleeping.fingerprint!==fingerprint?'pons-changed':'scheduled-check';
    sleeping=null; // A crash, failed projection or unclassified result must never inherit idle permission.
    const result=await run({report,sourceError}),observation=observe(result);
-   if(publish)await publish(result,{sourceFingerprint:fingerprint,sourceCheckedAt:fresh?report.checkedAt:null});
+   const deadline=observation.nextCheckAt;
+   const eventIdle=fresh&&observation.status==='idle'&&(deadline===undefined||Number.isSafeInteger(deadline)&&deadline>at);
+   if(publish)await publish(result,{sourceFingerprint:fingerprint,sourceCheckedAt:fresh?report.checkedAt:null,eventIdle,nextCheckAt:eventIdle?(deadline??null):null});
    if(fresh&&observation.status==='idle'){
-    const deadline=observation.nextCheckAt;
     if(deadline!==undefined&&(!Number.isSafeInteger(deadline)||deadline<=at))return {...result,service:{ran:true,reason,nextCheckAt:at}};
-    sleeping={fingerprint,startedAt:at,until:Math.min(at+controlMs,deadline??Infinity)};
+    sleeping={fingerprint,startedAt:at,until:deadline??Infinity};
    }
-   return {...result,service:{ran:true,reason,nextCheckAt:sleeping?.until??at}};
+   return {...result,service:{ran:true,reason,nextCheckAt:sleeping?(Number.isFinite(sleeping.until)?sleeping.until:null):at}};
   }finally{running=false;}
  };
 }

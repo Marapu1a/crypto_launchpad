@@ -1,5 +1,7 @@
 # Общая модель обслуживания токенов
 
+2026-10-14 follow-up: [event-driven wake policy](PONS_EVENT_WAKE.md) removes the flat 30-minute RPC check for proven-idle tokens. Implemented locally; production remains c75fdb9 until a separate release. Earlier periodic-control descriptions below describe the previous policy.
+
 Решение владельца от 14.10.2026. Применяется к QIANQI, IGW и следующим токенам
 платформы. Это правило продукта, а не утверждение, что миграция production завершена.
 
