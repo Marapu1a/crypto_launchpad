@@ -5,7 +5,8 @@ export function schedulerObservation(result){
  if(['blocked','error','stopped'].includes(result.status))return {status:'unavailable'};
  if(result.status==='progress'||result.steps?.length)return {status:'active'};
  const idle=result.status==='waiting'&&result.sourceStatus==='current'&&result.steps?.length===0
-  &&result.funding?.length>0&&result.funding.every(row=>row.status==='empty')
+  &&result.funding?.length>0&&result.funding.every(row=>row.status==='empty'||
+   row.action==='sweep'&&row.status==='waiting'&&row.reason==='awaiting-pons-operator'&&row.phase===2&&!row.budget)
   &&['SHORT','MONTHLY'].every(kind=>result.results?.some(row=>row.kind===kind&&['empty','schedule','prizeFunding'].includes(row.reason)));
  const deadlines=(result.results??[]).map(r=>r.nextCheckAt).filter(Number.isSafeInteger);
  return {status:idle?'idle':'unknown',...(deadlines.length?{nextCheckAt:Math.min(...deadlines)*1000}:{})};

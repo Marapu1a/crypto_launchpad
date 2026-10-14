@@ -5,7 +5,7 @@ async function runFundingPass({loadPlan,send,results=[]}){
  let plan=null;
  for(const action of ACTIONS){
   plan??=await loadPlan();const a=plan.actions[action];
-  if(a?.status!=='ready'){results.push({action,status:a?.status||'unavailable'});continue;}
+  if(a?.status!=='ready'){results.push({action,status:a?.status||'unavailable',...(action==='sweep'&&a?.status==='waiting'?{reason:a.reason,phase:a.phase}:{})});continue;}
   try{await send(a.method,a.args||[]);}
   catch(e){if(e.code==='LOCAL_BUDGET_WAIT'&&e.budget?.reason==='nativeFunding'){results.push({action,status:'waiting',budget:e.budget});continue;}if(!e.definiteRejection)throw e;results.push({action,status:'reverted'});}
   finally{plan=null;}

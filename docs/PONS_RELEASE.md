@@ -17,6 +17,13 @@ Implementation and evidence: [PONS_RUNTIME](PONS_RUNTIME.md).
 4. Start only the Pons collector. Check both reports for freshness/completeness.
    Reconcile migration against latest legacy journal and controller state. Preserve
    all old credits and consumed tickets; never replace live state with test fixtures.
+   For QIANQI, prepare a server-local evidence file with {lifecycle,legacyCredits,
+   rewards,legacyRpcIdentity}; the first three are the exact migration inputs.
+   legacyRpcIdentity contains the original RPC origin and endpointHash (ethers.id
+   of the original URL), never its credential-bearing URL. No request to that
+   endpoint is made. Pin journals offline using:
+   node scripts/prepare-pons-handoff.mjs ABS_CONFIG PROJECT_ID ABS_EVIDENCE ABS_NEW_OUTPUT
+   Set the QIANQI entry.handoffFile to that output. This does not qualify the state.
 5. With executors stopped, run as service user:
    node scripts/inspect-pons-runtime.mjs CONFIG NEW_REPORT
    This read-only command loads no keys, sends no transactions, uses the shared
@@ -24,6 +31,13 @@ Implementation and evidence: [PONS_RUNTIME](PONS_RUNTIME.md).
    blocked forbids activation. Pending/frozen legacy jobs require explicit import.
    QIANQI inspection is for the FIRST migration from migrationFile, not re-migration
    over an existing new journal. Qualify the real endpoint before enabling sends.
+   New state/.rng/.scheduler paths and their locks/temp files must be absent.
+   Legacy parent/RNG/scheduler identities and checksums must match the handoff
+   pins and original config/profile; active jobs/cutoffs/intents block migration.
+   Completed planner jobs need matching consumed draws and canonical terminal
+   checkpoints. Pending nonce, controller jobs or unpaid vault rewards also block.
+   Any existing new journal requires a separate resume/reconciliation procedure;
+   never delete it to make first-migration inspection pass.
 6. After qualification and config review, set allowPublicTransactions=true and
    create the runtime activation marker. Verify both first passes, journals,
    receipts, quota and public snapshots. Switch QIANQI API registry to pons-api-v1;

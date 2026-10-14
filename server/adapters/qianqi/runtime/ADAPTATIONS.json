@@ -62,5 +62,9 @@
   "scripts/run-indexer-service.cjs": {
     "sha256": "16af61c8fca557bf1efdb3c6d64e50bf00f554d49148dc6da439bbacc06d4949",
     "reason": "Failure backoff and sanitized RPC counters; legacy indexer remains disabled."
+  },
+  "scripts/pons-funding-pass.cjs": {
+    "sha256": "f7c805173c2d0893bcb41f5e0d4aa29ee805b39dfb91d89f3cedcfc3664d3d47",
+    "reason": "Retain sweep waiting reason and phase for narrowly classified external-operator idle; sending flow unchanged."
   }
 }

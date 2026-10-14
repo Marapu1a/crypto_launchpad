@@ -1,5 +1,7 @@
 # Текущий контекст
 
+2026-10-14 review follow-up: [targeted fixes and verification](PONS_REVIEW_FIXES.md) cover external funding wait, idempotent heartbeat and strict first-migration inspection. Not deployed; server qualification remains required.
+
 **2026-10-14 release candidate:** shared production composition and persistent RPC gate implemented locally; both host financial cycles passed. Not deployed. Current scope, test limits and next release procedure: [PONS_RUNTIME](PONS_RUNTIME.md), [PONS_RELEASE](PONS_RELEASE.md). Earlier pending/rehearsal-only statuses below describe previous checkpoints and are superseded by this paragraph. QuickNode and old production workers remain disabled.
 
 14.10: зафиксирована [общая модель обслуживания токенов](TOKEN_SERVICE_MODEL.md).

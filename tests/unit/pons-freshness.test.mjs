@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,readFile} from 'node:fs/promises';
+import {mkdtemp,rm,readFile,stat} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {ponsFreshness} from '../../server/shared/pons-freshness.mjs';
@@ -17,6 +17,9 @@ test('fresh Pons cannot conceal stale contracts; contract timestamp never become
   savePonsPublic(file,{observedAt,serviceObservation:{sourceFingerprint:'a',sourceCheckedAt:1000},fund:'123'});
   await refreshQianqiHeartbeat(file,{sourceFingerprint:'a',sourceCheckedAt:2000});
   const snapshot=JSON.parse(await readFile(file,'utf8')).snapshot;assert.equal(snapshot.observedAt,observedAt);assert.equal(snapshot.fund,'123');assert.equal(snapshot.serviceObservation.sourceCheckedAt,2000);
+  const before=await stat(file),bytes=await readFile(file,'utf8');
+  for(let i=0;i<20;i++)await refreshQianqiHeartbeat(file,{sourceFingerprint:'a',sourceCheckedAt:2000});
+  assert.equal((await stat(file)).mtimeMs,before.mtimeMs);assert.equal(await readFile(file,'utf8'),bytes);
   await assert.rejects(refreshQianqiHeartbeat(file,{sourceFingerprint:'b',sourceCheckedAt:2100}),/identity changed/);
  }finally{await rm(dir,{recursive:true,force:true});}
 });

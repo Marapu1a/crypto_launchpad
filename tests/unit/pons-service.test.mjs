@@ -2,6 +2,25 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createPonsService} from '../../server/shared/pons-service.mjs';
 import {drawServiceObservation} from '../../server/shared/pons-draw-service.mjs';
+import {schedulerObservation} from '../../server/adapters/qianqi/pons-service.mjs';
+import {createRequire} from 'node:module';
+const {runFundingPass}=createRequire(import.meta.url)('../../server/adapters/qianqi/runtime/scripts/pons-funding-pass.cjs');
+
+test('external operator wait sleeps with a bounded control deadline; uncertain work never sleeps',async()=>{
+ const actions=Object.fromEntries(['pull','sync','pay-prizes','pay-ops','pay-team'].map(a=>[a,{status:'empty'}]));
+ actions.sweep={status:'waiting',reason:'awaiting-pons-operator',phase:2};
+ const funding=await runFundingPass({loadPlan:async()=>({actions}),send:()=>{throw Error('no send');}});
+ const idle={status:'waiting',sourceStatus:'current',steps:[],funding,results:[{kind:'SHORT',reason:'empty'},{kind:'MONTHLY',reason:'schedule'}]};
+ assert.equal(schedulerObservation(idle).status,'idle');
+ const f=fixture();f.result(idle);const tick=createPonsService({...f.options,observe:schedulerObservation});
+ // One simulated hour: control passes at 0 and 30 minutes, no RPC work on 238 idle ticks.
+ for(let i=0;i<240;i++){f.clock(1000000+i*15000);await tick();}
+ assert.equal(f.runs,2);
+ for(const row of [{action:'sweep',status:'waiting'}, {action:'sweep',status:'waiting',reason:'graduation-incomplete',phase:1},{action:'sweep',status:'waiting',reason:'awaiting-pons-operator',phase:2,budget:{}},{action:'pay-prizes',status:'ready'}])
+  assert.notEqual(schedulerObservation({...idle,funding:[row]}).status,'idle');
+ assert.notEqual(schedulerObservation({...idle,results:[{kind:'SHORT',reason:'claimable'},{kind:'MONTHLY',reason:'empty'}]}).status,'idle');
+ assert.notEqual(schedulerObservation({...idle,status:'progress',steps:[{}]}).status,'idle');
+});
 function fixture(){
  let clock=1000000,runs=0,published=0,result={status:'idle'};
  const report={schema:'pons-purchase-accounting-v1',source:'Pons API',status:'current',checkedAt:1000,tradeCount:0,activity:[],profile:{token:'one'}};

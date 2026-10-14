@@ -32,6 +32,9 @@ try{
  const observedAt=(await read()).observed_at,checkedAt=Math.floor(Date.now()/1000),proof={sourceFingerprint:'same-source',sourceCheckedAt:checkedAt};
  await db.admin.query("UPDATE launchpad.short_public_views SET snapshot=$1",[JSON.stringify({schema:'draw-public-v2',serviceObservation:proof,draws:[{kind:'short',program:addr(1),serviceObservation:proof,fundRaw:'123'}]})]);
  const heartbeat={...proof,sourceCheckedAt:checkedAt+600};await refreshDrawHeartbeat(args,heartbeat);
+ const unchanged=await db.admin.query('SELECT xmin::text,snapshot,service_at FROM launchpad.short_public_views');
+ for(let i=0;i<20;i++)await refreshDrawHeartbeat(args,heartbeat);
+ assert.deepEqual((await db.admin.query('SELECT xmin::text,snapshot,service_at FROM launchpad.short_public_views')).rows,unchanged.rows);
  assert.equal((await read()).observed_at.toISOString(),observedAt.toISOString());assert.equal((await read()).snapshot.draws[0].fundRaw,'123');
  assert.equal((await readShortView(db.pools.api,id,{now:(checkedAt+600)*1000})).modules[0].stale,false);
  assert.equal((await readShortView(db.pools.api,id,{now:(checkedAt+1261)*1000})).modules[0].stale,true);

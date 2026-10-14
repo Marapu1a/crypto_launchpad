@@ -11,6 +11,7 @@ import {creditedPurchases} from '../src/tickets/draw-ledger.mjs';
 import {advanceMigration} from '../server/adapters/qianqi/pons-migration.mjs';
 import {buildPonsPublicSnapshot} from '../server/adapters/qianqi/pons-projection.mjs';
 import {withQianqiExecutor} from '../server/adapters/qianqi/executor.mjs';
+import {inspectFirstPonsHandoff} from '../server/adapters/qianqi/pons-handoff.mjs';
 import {digest} from '../src/tickets/digest.mjs';
 import budget from '../server/shared/rpc-budget.cjs';
 const require=createRequire(import.meta.url),read=async f=>JSON.parse(await readFile(f,'utf8'));
@@ -47,11 +48,9 @@ for(const entry of config.projects){
    const inspect=require('../server/adapters/qianqi/runtime/scripts/pons-public-profile.cjs').inspect;
    const admission=await inspect(provider,profile,publicConfig);if(admission.status!=='matched'){result.admissionReasons=admission.reasons;throw Error('Public admission refused');}
    await withQianqiExecutor(pool,binding,async()=>{
-    for(const file of [binding.statePath,binding.statePath+'.rng']){
-     const {checksum,...state}=await read(file);
-     if(require('../server/adapters/qianqi/runtime/scripts/direct-buy.cjs').hash(state)!==checksum||state.pending)throw Error('Legacy journal requires reconciliation');
-    }
-    const migration=advanceMigration({state:await read(entry.migrationFile),report:source,head:{number:head.number,hash:head.hash,timestamp:head.timestamp},now});
+    const initial=await read(entry.migrationFile);
+    await inspectFirstPonsHandoff({entry,binding,migration:initial,handoff:await read(entry.handoffFile),provider,config:c,publicConfig,profile});
+    const migration=advanceMigration({state:initial,report:source,head:{number:head.number,hash:head.hash,timestamp:head.timestamp},now});
     if(Object.values(migration.ledger.pending).some(Boolean))throw Error('Frozen legacy job requires explicit import');
     await buildPonsPublicSnapshot({provider,config:c.scheduler,migration,mode:'production'});
    });
