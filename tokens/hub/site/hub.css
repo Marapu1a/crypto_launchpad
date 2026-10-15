@@ -6,7 +6,7 @@
 .project .qianqi-art .serial{color:#ede9dd;background:#111b;padding:8px;left:16px;top:12px}
 
 /* Concise project directory: keep the artwork, bring the cards closer. */
-.hero-copy{padding-block:52px 60px}h1{font-size:clamp(42px,5.6vw,80px);margin:16px 0 24px;letter-spacing:-2.5px}.author-link{color:#dcb383;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:8px}.intro{max-width:470px}.projects{padding-block:58px}.section-heading{margin-bottom:28px}.section-heading h2{margin:0}.project-content>p{min-height:46px;margin:20px 0 26px}.catalog-note{font-size:13px;color:#a9a69b;margin:24px 0 0}.closing{padding-block:62px}.closing .text-link{font-size:15px}
+.hero-copy{padding-block:52px 60px}h1{font-size:clamp(42px,5.6vw,80px);margin:16px 0 24px;letter-spacing:-2.5px}.hero-accent{color:#dcb383}.intro{max-width:470px}.projects{padding-block:58px}.section-heading{margin-bottom:28px}.section-heading h2{margin:0}.project-content>p{min-height:46px;margin:20px 0 26px}.catalog-note{font-size:13px;color:#a9a69b;margin:24px 0 0}.closing{padding-block:62px}.closing .text-link{font-size:15px}
 @media(max-width:760px){.nav nav a:last-child{display:block}.hero-copy{padding-block:32px 40px}h1{letter-spacing:-1.5px}.projects{padding-block:40px}.project-content>p{min-height:0}.closing{padding-block:46px}}
 
 .closing p.collaboration-invite{max-width:480px;margin:0 0 28px;font-size:18px;color:#ede9dd;line-height:1.65}.collaboration-invite a{text-decoration:underline;text-underline-offset:4px;color:#dcb383}
