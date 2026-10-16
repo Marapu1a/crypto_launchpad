@@ -1,13 +1,15 @@
+> Current product decisions (2026-10-16): [scope, subscriptions and notification channels](MONITOR_DECISIONS_20261016.md). These supersede earlier proposals below; implementation descriptions below remain historical checkpoints.
+
 # Монитор первого часа и уведомления
 
 Решения владельца в диалоге 12–13.10.2026, МСК. Статус: продуктовые требования;
 метрики первого пакета реализованы локально 13.10; платные уведомления и оплата ещё не реализованы.
-Текущий эксперимент — `scripts/pons-monitor/monitor.py`.
+Текущий эксперимент — `apps/monitor/monitor.py`.
 
 ## Что уже есть
 
 Локальная страница http://127.0.0.1:4196/, запуск
-`python scripts/pons-monitor/monitor.py`. Публичный Pons API, polling примерно
+`python apps/monitor/monitor.py`. Публичный Pons API, polling примерно
 раз в минуту, последнее окно 5 минут сравнивается с шестью предыдущими.
 Учитываются curve BUY токенов v2 только в первый час от создания; покупки
 самого deployer исключаются. Количество покупок, уникальные trader-адреса,

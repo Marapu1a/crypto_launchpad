@@ -47,6 +47,6 @@ try{
   await kill();const wrong=path.join(root,'wrong-instance.json');await fs.writeFile(wrong,JSON.stringify({...env.config,profile:{...env.config.profile,instanceId:'different'}}));
   child=spawn(process.execPath,['scripts/run-owner-rehearsal.mjs',wrong],{stdio:'ignore',windowsHide:true});const exit=await new Promise(r=>child.once('exit',r));assert.equal(exit,1);
  });
- report.status='PASS';report.sources={};for(const f of ['server/owner-launch/rehearsal-environment.mjs','server/owner-launch/rehearsal-sign.mjs','server/owner-launch/http.mjs','scripts/run-owner-rehearsal.mjs','scripts/start-owner-rehearsal.mjs','src/owner-launch.mjs'])report.sources[f]=digest((await fs.readFile(f,'utf8')).replaceAll('\r\n','\n'));
+ report.status='PASS';report.sources={};for(const f of ['server/owner-launch/rehearsal-environment.mjs','server/owner-launch/rehearsal-sign.mjs','server/owner-launch/http.mjs','scripts/run-owner-rehearsal.mjs','scripts/start-owner-rehearsal.mjs','apps/launch/src/owner-launch.mjs'])report.sources[f]=digest((await fs.readFile(f,'utf8')).replaceAll('\r\n','\n'));
 }catch(e){report.status='FAIL';report.error=String(e.message).replace(/https?:\/\/[^\s"']+/g,'[URL]');console.error(report.error);process.exitCode=1;}
 finally{await fs.writeFile(path.join(root,'report.json'),JSON.stringify(report,null,2));console.log(path.join(root,'report.json'));await browser?.close();await kill();provider?.destroy();await env?.close();}

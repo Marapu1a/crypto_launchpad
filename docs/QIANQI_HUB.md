@@ -3,11 +3,11 @@
 # QIANQI hub and first-token domain
 
 Owner-approved migration, 2026-10-11:
-- `https://qianqi.site/`: platform directory, source `tokens/hub/site/`.
+- `https://qianqi.site/`: platform directory, source `apps/hub/site/`.
 - `https://init.qianqi.site/`: existing QIANQI token frontend.
 - `https://igw.qianqi.site/`: IGW prelaunch site; no new deployment of a token.
 
-Hub uses owner's `tokens/hub/hub1.png` and `hub2.png` as optimized WebP,
+Hub uses owner's `apps/hub/hub1.png` and `hub2.png` as optimized WebP,
 dark geometric design, QIANQI/IGW cards, explanatory copy and existing owner
 contacts. No wallet connection or financial execution on the hub. QIANQI is
 marked launched; IGW is explicitly in preparation. Directory is static for this

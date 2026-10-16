@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
 const root='.local/monitor-v2';await mkdir(root,{recursive:true});
-const html=await readFile('scripts/pons-monitor/index.html');
+const html=await readFile('apps/monitor/index.html');
 const server=createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(html);});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch();

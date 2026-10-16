@@ -67,7 +67,7 @@ npm run studio
    через прежний shared API/RLS; неизвестный Host отклоняется. В панели показаны
    фонд, цикл, назначенные/выплаченные призы по событиям контракта.
 
-Основные файлы: `server/studio/`, `src/studio.mjs`, `src/project.mjs`,
+Основные файлы: `server/studio/`, `apps/launch/src/studio.mjs`, `apps/launch/src/project.mjs`,
 `scripts/start-studio.mjs`, `scripts/run-studio.mjs`. Native QIANQI adapter,
 vendor, исходный rh_project и production не менялись. Миграций БД не добавляли.
 

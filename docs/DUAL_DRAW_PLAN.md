@@ -96,7 +96,7 @@ open/frozen/consumed. При завершении расходуются все 
 | `production-ledger.mjs` | Общие признанные покупки, snapshot по consumedThrough одного program | Два отдельных consumed/checkpoint/context; recognition не дублируется |
 | `production-template/policy/build` | Жёсткий short-template-v1 и один program/adapter | Версионированные bindings, artifacts, домены RNG для обоих типов |
 | `server/shared/production-worker.mjs` | Один цикл и очередь Short | Планирование двух типов, раздельные snapshots/result/операции и восстановление |
-| `server/owner-launch/*`, `src/owner-launch.mjs` | План deployment и handoff Short | Сохранение полной конфигурации, шаги трёх режимов, совместимое продолжение v1 |
+| `server/owner-launch/*`, `apps/launch/src/owner-launch.mjs` | План deployment и handoff Short | Сохранение полной конфигурации, шаги трёх режимов, совместимое продолжение v1 |
 | `server/short-runtime/projection.mjs`, `server/shared/short-view.mjs` | Представление Short | Два таймера/фонда/истории/билета; схема без внутренних ключей и журналов |
 
 Не создавать отдельный бэк на каждый тип/токен. Сохранить общий журнал транзакций,

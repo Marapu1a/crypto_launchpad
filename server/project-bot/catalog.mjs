@@ -1,6 +1,6 @@
 import {readFile} from 'node:fs/promises';
 
-export const catalogFile=new URL('../../tokens/hub/site/projects.json',import.meta.url);
+export const catalogFile=new URL('../../apps/hub/site/projects.json',import.meta.url);
 const check=(v,m)=>{if(!v)throw Error(m);};
 const text=v=>typeof v==='string'&&v.length>0&&v.length<=1000;
 const https=v=>{try{const u=new URL(v);return u.protocol==='https:'&&!u.username&&!u.password;}catch{return false;}};

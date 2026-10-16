@@ -1,9 +1,9 @@
-import '../style.css';
-import './editor.css';
+import './style.css';
+import './draw-editor.css';
 import { formatUnits } from 'ethers';
-import { amount, equalWeights, previewShort, qianqiPreset, validateConfig } from './config.mjs';
-import { percentBps } from '../pons/validation.mjs';
-import { simulateShort, generateParticipants } from './simulator.mjs';
+import { amount, equalWeights, previewShort, qianqiPreset, validateConfig } from '../../../src/draws/config.mjs';
+import { percentBps } from '../../../src/pons/validation.mjs';
+import { simulateShort, generateParticipants } from '../../../src/draws/simulator.mjs';
 const KEY = 'crypto-launchpad:draw-editor:v1';
 const preset = qianqiPreset();
 const defaults = { ticket: preset.ticketPurchase, prizes: '90', team: '5', operations: '5', short: true, monthly: true,

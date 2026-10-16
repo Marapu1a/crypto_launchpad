@@ -68,6 +68,6 @@ try{
   assert.equal((await http('unknown.localhost',path)).status,421);assert.equal((await http('alpha.localhost',path+'?project_id='+b)).status,404);
   assert.equal((await http('alpha.localhost','/api/wallet/not-an-address')).status,404);assert.equal((await http('alpha.localhost',path,{},'POST')).status,405);
  });
- report.status='PASS';report.sources={};for(const file of ['server/shared/api.mjs','server/shared/site.mjs','server/shared/short-view.mjs','src/project.mjs','src/project.css','db/migrations/014_short_public_views.sql'])report.sources[file]=digest((await fs.readFile(file,'utf8')).replaceAll('\r\n','\n'));
+ report.status='PASS';report.sources={};for(const file of ['server/shared/api.mjs','server/shared/site.mjs','server/shared/short-view.mjs','apps/launch/src/project.mjs','apps/launch/src/project.css','db/migrations/014_short_public_views.sql'])report.sources[file]=digest((await fs.readFile(file,'utf8')).replaceAll('\r\n','\n'));
 }catch(e){report.status='FAIL';report.error=e.message;console.error(e);process.exitCode=1;}
 finally{await fs.writeFile(root+'/report.json',JSON.stringify(report,null,2));console.log(root+'/report.json');await browser?.close();if(server)await new Promise(r=>server.close(r));await db?.close();}

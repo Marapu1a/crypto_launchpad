@@ -1,7 +1,7 @@
 import './style.css';
 import './project.css';
 import {formatUnits} from 'ethers';
-import {ipfsUri} from './pons/validation.mjs';
+import {ipfsUri} from '../../../src/pons/validation.mjs';
 const app=document.querySelector('#app');
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const amount=value=>{try{return formatUnits(BigInt(value),6).replace(/\.0$/,'');}catch{return '—';}};

@@ -13,7 +13,7 @@
 | Служба и публичные снимки | `server/short-runtime/`, `server/shared/api.mjs`, `ops/draw-runtime/` |
 | Существующий QIANQI | `src/qianqi/`, `server/adapters/qianqi/`; отдельный путь от v2 |
 | Сайты и каталог | `src/site-kit/`, `tokens/`, `scripts/build-token-sites.mjs`, `build-project-catalog.mjs` |
-| Бот и монитор | `server/project-bot/`, `scripts/pons-monitor/` |
+| Бот и монитор | `server/project-bot/`, `apps/monitor/` |
 
 Short/Monthly наследуют проверяемые механики QIANQI с отдельным контекстом
 экземпляра, а не старые production-настройки. Оба типа имеют собственный lifecycle

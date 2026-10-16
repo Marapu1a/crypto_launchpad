@@ -1,0 +1,20 @@
+# QIANQI
+
+> QIANQI is a speculative token on Robinhood Chain with a separate USDG prize-draw system. This is the official project website.
+
+Network: Robinhood Chain, chain ID 4663.
+Official token: 0x6EA39A23AA46E51CA6CD2d1cbc0B5bfb29ECB216.
+Holding or receiving a transfer alone does not earn tickets. Eligible purchases are subject to route verification and the published rules. No guaranteed wins or returns.
+
+This file is a navigation aid, not a live status feed. Read the dated project status and notices before describing whether draws, payouts or purchase confirmations are active. Prepared evidence is not proof that tickets have been credited.
+
+## Official information
+
+- [Project and rules](https://init.qianqi.site/): How participation, prize draws and funding work; the rules are in the page's rules section.
+- [Status and transparency](https://init.qianqi.site/transparency/): Official address, dated launch status, dependencies and verification limits.
+- [Late purchase confirmation notice](https://init.qianqi.site/notices/late-purchases-2026-10-04.html): Published terms and timing; confirmation applies to future draws, not locked past draws.
+
+## Optional
+
+- [Purchase evidence](https://init.qianqi.site/evidence/purchases/): Prepared purchase records; publication alone does not award tickets.
+- [Source code and technical documentation](https://github.com/Marapu1a/rh_project): Implementation and test evidence with their stated limits.

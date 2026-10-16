@@ -1,3 +1,5 @@
+> 2026-10-16: [Monitor decisions](MONITOR_DECISIONS_20261016.md) recorded; implementation pending. [Repository layout](REPOSITORY_LAYOUT_PLAN.md) approved and implemented locally; no deployment.
+
 # Текущий контекст
 
 2026-10-14 follow-up: [event-driven wake policy](PONS_EVENT_WAKE.md) removes the flat 30-minute RPC check for proven-idle tokens. Activated on the server as e2731ea at 15:37 UTC; both projects entered event-only sleep with nextCheckAt=null. Alchemy remains the sole allowed RPC host. Earlier periodic-control descriptions below describe the previous policy.
@@ -39,7 +41,7 @@ Production wiring, реальная миграция и публикация н�
 - Worker сам собрал и направил средства в фонд. Сканер выбирает события
   конкретного проекта и проверяет receipts; общая очередь RPC ограничивает запросы.
   Backup timer включён; сохранение pending-операции при перезапуске проверено.
-- Хаб и сайты опубликованы. Каталог `tokens/hub/site/projects.json` содержит
+- Хаб и сайты опубликованы. Каталог `apps/hub/site/projects.json` содержит
   QIANQI и IGW как launched; отдельный бот выдаёт карточки проектов.
 - Конструктор/контракты/worker v2 поддерживают Short, Monthly и оба режима.
   Сквозные тесты трёх режимов пройдены; реальный новый токен IGW использует только Short.

@@ -1,11 +1,11 @@
 import './style.css';
 import { formatEther, formatUnits, getAddress } from 'ethers';
-import { NETWORK, ZeroAddress, providerFor, readTerms, listPairs, stringify } from './pons/client.mjs';
-import { initialDraft } from './pons/plan.mjs';
-import { prepareOnServer, checkImageOnServer, publishImageOnServer } from './pons/api-client.mjs';
-import { validateDraft, DRAFT_FIELDS, IDENTITY_FIELDS, termsMatch, termsFresh, imageMetadataErrors } from './pons/validation.mjs';
-import { assertLocalFork, executeLocalLaunch, continueLocalHolders, sendLocal, reconcileJournal, verifyLaunch, attachLocalHash } from './pons/local-execution.mjs';
-import { walletAccount } from './pons/wallet.mjs';
+import { NETWORK, ZeroAddress, providerFor, readTerms, listPairs, stringify } from '../../../src/pons/client.mjs';
+import { initialDraft } from '../../../src/pons/plan.mjs';
+import { prepareOnServer, checkImageOnServer, publishImageOnServer } from '../../../src/pons/api-client.mjs';
+import { validateDraft, DRAFT_FIELDS, IDENTITY_FIELDS, termsMatch, termsFresh, imageMetadataErrors } from '../../../src/pons/validation.mjs';
+import { assertLocalFork, executeLocalLaunch, continueLocalHolders, sendLocal, reconcileJournal, verifyLaunch, attachLocalHash } from '../../../src/pons/local-execution.mjs';
+import { walletAccount } from '../../../src/pons/wallet.mjs';
 
 const KEY = 'crypto-launchpad:pons:v1';
 const app = document.querySelector('#app');

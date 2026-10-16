@@ -1,10 +1,10 @@
 import './style.css';
-import './draws/editor.css';
-import {initialDraft} from './pons/plan.mjs';
-import {validateConfig} from './draws/config.mjs';
-import {validateDraft,percentBps} from './pons/validation.mjs';
+import './draw-editor.css';
+import {initialDraft} from '../../../src/pons/plan.mjs';
+import {validateConfig} from '../../../src/draws/config.mjs';
+import {validateDraft,percentBps} from '../../../src/pons/validation.mjs';
 import {getAddress,ZeroAddress,formatUnits} from 'ethers';
-import {publishImageOnServer} from './pons/api-client.mjs';
+import {publishImageOnServer} from '../../../src/pons/api-client.mjs';
 const key='launchpad:studio:v1',app=document.querySelector('#app');
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let defaults,input,locked=false,completed=false,uploading=false;

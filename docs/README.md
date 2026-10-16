@@ -1,3 +1,5 @@
+> Latest: [Monitor product decisions, 2026-10-16](MONITOR_DECISIONS_20261016.md); [Repository layout](REPOSITORY_LAYOUT_PLAN.md).
+
 # Документация
 
 Упорядочено13.10.2026, МСК. Не требуется перечитывать весь архив перед каждой задачей.

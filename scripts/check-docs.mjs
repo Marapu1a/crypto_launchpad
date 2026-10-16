@@ -6,7 +6,7 @@ const root=resolve('.'),files=['README.md','AGENTS.md','PLATFORM_START.md'];
 async function walk(dir){for(const entry of await readdir(dir,{withFileTypes:true})){
  const path=dir+'/'+entry.name;if(entry.isDirectory())await walk(path);else if(entry.name.endsWith('.md'))files.push(path);
 }}
-await walk('docs');await walk('ops');await walk('tokens');
+await walk('docs');await walk('ops');await walk('tokens');await walk('apps');
 const failures=[];let checked=0;
 for(const file of files){
  const text=(await readFile(file,'utf8')).replace(/```[\s\S]*?```/g,'');

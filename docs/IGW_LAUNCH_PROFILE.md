@@ -21,7 +21,7 @@
 | IPFS | `ipfs://bafybeifbi3tj7rl4ecigirtqlhgvjpz4oaxt6dzawhuml55owyiwgc6vyi` |
 
 Общий X: https://x.com/ui_uallas, бот: https://t.me/qianqi_hub_bot.
-Описание берётся из `tokens/hub/site/projects.json`. Нет гарантии победителя:
+Описание берётся из `apps/hub/site/projects.json`. Нет гарантии победителя:
 время, фонд и условия участия должны одновременно позволять draw.
 
 Получение владельцем 5% не пополняет автоматически gas-кошельки. Параметры новых

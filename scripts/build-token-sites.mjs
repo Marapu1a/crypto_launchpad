@@ -6,8 +6,8 @@ import {footer,draws,validate,escape} from '../src/site-kit/render.mjs';
 // First migration: existing shells are inputs; only owned component regions change.
 // The QIANQI base is an explicit public static capture, never vendor or live source.
 const root=resolve('.local/token-sites');
-const catalog=JSON.parse(await readFile('tokens/hub/site/projects.json','utf8'));
-const baseline=resolve(process.env.QIANQI_PUBLIC_SITE_BASE||'.local/qianqi-front-review/site');
+const catalog=JSON.parse(await readFile('apps/hub/site/projects.json','utf8'));
+const baseline=resolve('tokens/QIANQI/site');
 function replaceOnce(html,pattern,replacement){let count=0;const out=html.replace(pattern,()=>{count++;return replacement;});if(count!==1)throw Error('Site shell changed: expected one component, got '+count);return out;}
 const sources={};
 async function source(file){const text=await readFile(file,'utf8');sources[file]=createHash('sha256').update(text).digest('hex');return text;}
@@ -18,11 +18,9 @@ for(const id of ['qianqi','igw']){
  const output=join(root,id);await mkdir(output,{recursive:true});
  if(id==='qianqi'){
   await access(join(baseline,'app.js'));
-  // Explicit public files only. No archives, state, keys, logs or manifests.
-  for(const file of ['assets','locales','notices','transparency','evidence','concepts','app.js','overview.js','i18n.js','i18n.css','robots.txt','sitemap.xml','llms.txt','404.html','404.css'])await cp(join(baseline,file),join(output,file),{recursive:true});
-  await cp('tokens/QIANQI/site-overrides',output,{recursive:true});
+  await cp(baseline,output,{recursive:true});
  }else await cp('tokens/IGW/site',output,{recursive:true});
- let html=await source(id==='qianqi'?'tokens/QIANQI/site-overrides/index.html':'tokens/IGW/site/index.html');
+ let html=await source(id==='qianqi'?'tokens/QIANQI/site/index.html':'tokens/IGW/site/index.html');
  const generatedFooter=footer(project,config,catalog);
  if(id==='qianqi'){
   html=replaceOnce(html,/<footer class="site-footer">[\s\S]*?<\/dialog>/,generatedFooter);
@@ -66,7 +64,7 @@ async function hashTree(dir,prefix){for(const entry of await readdir(dir,{withFi
 for(const id of ['qianqi','igw'])await hashTree(join(root,id),id);
 await writeFile(join(root,'build.json'),JSON.stringify({schema:'token-site-build-v1',createdAt:new Date().toISOString(),baseline,sources,outputs},null,2)+'\n');
 
-await cp('tokens/hub/site',join(root,'hub'),{recursive:true});
+await cp('apps/hub/site',join(root,'hub'),{recursive:true});
 let hub=await readFile(join(root,'hub/index.html'),'utf8');
 hub=hub.replaceAll('https://init.qianqi.site/project-status.html','http://127.0.0.1:4200/project-status.html').replaceAll('https://igw.qianqi.site/project-status.html','http://127.0.0.1:4201/project-status.html');
 await writeFile(join(root,'hub/index.html'),hub);

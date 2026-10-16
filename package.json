@@ -68,7 +68,10 @@
     "bot:preview": "node scripts/preview-project-bot.mjs",
     "sites:build": "node scripts/build-token-sites.mjs",
     "sites:preview": "node scripts/preview-token-sites.mjs",
-    "sites:test": "node tests/studio/token-sites.mjs"
+    "sites:test": "node tests/studio/token-sites.mjs",
+    "monitor": "python apps/monitor/monitor.py",
+    "test:monitor": "python -m unittest discover -s apps/monitor -p test_*.py",
+    "hub:preview": "python -m http.server 4212 --bind 127.0.0.1 --directory apps/hub/site"
   },
   "engines": {
     "node": ">=22"

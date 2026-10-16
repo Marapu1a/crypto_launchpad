@@ -1,3 +1,5 @@
+> 2026-10-16: sites:build now uses tracked tokens/QIANQI/site; no QIANQI_PUBLIC_SITE_BASE or private snapshot is needed. Earlier baseline/overlay instructions below are historical.
+
 > Технический документ с результатами отдельных пакетов. Датированные статусы и «следующие шаги» ниже — история; актуальная готовность — в [CURRENT_CONTEXT](CURRENT_CONTEXT.md), очередь работ — в [ROADMAP](ROADMAP.md).
 
 # Переиспользуемые сайты токенов
@@ -47,7 +49,7 @@ vendor не изменяются. Preview привязан к loopback, реал
 Фиктивные суммы используются только в browser-тесте через перехват запросов.
 
 QIANQI собирается из ранее сохранённого публичного статического снимка
-`.local/qianqi-front-review/site` и Git overlay `tokens/QIANQI/site-overrides`.
+`.local/qianqi-front-review/site` и Git overlay `tokens/QIANQI/site`.
 Источник снимка: публичный release init-20261011-161417, чтение 11.10.2026;
 см. README overlay и SITES_RELEASE_20261012. Можно явно указать другой проверенный
 публичный каталог через `QIANQI_PUBLIC_SITE_BASE`. Это переходная зависимость:

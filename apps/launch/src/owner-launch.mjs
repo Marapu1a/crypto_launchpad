@@ -1,11 +1,11 @@
 import './style.css';
 import {formatEther} from 'ethers';
-import {initialDraft} from './pons/plan.mjs';
-import {signReservedOwnerStep} from './pons/owner-signing.mjs';
-import {publishImageOnServer} from './pons/api-client.mjs';
-import {readOwnerForm} from './launch/owner-form.mjs';
-import {ownerWallet} from './launch/owner-wallet.mjs';
-import {UUID} from './launch/template.mjs';
+import {initialDraft} from '../../../src/pons/plan.mjs';
+import {signReservedOwnerStep} from '../../../src/pons/owner-signing.mjs';
+import {publishImageOnServer} from '../../../src/pons/api-client.mjs';
+import {readOwnerForm} from '../../../src/launch/owner-form.mjs';
+import {ownerWallet} from '../../../src/launch/owner-wallet.mjs';
+import {UUID} from '../../../src/launch/template.mjs';
 
 const app=document.querySelector('#app');let key='launchpad:owner-launch:v1';
 const isV2=()=>config?.defaults?.draws?.version===2;

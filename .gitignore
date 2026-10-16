@@ -16,3 +16,5 @@ hub_key
 hub_key.*
 __pycache__/
 *.py[cod]
+# Temporary local compatibility assets for a monitor process started before relocation.
+scripts/pons-monitor/

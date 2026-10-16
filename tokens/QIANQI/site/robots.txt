@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /v1/
+Disallow: /site-actions.json
+Disallow: /purchase-demo/
+
+Sitemap: https://init.qianqi.site/sitemap.xml

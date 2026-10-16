@@ -11,7 +11,7 @@
 | `npm run build` |PASS; frontend собирается |
 | `npm run catalog:check` |PASS; каталог и генерируемые страницы согласованы |
 | `npm run docs:check` |PASS; относительные файловые ссылки, без проверки внешних URL/anchors |
-| `python scripts/pons-monitor/test_monitor.py` |2 PASS; границы окна/creator/dedup и сигнал |
+| `python apps/monitor/test_monitor.py` |2 PASS; границы окна/creator/dedup и сигнал |
 | Read-only VPS и API |Worker active; фонд 26.850336USDG,6 ожидающих покупок; подробности CURRENT_CONTEXT |
 
 Документы, пути, секреты в публикуемом пакете и git diff проверяются перед commit.

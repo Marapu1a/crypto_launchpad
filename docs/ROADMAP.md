@@ -1,3 +1,5 @@
+> 2026-10-16: next monitor packages and agreed boundaries are in [Monitor decisions](MONITOR_DECISIONS_20261016.md). [Repository reorganization](REPOSITORY_LAYOUT_PLAN.md) completed locally; apps/hub, apps/monitor, apps/launch and complete QIANQI site sources are in this checkout. Earlier monitor subscription/channel proposals are superseded.
+
 # Очередь работ
 
 2026-10-14 follow-up: [event-driven wake policy](PONS_EVENT_WAKE.md) removes the flat 30-minute RPC check for proven-idle tokens. Activated on the server as e2731ea at 15:37 UTC; both projects entered event-only sleep with nextCheckAt=null. Alchemy remains the sole allowed RPC host. Earlier periodic-control descriptions below describe the previous policy.
