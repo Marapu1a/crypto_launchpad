@@ -1,3 +1,5 @@
+> 2026-10-16: [Monitor reliability](MONITOR_RELIABILITY_20261016.md) implemented and tested locally: bounded backfill, coverage journal, snapshot-only refresh, neutral observations. Primary collector not switched; deployment pending.
+
 > 2026-10-16: [Monitor decisions](MONITOR_DECISIONS_20261016.md) recorded; implementation pending. [Repository layout](REPOSITORY_LAYOUT_PLAN.md) approved and implemented locally; no deployment.
 
 # Текущий контекст

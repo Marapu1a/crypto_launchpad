@@ -1,3 +1,5 @@
+> Latest monitor implementation: [reliability package](MONITOR_RELIABILITY_20261016.md).
+
 > Latest: [Monitor product decisions, 2026-10-16](MONITOR_DECISIONS_20261016.md); [Repository layout](REPOSITORY_LAYOUT_PLAN.md).
 
 # Документация

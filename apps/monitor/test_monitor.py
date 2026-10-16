@@ -7,7 +7,7 @@ class MetricsTests(unittest.TestCase):
     def test_collection_fetches_birth_not_just_chart_window(self):
         token=dict(address='token',createdAt=1000,deployer='owner',symbol='T',quote={'symbol':'USDG'},protocol='v2')
         seen=[]
-        def capture(t,cutoff):seen.append(cutoff);return t,[],True
+        def capture(t,cutoff,end):seen.append(cutoff);return t,[],True
         with patch.object(monitor.time,'time',return_value=4060),patch.object(monitor,'read',return_value={'items':[token],'nextCursor':None}),patch.object(monitor,'history',side_effect=capture):
             result=monitor.collect()
         self.assertEqual(seen,[1000])
@@ -64,7 +64,8 @@ class MetricsTests(unittest.TestCase):
             rows=[dict(id=f'live{j}',timestamp=3900,trader=f'b{i}-{j}',side='buy',venue='curve',quoteAmount=.1) for j in range(4)]
             rows += [dict(id=f'past{j}',timestamp=3600-300*j-1,trader=f'past{i}',side='buy',venue='curve',quoteAmount=.1) for j in range(6)]
             hs.append((t,rows,True))
-        self.assertTrue(measure(tokens,hs,4000)['candidate'])
+        self.assertEqual(measure(tokens,hs,4000)['current']['buyers'],12)
+        self.assertFalse(measure(tokens,hs,4000)['candidate'])
         only_live=[(t,[x for x in rows if x['timestamp']==3900],ok) for t,rows,ok in hs]
         self.assertFalse(measure(tokens,only_live,4000)['candidate'])
 

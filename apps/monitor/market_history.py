@@ -10,10 +10,16 @@ def save_sample(path, end, result):
         db.execute('INSERT OR REPLACE INTO samples VALUES (?,?)',(end,json.dumps(result)))
         db.execute('DELETE FROM samples WHERE end < ?', (end-28*86400,))
 
-def samples(path):
+def samples(path, summary=False):
     with closing(sqlite3.connect(path)) as db, db:
         db.execute('CREATE TABLE IF NOT EXISTS samples (end INTEGER PRIMARY KEY, payload TEXT NOT NULL)')
-        return [(end,json.loads(payload)) for end,payload in db.execute('SELECT end,payload FROM samples ORDER BY end')]
+        result=[]
+        for end,payload in db.execute('SELECT end,payload FROM samples ORDER BY end'):
+            value=json.loads(payload)
+            if summary:
+                value={k:value[k] for k in ('windowEnd','current','complete','error') if k in value}
+            result.append((end,value))
+        return result
 
 def comparison(result, history):
     end=result['windowEnd']; now=datetime.datetime.fromtimestamp(end,MSK)
@@ -22,19 +28,15 @@ def comparison(result, history):
     for t,x in eligible:
         dt=datetime.datetime.fromtimestamp(t,MSK)
         if dt.date()==now.date(): today.append(x)
-        elif abs((dt.hour*60+dt.minute)-(now.hour*60+now.minute))<=30:
-            seasonal.append(x);days.add(dt.date())
+        # Compare actual windows around previous-day anchors, including midnight.
+        for day in range(1,29):
+            if abs(t-(end-day*86400))<=1800:
+                seasonal.append(x);days.add(day);break
     def rank(rows):
         return {k:round(100*sum(x['current'][k]<result['current'][k] for x in rows)/len(rows),1) for k in ('buyers','buys','tokens')} if rows else None
     ready=len(today)>=12
     seasonal_ready=len(days)>=3 and len(seasonal)>=12
-    ranks=rank(today) if ready else None
-    c=result['current']; breadth=result['breadth']
-    label='Накапливаем статистику'
-    if not result.get('complete'):label='Недостаточно полных данных'
-    elif ready:
-        if ranks['buys']<75 and ranks['buyers']<75:label='Тихо'
-        elif ranks['buys']>=75 and ranks['buyers']<75:label='Повторные покупки узкого круга'
-        elif breadth['qualifiedTokens']>=3 and breadth['leaderPct']<=40 and ranks['buyers']>=75:label='Широкий ажиотаж'
-        else:label='Локальный ажиотаж'
+    label='Наблюдения за 5 минут' if result.get('complete') else 'Неполные данные'
+    ready=ready and bool(result.get('complete'))
+    seasonal_ready=seasonal_ready and bool(result.get('complete'))
     return dict(label=label,today=rank(today) if ready else None,todaySamples=len(today),seasonal=rank(seasonal) if seasonal_ready else None,seasonalSamples=len(seasonal),seasonalDays=len(days),storedSamples=len(history),experimental=True)

@@ -1,3 +1,5 @@
+> 2026-10-16: [Monitor reliability](MONITOR_RELIABILITY_20261016.md) implemented and tested locally: bounded backfill, coverage journal, snapshot-only refresh, neutral observations. Primary collector not switched; deployment pending.
+
 > 2026-10-16: next monitor packages and agreed boundaries are in [Monitor decisions](MONITOR_DECISIONS_20261016.md). [Repository reorganization](REPOSITORY_LAYOUT_PLAN.md) completed locally; apps/hub, apps/monitor, apps/launch and complete QIANQI site sources are in this checkout. Earlier monitor subscription/channel proposals are superseded.
 
 # Очередь работ

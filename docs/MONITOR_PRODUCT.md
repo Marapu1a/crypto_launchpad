@@ -1,3 +1,5 @@
+> 2026-10-16: [Monitor reliability](MONITOR_RELIABILITY_20261016.md) implemented and tested locally: bounded backfill, coverage journal, snapshot-only refresh, neutral observations. Primary collector not switched; deployment pending.
+
 > Current product decisions (2026-10-16): [scope, subscriptions and notification channels](MONITOR_DECISIONS_20261016.md). These supersede earlier proposals below; implementation descriptions below remain historical checkpoints.
 
 # Монитор первого часа и уведомления
@@ -112,3 +114,16 @@ poll, перезапуск и потерю ответа. Нельзя счита
 Проверки: 11 Python tests (включая retention/upsert, исключение неполных и
 перекрывающихся интервалов, разные дни, состояния, кэш/dedup); browser test
 включает кнопку POST, состояние сбора, статистику и прежние desktop/mobile проверки.
+
+
+## Локальный интерфейс наблюдений — 16.10.2026
+
+Основной экран: четыре показателя (покупатели, покупки, токены с покупками,
+запуски), переключаемый график и таблица. Карточка выбирает показатель графика;
+столбец выбирает пятиминутку для карточек, объёмов и таблицы. Под карточками —
+абсолютная разница с соседним предыдущим интервалом, только если оба полные.
+Сборщик включает семь последних пятиминуток с таблицами в сохранённый снимок;
+переключение не обращается к Pons. Старые снимки без таблиц интервалов доступны
+для просмотра графика, но их столбцы не выбираются. Техническое состояние и
+статистические сравнения свёрнуты в «О данных и полноте наблюдений».
+Проверено локально; основной сборщик и production не переключены.

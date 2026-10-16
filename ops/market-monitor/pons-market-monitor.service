@@ -1,0 +1,24 @@
+[Unit]
+Description=Pons first-hour market observations (no financial execution)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=pons-market-monitor
+WorkingDirectory=/opt/pons-monitor/current
+ExecStart=/usr/bin/python3 /opt/pons-monitor/current/apps/monitor/monitor.py --data-dir /var/lib/pons-market-monitor --port 4196
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

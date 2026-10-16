@@ -23,13 +23,14 @@ class HistoryTests(unittest.TestCase):
         result=comparison(current,history)
         self.assertEqual(result['todaySamples'],12)
         self.assertEqual(result['today']['buyers'],100)
-        self.assertEqual(result['label'],'Широкий ажиотаж')
+        self.assertEqual(result['label'],'Наблюдения за 5 минут')
         current['breadth']['leaderPct']=90
-        self.assertEqual(comparison(current,history)['label'],'Локальный ажиотаж')
+        self.assertEqual(comparison(current,history)['label'],'Наблюдения за 5 минут')
         current['current']['buyers']=10
-        self.assertEqual(comparison(current,history)['label'],'Повторные покупки узкого круга')
+        self.assertEqual(comparison(current,history)['label'],'Наблюдения за 5 минут')
         current['complete']=False
-        self.assertEqual(comparison(current,history)['label'],'Недостаточно полных данных')
+        self.assertEqual(comparison(current,history)['label'],'Неполные данные')
+        self.assertIsNone(comparison(current,history)['today'])
 
     def test_seasonal_requires_distinct_days(self):
         end=1780401600;current=self.sample(end)
@@ -37,6 +38,16 @@ class HistoryTests(unittest.TestCase):
         result=comparison(current,history)
         self.assertEqual(result['seasonalDays'],3);self.assertIsNotNone(result['seasonal'])
         self.assertIsNone(result['today'])
+
+    def test_seasonal_crosses_midnight_without_losing_previous_day_windows(self):
+        import datetime
+        from market_history import MSK
+        end=int(datetime.datetime(2026,10,16,0,10,tzinfo=MSK).timestamp())
+        history=[(end-day*86400-offset,self.sample(end-day*86400-offset)) for day in range(1,4) for offset in [0,300,1200,1800]]
+        result=comparison(self.sample(end),history)
+        self.assertEqual(result['seasonalDays'],3)
+        self.assertEqual(result['seasonalSamples'],12)
+        self.assertIsNotNone(result['seasonal'])
 
     def test_incremental_overlap_dedup_and_partial_not_committed(self):
         token={'address':'cache-test'}
