@@ -1,6 +1,7 @@
 """Local read-only Pons experiment. No keys, RPC or transaction sending."""
 import concurrent.futures, datetime, http.server, json, pathlib, threading, time, urllib.request, urllib.parse
 import argparse, signal
+import wallets
 from decimal import Decimal, InvalidOperation
 import re
 from market_history import samples, comparison
@@ -28,6 +29,15 @@ LOCK = threading.Lock()
 class ScanLimitError(RuntimeError):
     pass
 
+def validate_page(data):
+    if not isinstance(data,dict) or not isinstance(data.get('items'),list) or 'nextCursor' not in data:
+        raise ValueError('Unexpected pagination response')
+    cursor=data['nextCursor']
+    if cursor is not None and (not isinstance(cursor,str) or not cursor.strip() or not data['items']):
+        raise ValueError('Invalid pagination cursor')
+    return data
+
+
 def read(url):
     global REQUESTS
     if STOP.is_set():
@@ -44,7 +54,7 @@ def read(url):
         data = json.load(response)
     if not isinstance(data.get('items'), list):
         raise ValueError('Unexpected API response')
-    return data
+    return validate_page(data)
 
 def history(token, cutoff, end=None):
     end = int(time.time())-60 if end is None else end
@@ -53,14 +63,16 @@ def history(token, cutoff, end=None):
     if cached and (cached.get('from', float('inf')) > cutoff or cached.get('until', 0) > end):
         cached = None
     overlap = max(cutoff, cached["until"]-300) if cached else cutoff
-    rows, cursor = dict(cached["rows"]) if cached else {}, None
+    # Refresh the covered overlap, including deletions; retain only older rows.
+    rows = {k:v for k,v in cached['rows'].items() if v['timestamp'] < overlap} if cached else {}
+    cursor = None
     seen = set()
     issue='page_limit'
     for _ in range(TRADE_PAGES):
         url = BASE + '/' + token['address'] + '?view=trades'
         if cursor:
             url += '&cursor=' + urllib.parse.quote(str(cursor))
-        data = read(url)
+        data = validate_page(read(url))
         for row in data['items']:
             rows[row['id']] = row
         cursor = data.get('nextCursor')
@@ -124,7 +136,14 @@ def measure(tokens, histories, end):
         if end-300 <= row['timestamp'] < end:
             wallets.setdefault(row['token'],set()).add(row['trader'].lower())
     breadth=dict(qualifiedTokens=sum(len(v)>=3 for v in wallets.values()), leaderPct=round(100*max((len(v) for v in wallets.values()),default=0)/current['buyers'],2) if current['buyers'] else 0, buysPerWallet=current['buys']/current['buyers'] if current['buyers'] else 0)
-    return dict(breadth=breadth,current=current, baseline=baseline, ratios=ratios, candidate=False,
+    activity={}
+    for row in events:
+        if end-300<=row['timestamp']<end:
+            wallet=row['trader'].lower()
+            entry=activity.setdefault(wallet,dict(address=wallet,buys=0,tokens=set()))
+            entry['buys']+=1;entry['tokens'].add(row['token'])
+    active_wallets=sorted([dict(address=x['address'],buys=x['buys'],tokens=len(x['tokens'])) for x in activity.values()],key=lambda x:(-x['tokens'],-x['buys'],x['address']))[:30]
+    return dict(walletActivity=active_wallets,breadth=breadth,current=current, baseline=baseline, ratios=ratios, candidate=False,
                 schema='pons-monitor-v2', volumes=volume_totals,
                 board=sorted(board, key=lambda x:(-x['recent']['buyers'],-x['lifetime']['buyers'],x['address'])),
                 chart=[*reversed(previous), current], latestTrade=max((x['timestamp'] for x in events), default=None))
@@ -174,7 +193,7 @@ def collect(end=None):
         url = BASE+'?sort=newest'
         if cursor:
             url += '&cursor='+urllib.parse.quote(str(cursor))
-        data = read(url)
+        data = validate_page(read(url))
         for token in data['items']:
             if token['protocol']=='v2' and cutoff-3600 <= token['createdAt'] < end:
                 tokens[token['address']] = token
@@ -300,7 +319,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(202);self.end_headers();self.wfile.write(b'{"collectionScheduled":false}')
 
     def do_GET(self):
-        if self.path == '/api/status':
+        parsed=urllib.parse.urlsplit(self.path)
+        if parsed.path == '/api/wallet':
+            try:
+                wallet=wallets.address(urllib.parse.parse_qs(parsed.query).get('address',[''])[0])
+                data=wallets.snapshot(LOG/'wallets.sqlite3',wallet)
+            except ValueError:
+                self.send_error(400);return
+            except Exception:
+                self.send_error(503);return
+            body=json.dumps(data).encode();kind='application/json'
+        elif parsed.path == '/wallets':
+            body=pathlib.Path(__file__).with_name('wallets.html').read_bytes();kind='text/html; charset=utf-8'
+        elif self.path == '/api/status':
             with LOCK:
                 data=dict(STATE)
             data['stale'] = not data.get('windowEnd') or time.time()-data['windowEnd'] > 660

@@ -22,7 +22,7 @@ class HistoryTests(unittest.TestCase):
         current=self.sample(end,40,80)
         result=comparison(current,history)
         self.assertEqual(result['todaySamples'],12)
-        self.assertEqual(result['today']['buyers'],100)
+        self.assertIsNone(result['today'])
         self.assertEqual(result['label'],'Наблюдения за 5 минут')
         current['breadth']['leaderPct']=90
         self.assertEqual(comparison(current,history)['label'],'Наблюдения за 5 минут')
@@ -36,7 +36,7 @@ class HistoryTests(unittest.TestCase):
         end=1780401600;current=self.sample(end)
         history=[(end-day*86400-i*300,self.sample(end-day*86400-i*300)) for day in range(1,4) for i in range(4)]
         result=comparison(current,history)
-        self.assertEqual(result['seasonalDays'],3);self.assertIsNotNone(result['seasonal'])
+        self.assertEqual(result['seasonalDays'],3);self.assertIsNone(result['seasonal'])
         self.assertIsNone(result['today'])
 
     def test_seasonal_crosses_midnight_without_losing_previous_day_windows(self):
@@ -47,7 +47,7 @@ class HistoryTests(unittest.TestCase):
         result=comparison(self.sample(end),history)
         self.assertEqual(result['seasonalDays'],3)
         self.assertEqual(result['seasonalSamples'],12)
-        self.assertIsNotNone(result['seasonal'])
+        self.assertIsNone(result['seasonal'])
 
     def test_incremental_overlap_dedup_and_partial_not_committed(self):
         token={'address':'cache-test'}

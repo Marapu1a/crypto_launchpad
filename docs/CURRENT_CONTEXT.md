@@ -1,3 +1,5 @@
+> 2026-10-17: Manual wallet cards and monitor review fixes implemented locally; scope frozen after wallets. Full ETH portfolio unavailable (Pons balances API 403). See [monitor product](MONITOR_PRODUCT.md). No production deployment.
+
 > 2026-10-16: [Monitor reliability](MONITOR_RELIABILITY_20261016.md) implemented and tested locally: bounded backfill, coverage journal, snapshot-only refresh, neutral observations. Primary collector not switched; deployment pending.
 
 > 2026-10-16: [Monitor decisions](MONITOR_DECISIONS_20261016.md) recorded; implementation pending. [Repository layout](REPOSITORY_LAYOUT_PLAN.md) approved and implemented locally; no deployment.

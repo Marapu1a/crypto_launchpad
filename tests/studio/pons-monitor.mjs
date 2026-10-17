@@ -15,7 +15,7 @@ try{
  let reads=0;await page.route('**/api/status',r=>{reads++;return r.fulfill({json:data});});let refreshes=0;await page.route('**/api/refresh',r=>{refreshes++;return r.fulfill({status:202,json:{}});});
  await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForSelector('#rows tr');
  const first=page.locator('#rows tr').first();assert.equal(await first.locator('td').nth(1).locator('strong').innerText(),'2');assert.equal(await first.locator('td').nth(2).locator('strong').innerText(),'250');
- assert.equal(await page.locator('#rows tr').count(),1);assert.equal(await page.evaluate(()=>amount('1.234567')), '1,23');assert.equal(await page.evaluate(()=>amount('0.000031')), '<0,01');assert.equal(await page.evaluate(()=>amount('0')), '0');assert.match(await page.locator('#cards').innerText(),/предыдущим/);assert.equal(await page.locator('#rows img').count(),0);assert.equal(await page.locator('#rows a[href^="javascript:"]').count(),0);assert.equal(await page.locator('#rows a[href="https://x.com/example"]').count(),1);
+ assert.equal(await page.locator('#rows tr').count(),1);assert.equal(await page.evaluate(()=>amount('1.234567')), '1,23');assert.equal(await page.evaluate(()=>amount('0.000031')), '0,000031');assert.equal(await page.evaluate(()=>amount('0')), '0');assert.match(await page.locator('#cards').innerText(),/предыдущим/);assert.equal(await page.locator('#rows img').count(),0);assert.equal(await page.locator('#rows a[href^="javascript:"]').count(),0);assert.equal(await page.locator('#rows a[href="https://x.com/example"]').count(),1);
  await page.screenshot({path:root+'/desktop-test.png',fullPage:true});
  await page.locator('#lifetime').click();assert.match(await first.locator('td').nth(3).innerText(),/100 USDG/);
  assert.equal(await page.locator('#rows tr').count(),2);assert.equal(await page.locator('#rows img').count(),0);assert.equal(await page.locator('#rows a[href^="javascript:"]').count(),0);await page.locator('#sort').selectOption('age');assert.match(await first.innerText(),/No trades/);
@@ -37,5 +37,8 @@ try{
  assert.equal(await page.locator('[data-metric="buys"] .value').innerText(),'10');
  await page.locator('#recent').click();assert.equal(await page.locator('#rows tr').first().locator('td').nth(2).locator('strong').innerText(),'10');
  await page.locator('#latest').click();assert.equal(await page.locator('[data-metric="buys"] .value').innerText(),'250');
+ await page.evaluate(d=>render({...d,intervals:[],current:{...d.current,launches:1}}),data);
+ await page.locator('[data-metric="launches"]').click();assert.equal(await page.locator('#rows tr').count(),1);assert.match(await page.locator('#rows').innerText(),/No trades/);
+ assert.equal(await page.evaluate(()=>amount('0.005')),'0,005');assert.equal(await page.evaluate(()=>amount('0.0001')),'0,0001');assert.equal(await page.evaluate(()=>amount('9007199254740993.001')),'9 007 199 254 740 993');
  assert.equal(await page.locator('#refresh').isDisabled(),false);assert.deepEqual(errors,[]);console.log('PASS: cached refresh, preserved filters, coverage, neutral comparisons, wallet counts, links/XSS, partial/stale, 1440/390/320px');
 }finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

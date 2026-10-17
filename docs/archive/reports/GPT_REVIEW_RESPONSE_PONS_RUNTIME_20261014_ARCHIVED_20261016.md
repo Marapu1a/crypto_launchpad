@@ -8,7 +8,7 @@
 
 ## 1. P2 / подтверждённый кодовый сценарий: QIANQI может так и не перейти в экономный режим при внешнем ожидании Pons
 
-**Код:** [server/adapters/qianqi/pons-service.mjs, строки 4–11](../server/adapters/qianqi/pons-service.mjs), [pons-funding.mjs](../server/adapters/qianqi/pons-funding.mjs), [runtime/scripts/pons-funding-pass.cjs](../server/adapters/qianqi/runtime/scripts/pons-funding-pass.cjs), [runtime/scripts/pons-collector-manual.cjs](../server/adapters/qianqi/runtime/scripts/pons-collector-manual.cjs), [server/shared/pons-service.mjs](../server/shared/pons-service.mjs).
+**Код:** [server/adapters/qianqi/pons-service.mjs, строки 4–11](../../../server/adapters/qianqi/pons-service.mjs), [pons-funding.mjs](../../../server/adapters/qianqi/pons-funding.mjs), [runtime/scripts/pons-funding-pass.cjs](../../../server/adapters/qianqi/runtime/scripts/pons-funding-pass.cjs), [runtime/scripts/pons-collector-manual.cjs](../../../server/adapters/qianqi/runtime/scripts/pons-collector-manual.cjs), [server/shared/pons-service.mjs](../../../server/shared/pons-service.mjs).
 
 `schedulerObservation` разрешает `idle` только при `result.funding.every(row => row.status === 'empty')`. Однако штатный `inspect` коллектора выдаёт `sweep.status='waiting'`, если `sweepState.waiting`, в том числе для `awaiting-pons-operator` после graduation. `runFundingPass` сохраняет такой статус, не создавая транзакции. В итоге QIANQI без активных покупок/задолженностей может постоянно классифицироваться `unknown`, supervisor не засыпает, а host делает тяжёлый RPC pass через короткий `pollMs`. Это **реальный структурный сценарий**, но фактическая частота и актуальная стадия QIANQI на VPS этим ревью не проверялись.
 
@@ -16,7 +16,7 @@
 
 ## 2. P3 / подтверждённая лишняя работа: heartbeat без изменения времени источника переписывает большие снимки на каждом tick
 
-**Код:** [server/shared/pons-runtime.mjs](../server/shared/pons-runtime.mjs), [server/shared/pons-service-loop.mjs](../server/shared/pons-service-loop.mjs), [server/shared/pons-heartbeat.mjs](../server/shared/pons-heartbeat.mjs), [server/adapters/qianqi/pons-public-store.mjs](../server/adapters/qianqi/pons-public-store.mjs).
+**Код:** [server/shared/pons-runtime.mjs](../../../server/shared/pons-runtime.mjs), [server/shared/pons-service-loop.mjs](../../../server/shared/pons-service-loop.mjs), [server/shared/pons-heartbeat.mjs](../../../server/shared/pons-heartbeat.mjs), [server/adapters/qianqi/pons-public-store.mjs](../../../server/adapters/qianqi/pons-public-store.mjs).
 
 В `runPonsRuntime` при каждом `service-sleep` вызывается `onSleep`. Loop с default `pollMs=15000` повторяется примерно каждые 15 сек, даже если Python collector обновляет Pons report только раз в 300 сек. `refreshQianqiHeartbeat` каждый раз читает, пересчитывает checksum и **атомарно переписывает весь public JSON**, даже когда `sourceCheckedAt` не изменился. `refreshDrawHeartbeat` аналогично выполняет SQL UPDATE и `service_at=clock_timestamp()` с неизменным значением Pons. Это **не лишний RPC и не прямой финансовый дефект**, но постоянные ненужные I/O, большие rewrite, WAL и backup churn. При большом количестве токенов это уже противоречит цели дешёвого idle.
 
@@ -24,7 +24,7 @@
 
 ## 3. P2 / release-gate coverage gap: read-only inspector проверяет не весь новый Pons-host state
 
-**Код:** [scripts/inspect-pons-runtime.mjs, строки 41–58](../scripts/inspect-pons-runtime.mjs), [server/shared/pons-bootstrap.mjs](../server/shared/pons-bootstrap.mjs), [server/adapters/qianqi/pons-scheduler.mjs](../server/adapters/qianqi/pons-scheduler.mjs), [docs/PONS_RELEASE.md](PONS_RELEASE.md).
+**Код:** [scripts/inspect-pons-runtime.mjs, строки 41–58](../../../scripts/inspect-pons-runtime.mjs), [server/shared/pons-bootstrap.mjs](../../../server/shared/pons-bootstrap.mjs), [server/adapters/qianqi/pons-scheduler.mjs](../../../server/adapters/qianqi/pons-scheduler.mjs), [docs/PONS_RELEASE.md](../../PONS_RELEASE.md).
 
 QIANQI inspection проверяет `binding.statePath` и `binding.statePath+'.rng'` у **старого** native executor, затем `migrationFile` и public snapshot. При этом новый host **запускает** `entry.stateFile` и отдельное `entry.stateFile+'.rng'`, где будут лежать pending intent, frozen/candidate jobs и новые receipts. `entry.stateFile` может намеренно отличаться от `binding.statePath` — это нормально. Но тогда статус `qualified` **не доказывает**, что новая директория пуста либо содержит ровно ожидаемый новый Pons-journal и что она не противоречит source migration/legacy state. Прочитанный inspector также не сверяет отдельное `binding.statePath+'.scheduler'` старого рабочего контура с готовыми активными/незавершёнными jobs; он блокирует только `migration.ledger.pending` и отдельные `state.pending`. Это не доказанная ошибка оплаты; это **ложноположительная готовность preflight** в сценарии переезда/повторного запуска с оставшимся state.
 
@@ -32,7 +32,7 @@ QIANQI inspection проверяет `binding.statePath` и `binding.statePath+'
 
 ## 4. P2 / непроверенная полнота источника и масштаб: чёткие условия отказа, не «поправить RPC»
 
-**Код:** [scripts/pons-accounting/accounting.py](../scripts/pons-accounting/accounting.py), [src/tickets/pons-accounting.mjs](../src/tickets/pons-accounting.mjs), [docs/PONS_PURCHASE_ACCOUNTING.md](PONS_PURCHASE_ACCOUNTING.md).
+**Код:** [scripts/pons-accounting/accounting.py](../../../scripts/pons-accounting/accounting.py), [src/tickets/pons-accounting.mjs](../../../src/tickets/pons-accounting.mjs), [docs/PONS_PURCHASE_ACCOUNTING.md](../../PONS_PURCHASE_ACCOUNTING.md).
 
 Это преимущественно **принятый продуктовый компромисс, не новая найденная уязвимость**: Pons API — authoritative, `quoteAmount/trader` отличаются от исторического `wallet-net-debit`, старые кредиты grandfathered. Исправления/удаление сделок при полной проверке переводят журнал в review-required; ничего не пересчитывается молча. При неизменном Pons metadata fingerprint полный обход выполняется раз в 6 часов, поэтому скрытые исправления старых строк могут не выявляться до него. По умолчанию ограничение 20 страниц, при большом объёме сделок весь collector становится unavailable. После graduation только `venue=curve`, новый venue — review-required.
 
@@ -44,7 +44,7 @@ QIANQI inspection проверяет `binding.statePath` и `binding.statePath+'
 
 ## 5. P1 activation gate / нельзя считать production проверенным по локальным циклам
 
-**Источники:** [docs/PONS_RUNTIME.md](PONS_RUNTIME.md), [docs/PONS_RELEASE.md](PONS_RELEASE.md), [server/shared/rpc-budget.cjs](../server/shared/rpc-budget.cjs), [server/short-runtime/rpc-provider.mjs](../server/short-runtime/rpc-provider.mjs).
+**Источники:** [docs/PONS_RUNTIME.md](../../PONS_RUNTIME.md), [docs/PONS_RELEASE.md](../../PONS_RELEASE.md), [server/shared/rpc-budget.cjs](../../../server/shared/rpc-budget.cjs), [server/short-runtime/rpc-provider.mjs](../../../server/short-runtime/rpc-provider.mjs).
 
 Документы корректно фиксируют **локальный** полный QIANQI/v2 цикл (в т.ч. RNG, claims, restart), но production endpoints, actual host config/DB/rights/secret custody и quotas Free RPC не квалифицированы. Персистентный gate считает JSON-RPC requests, **не CU, gas, bandwidth или лимит по методам**. Указанные `1000/hour` — лишь шаблон. Публичные QuickNode-запросы запрещены владельцем, старые службы в актуальном состоянии остановлены.
 
