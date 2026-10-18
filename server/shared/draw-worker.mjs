@@ -1,3 +1,5 @@
+import {drawEligibleAt} from '../../src/worker/draw-schedule.mjs';
+import {nativeDeliveryReady} from '../../src/worker/native-delivery.mjs';
 import {scanDrawHistory} from '../../src/tickets/draw-scan.mjs';
 import { digest } from '../../src/tickets/digest.mjs';
 import { bundleHash } from '../../src/tickets/late-recognition.mjs';
@@ -33,11 +35,12 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
     return await runDrawSender({ pool, provider, signer, projectId, moduleId, operate: async ({ policy, state, save, lease }) => {
       check(same(await publisher.getAddress(),policy.publisher), 'Wrong recognition publisher');
       await verifyDrawPolicy(provider,policy);const latestContracts=contracts(provider,policy),t=policy.template.config;
+      check(t.asset!=='ETH'||ponsRehearsal,'Native draws require Pons source');
       const kinds=['short','monthly'].filter(k=>t[k].enabled);let draw=kinds[0];
       let readBlock = 'latest';
       // Financial decisions use one finalized state, even if a permissionless caller
       // has already mined a newer fund/proof/settle. Explicit BLS block tags stay explicit.
-      const c = contracts({ call: request => provider.call({ ...request, blockTag: request.blockTag ?? readBlock }) },policy);
+      const c = contracts({ getBalance:(wallet,blockTag)=>provider.getBalance(wallet,blockTag??readBlock), call: request => provider.call({ ...request, blockTag: request.blockTag ?? readBlock }) },policy);
       if (!state.runtime) {
         for(const kind of kinds)check(await c[kind].cycle()===0n&&!state.pending&&state.history.length===0,'Active program requires runtime history');
         state.runtime = { schema: 'draw-runtime-v2', ledger: newLedger(policy), cycles: Object.fromEntries(kinds.map(k=>[k,{}])), sequence: 0, lane: 0,
@@ -72,7 +75,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
         check(same((await provider.getBlock(s.checkpoint.number))?.hash,s.checkpoint.blockHash), 'Frozen branch changed');
         if(d.settled){
           const seed=await c[draw].verifiedSeed(cycle);
-          const result=draw==='monthly'?computeMonthly(d.context,seed,s.participants,d.budget):computeShort(d.context,seed,s.participants,QIANQI_RULES,previewBasket(d.budget,t.short.basket).prizes);
+          const result=draw==='monthly'?computeMonthly(d.context,seed,s.participants,d.budget):computeShort(d.context,seed,s.participants,QIANQI_RULES,previewBasket(d.budget,t.short.basket,t.asset).prizes);
           check(same(d.resultHash,result.resultHash),'Outcome mismatch');
         }
         return d;
@@ -108,7 +111,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
             const snapshot = await ticketSnapshot(c[draw],cutoff,s.accountingSource,s.accountingRevision);
             check(digest(snapshot) === digest({ participants:s.participants, participantsHash:s.participantsHash, checkpoint:s.checkpoint }), 'Freeze dataset changed');
             check(await c[draw].freeFund() === BigInt(s.budget) && await latestContracts[draw].freeFund() === BigInt(s.budget), 'Freeze budget changed');
-            if (observation.finalized.timestamp < Number(await c[draw].lastTerminal() + await c[draw].interval())) wait('interval-finality');
+            if (observation.finalized.timestamp < Number(await drawEligibleAt(provider,policy,draw,await c[draw].cycle(),await c[draw].lastTerminal(),await c[draw].interval()))) wait('interval-finality');
             await checkBeacon();
           } else if (['prove','deliver'].includes(op.method) && op.kind === draw+'Adapter') {
             const d = await verifyDraw(op.cycle), requestId = await c[draw].requestForCycle(op.cycle), rng = await c[draw+'Adapter'].requests(requestId);
@@ -154,21 +157,28 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
         r.ledger.bundles[hash] = bundle;
         return plan('recognition','confirm',[hash,ids.length],{role:'publisher'});
       };
+      let waiting = sourceUnavailable?'source-unavailable':'conditions',nextCheckAt=Infinity,serviceIdle=!sourceUnavailable;
+      const deferredNativePayments=[];
+      const paymentReady=async(kind,method,args)=>{
+        if(t.asset!=='ETH'||await nativeDeliveryReady(c[kind],method,args,policy.limits.maxGasLimit))return true;
+        // Keep the claim/credit in its contract, continue other work, then sleep.
+        deferredNativePayments.push({kind,method,args:json(args)});
+        nextCheckAt=Math.min(nextCheckAt,observation.now+3600);return false;
+      };
       const feePlan = async () => {
         for(let lane=0;lane<2;lane++)if(await c.fundingRouter.credit(lane)>0n)return plan('fundingRouter','deliver',[lane]);
-        for (let lane = 0; lane < 3; lane++) if (await c.splitter.credit(lane) > 0n) return plan('splitter','deliver',[lane]);
+        for (let lane = 0; lane < 3; lane++) if (await c.splitter.credit(lane) > 0n && (lane===0||await paymentReady('splitter','deliver',[lane]))) return plan('splitter','deliver',[lane]);
         if (await c.quote.balanceOf(c.collector.target) > 0n) return plan('collector','forward');
-        if (await c.escrow.balanceOfToken(c.collector.target,c.quote.target) > 0n) return plan('collector','collect');
+        if ((t.asset==='ETH'?await c.escrow.balanceOf(c.collector.target):await c.escrow.balanceOfToken(c.collector.target,c.quote.target)) > 0n) return plan('collector','collect');
         if (!await c.curve.graduated() && (await c.curve.quoteFeeBalance() > 0n || await c.curve.creatorTaxBalance() > 0n)) return plan('collector','sweepCurve');
       };
-      let waiting = sourceUnavailable?'source-unavailable':'conditions',nextCheckAt=Infinity,serviceIdle=!sourceUnavailable;
       const drawPlan = async kind => {
         draw=kind;const cycle=String(await c[draw].cycle()),pending=await c[draw].pending();if(cycle!=='0')await verifyDraw(cycle);
         for (const id of Object.keys(r.cycles[draw])) {
           if (BigInt(id) > BigInt(cycle)) continue;
           const d = await verifyDraw(id);
           if (d.settled) for (const person of r.cycles[draw][id].participants)
-            if (await c[draw].rewards(id,person.wallet) > 0n) return plan(draw,'claim',[id,person.wallet],{cycle:id});
+            if (await c[draw].rewards(id,person.wallet) > 0n && await paymentReady(draw,'claim',[id,person.wallet])) return plan(draw,'claim',[id,person.wallet],{cycle:id});
         }
         if (pending) {
           serviceIdle=false; // Another lane must not overwrite this obligation with an idle reason.
@@ -183,9 +193,9 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
         }
         if(sourceUnavailable)return; // Existing frozen draws and claims above remain serviceable.
         const budget = await c[draw].freeFund();
-        const eligibleAt=Number(await c[draw].lastTerminal()+await c[draw].interval());
-        if (budget < amount(t[draw].minimumFund)
-          || (draw==='short'&&!previewBasket(budget,t.short.basket).ready)
+        const eligibleAt=Number(await drawEligibleAt(provider,policy,draw,cycle,await c[draw].lastTerminal(),await c[draw].interval()));
+        if (budget < amount(t[draw].minimumFund,undefined,t.asset)
+          || (draw==='short'&&!previewBasket(budget,t.short.basket,t.asset).ready)
           || (draw==='monthly'&&await c.monthly.freeNext()!==await c.monthly.nextTarget())) return;
         if(eligibleAt>observation.finalized.timestamp){nextCheckAt=Math.min(nextCheckAt,eligibleAt);return;}
         const next = String(BigInt(cycle)+1n);
@@ -209,7 +219,8 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
         r.operation = op; r.lane = (lane+1)%planners.length;
         await persist(); return execute();
       }
-      return {status:'waiting',reason:waiting,serviceIdle,...(Number.isFinite(nextCheckAt)?{nextCheckAt}:{})};
+      if(deferredNativePayments.length&&serviceIdle&&['conditions','participants'].includes(waiting))waiting='native-recipient-unavailable';
+      return {status:'waiting',reason:waiting,serviceIdle,...(deferredNativePayments.length?{deferredNativePayments}:{}),...(Number.isFinite(nextCheckAt)?{nextCheckAt}:{})};
     } });
   } catch(e) {
     if (['PRODUCTION_WAIT','FINALITY_WAIT'].includes(e.code)) return {status:'waiting',reason:e.message};

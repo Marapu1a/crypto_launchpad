@@ -24,3 +24,17 @@ test('Full website changes independently of internal slug and prepared logo',()=
  assert.equal(out.draft.website,'https://another-token.example/');assert.equal(out.slug,input.slug);assert.equal(out.draft.logo,input.draft.logo);
  data.set('website','javascript:alert(1)');assert.throws(()=>readOwnerForm(input,data));assert.equal(input.draft.website,'');
 });
+
+test('Monthly IGW form explicitly creates v3 and survives reopening without hidden fields',()=>{
+ const {input,data}=fixture(),before=structuredClone(input);data.set('schedule','igw-monthly');data.set('hours','bad');
+ const out=readOwnerForm(input,data);assert.equal(out.draws.version,3);assert.equal(out.draws.short.intervalSeconds,2592000);
+ assert.equal(out.draws.monthly.enabled,false);assert.equal(out.draws.allocation.shortBps,10000);assert.deepEqual(input,before);
+ data.delete('schedule');data.delete('mode');assert.deepEqual(readOwnerForm(out,data),out);
+ data.set('schedule','legacy');assert.throws(()=>readOwnerForm(out,data));
+});
+test('Explicit ETH conversion requires all amounts and leaves the USDG draft unchanged',()=>{
+ const {input,data}=fixture(),before=structuredClone(input);data.set('asset','ETH');
+ data.set('ticketPurchase','0.001');data.set('minimumFund','0.005');data.set('minimumUnit','0.000001');data.set('monthlyMinimum','0.005');data.set('monthlyNext','0.005');
+ const out=readOwnerForm(input,data);assert.equal(out.draws.version,4);assert.equal(out.draws.asset,'ETH');assert.equal(out.draft.pair,'0x'+'0'.repeat(40));assert.deepEqual(input,before);
+ data.delete('monthlyNext');assert.throws(()=>readOwnerForm(input,data),/explicit amounts/);
+});

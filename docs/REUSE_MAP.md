@@ -25,3 +25,9 @@ Provenance отдельных route verifier хранится рядом с ис
 в [прежней карте](archive/snapshots/REUSE_MAP.md) и технических документах индекса.
 Ключи, кошельки, журналы и конфигурации исходного QIANQI не являются шаблонами
 для новых токенов.
+
+Учёт держателей: `src/holders/`, локальная репетиция `tests/holders/rehearsal.mjs`; [границы](HOLDER_LEDGER.md).
+
+ETH-пара: отдельные `contracts/production/native/`, сборка `src/worker/native-build.mjs`,
+общее обслуживание с явным активом; [контракт и границы](NATIVE_ETH.md).
+Исходники и байткод legacy USDG не заменяются native-версиями.

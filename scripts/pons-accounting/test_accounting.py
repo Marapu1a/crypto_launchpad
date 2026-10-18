@@ -26,6 +26,21 @@ class API:
         return dict(items=copy.deepcopy(self.rows),nextCursor=None)
 
 class AccountingTests(unittest.TestCase):
+    def test_native_eth_precision_and_restart(self):
+        profile={**PROFILE,'quote':'0x'+'0'*40,'decimals':18,'threshold':'0.001'}
+        api=API([trade(1,'0.0005'),trade(2,'0.000500000000000001')])
+        def native_api(url):
+            response=api(url)
+            if '?view=' not in url:response['quote']={'address':profile['quote'],'decimals':18}
+            return response
+        self.assertEqual(sync(self.j,profile,native_api,now=1000)['status'],'current')
+        report=self.j.report('test')
+        self.assertEqual(report['totalTickets'],'1')
+        self.assertEqual(report['wallets'][WALLET]['remainderRaw'],'1')
+        self.assertEqual(report['activity'][1]['quoteRaw'],'500000000000001')
+        self.j.close();self.j=Journal(self.path)
+        self.assertEqual(sync(self.j,profile,native_api,now=1100)['requests'],1)
+        self.assertEqual(self.j.report('test')['totalTickets'],'1')
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.path=pathlib.Path(self.temp.name)/'ledger.sqlite3';self.j=Journal(self.path)
     def tearDown(self):

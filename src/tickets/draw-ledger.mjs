@@ -93,11 +93,11 @@ export async function scanProductionLedger(provider, policy, ledger, finalized, 
   }
   check(same((await provider.getBlock(ledger.head.number))?.hash,ledger.head.hash), 'Scan branch changed');
   creditedPurchases(policy,ledger); // Missing bundles or bad evidence fail before durable cursor advance.
-  replayTickets(ledger.events,String(amount(policy.template.config.ticketPurchase))); // Includes duplicate-ID validation.
+  replayTickets(ledger.events,String(amount(policy.template.config.ticketPurchase,undefined,policy.template.config.asset))); // Includes duplicate-ID validation.
   return ledger.head.number === finalized.number;
 }
 export async function snapshotProductionTickets(policy, ledger, program, cutoff = ledger.head) {
-  const events = creditedPurchases(policy,ledger,cutoff.number), wallets = replayTickets(events,String(amount(policy.template.config.ticketPurchase)));
+  const events = creditedPurchases(policy,ledger,cutoff.number), wallets = replayTickets(events,String(amount(policy.template.config.ticketPurchase,undefined,policy.template.config.asset)));
   const participants = [];
   for (const wallet of Object.keys(wallets).sort()) {
     const used = await program.consumedThrough(wallet), end = BigInt(wallets[wallet].tickets);

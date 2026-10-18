@@ -1,3 +1,5 @@
+import {compileNativePrograms} from '../../src/worker/native-build.mjs';
+import {drawAsset} from '../../src/draws/assets.mjs';
 import {verifyOwnerHistory,ownerFinality} from './confirmation.mjs';
 import {ownerGasPrice,repriceOwnerRequest,checkRetryFee} from './fees.mjs';
 import {Contract,ContractFactory,getAddress,getCreateAddress,id,keccak256,ZeroAddress} from 'ethers';
@@ -24,7 +26,8 @@ const labels={short:'Короткий розыгрыш и RNG',monthly:'Меся
 
 // Production signing is an operator setting, never an HTTP request field.
 // Rehearsal retains its original instance and fixture boundaries.
-let trustedBuild;
+let trustedBuild,trustedNativeBuild;
+const NATIVE_BUILD='0x278b4f1610ef08160374c1cb46a03d47361bb079cf7fb1711d2c8ffb9c2205bb';
 export function withinOwnerReview(fresh,reviewed,owner){
  return !!fresh&&fresh.kind===reviewed.kind&&matchesOwnerTransaction(fresh.request,reviewed,owner);
 }
@@ -45,7 +48,9 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
  for(const [k,address] of Object.entries(roles))check(same(profile.externals?.[k]?.address,address),'Unreviewed '+k);
  check(profile.externals.hook&&same(profile.externals.factory.codeHash,NETWORK.factoryHash),'Pinned Pons contracts required');
  validatePolicy({schema:'short-production-policy-v1',chainId:4663,projectId:'00000000-0000-4000-8000-000000000000',executor:profile.executor,publisher:profile.publisher,buildHash:BUILD,anchor:profile.anchor,contracts:profile.externals,timing:profile.timing,limits:profile.limits});
- const artifact=name=>build.artifacts[name];
+ const selectedBuild=asset=>{if(asset!=='ETH')return build;const native=trustedNativeBuild??=compileNativePrograms();check(native.manifest.buildHash===NATIVE_BUILD,'Native artifacts changed');return native;};
+ const artifact=(name,asset='USDG')=>selectedBuild(asset).artifacts[name];
+ const buildHashFor=input=>selectedBuild(input.draws.asset).manifest.buildHash;
  async function environment(){
   check((await provider.getNetwork()).chainId===4663n,'Wrong chain');
   if(production)await verifyProductionEnvironment(provider,profile);
@@ -58,8 +63,8 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
  const contract=(address,name)=>new Contract(address,artifact(name).abi,provider);
  const termsIdentity=p=>digest(plain({economics:p.terms.economics,fee:p.terms.fee}));
  function policyFor(s){
-  const externals=Object.fromEntries(['quote','escrow','factory','router','hook'].map(k=>[k,profile.externals[k]]));
-  return {schema:'draw-production-policy-v2',...(s.routes?{routes:s.routes}:{}),...(s.purchaseAccounting?{purchaseAccounting:s.purchaseAccounting}:{}),chainId:4663,projectId:s.input.id,executor:profile.executor,publisher:profile.publisher,buildHash:BUILD,
+  const externals=Object.fromEntries(['quote','escrow','factory','router','hook'].filter(k=>s.input.draws.asset!=='ETH'||k!=='quote').map(k=>[k,profile.externals[k]]));
+  return {schema:'draw-production-policy-v2',...(s.routes?{routes:s.routes}:{}),...(s.purchaseAccounting?{purchaseAccounting:s.purchaseAccounting}:{}),chainId:4663,projectId:s.input.id,executor:profile.executor,publisher:profile.publisher,buildHash:buildHashFor(s.input),
    anchor:s.launchAnchor,contracts:{...externals,...s.contracts},limits:profile.limits,timing:profile.timing,
    template:{schema:'draw-template-v2',instanceId:id('owner-launch:'+s.input.id),config:s.input.draws,creatorTaxBps:s.creatorTaxBps,team:s.input.team,operations:s.input.operations}};
  }
@@ -98,15 +103,15 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
  }
  async function nextRequest(s){
   const short=s.input.draws.short,fees=s.input.draws.fees,a=k=>s.contracts[k]?.address;
-  const monthly=s.input.draws.monthly,instance=id('owner-launch:'+s.input.id);
+  const monthly=s.input.draws.monthly,instance=id('owner-launch:'+s.input.id),asset=s.input.draws.asset,quote=drawAsset(asset).address,units=v=>amount(v,undefined,asset);
   const deployments=[
-   ...(short.enabled?[['short','ShortProgram',()=>[{asset:USDG,operator:profile.executor,instance,interval:short.intervalSeconds,minimumFund:amount(short.minimumFund),minimumUnit:amount(short.basket.minimumUnit)},short.basket.weights,profile.timing]]]:[]),
-   ...(monthly.enabled?[['monthly','MonthlyProgram',()=>[{asset:USDG,operator:profile.executor,instance,minimumFund:amount(monthly.minimumFund),nextTarget:amount(monthly.nextReserve)},profile.timing]]]:[]),
-   ['fundingRouter','DrawFundingRouter',()=>[USDG,a('short')??ZeroAddress,a('monthly')??ZeroAddress,s.input.draws.allocation.shortBps]],
-   ['splitter','FeeSplitter',()=>[USDG,a('fundingRouter'),s.input.team,s.input.operations,[fees.prizesBps,fees.teamBps,fees.operationsBps]]],
-   ['collector','PonsFeeCollector',()=>[USDG,ESCROW,a('splitter'),NETWORK.factory]],
+   ...(short.enabled?[['short','ShortProgram',()=>[{asset:quote,operator:profile.executor,instance,interval:short.intervalSeconds,minimumFund:units(short.minimumFund),minimumUnit:units(short.basket.minimumUnit)},short.basket.weights,profile.timing]]]:[]),
+   ...(monthly.enabled?[['monthly','MonthlyProgram',()=>[{asset:quote,operator:profile.executor,instance,minimumFund:units(monthly.minimumFund),nextTarget:units(monthly.nextReserve)},profile.timing]]]:[]),
+   ['fundingRouter','DrawFundingRouter',()=>[quote,a('short')??ZeroAddress,a('monthly')??ZeroAddress,s.input.draws.allocation.shortBps]],
+   ['splitter','FeeSplitter',()=>[quote,a('fundingRouter'),s.input.team,s.input.operations,[fees.prizesBps,fees.teamBps,fees.operationsBps]]],
+   ['collector','PonsFeeCollector',()=>[quote,ESCROW,a('splitter'),NETWORK.factory]],
    ['recognition','PurchaseRecognition',()=>[instance,profile.publisher]]];
-  for(const [kind,name,args] of deployments)if(!s.done[kind])return {kind,artifact:name,request:await new ContractFactory(artifact(name).abi,artifact(name).evm.bytecode.object).getDeployTransaction(...args())};
+  for(const [kind,name,args] of deployments)if(!s.done[kind])return {kind,artifact:name,request:await new ContractFactory(artifact(name,asset).abi,artifact(name,asset).evm.bytecode.object).getDeployTransaction(...args())};
   for(const role of ['executor','publisher'])if(BigInt(profile.funding[role])>0n&&!s.done[role+'Funding'])return {kind:role+'Funding',request:{to:profile[role],data:'0x',value:BigInt(profile.funding[role])}};
   if(!s.done.launch){
    const draft={...s.input.draft,feeWallet:a('collector')};
@@ -140,7 +145,7 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
   s.policy=policy;s.stage='deployed';await save(s);
   // v2 worker registration is deliberately separate; v1 executor rejects this policy.
  }
- function view(s,revision){return plain({id:s.input.id,input:s.input,owner,mode:profile.mode,signingEnabled,...(production?{walletGuard:walletGuard(profile)}:{}),stage:s.stage,confirmationMode:'receipt-then-finality',finality:s.finality??null,executionEnabled:false,policy:s.policy??null,revision,buildHash:BUILD,instanceId:profile.instanceId,profile:{executor:profile.executor,publisher:profile.publisher,timing:profile.timing,limits:profile.limits,funding:profile.funding,totalNativeLimit:profile.totalNativeLimit},candidate:s.candidate,pending:s.pending,history:s.history,contracts:s.contracts,launch:s.launch,spent:s.spent});}
+ function view(s,revision){return plain({id:s.input.id,input:s.input,owner,mode:profile.mode,signingEnabled,...(production?{walletGuard:walletGuard(profile)}:{}),stage:s.stage,confirmationMode:'receipt-then-finality',finality:s.finality??null,executionEnabled:false,policy:s.policy??null,revision,buildHash:buildHashFor(s.input),instanceId:profile.instanceId,profile:{executor:profile.executor,publisher:profile.publisher,timing:profile.timing,limits:profile.limits,funding:profile.funding,totalNativeLimit:profile.totalNativeLimit},candidate:s.candidate,pending:s.pending,history:s.history,contracts:s.contracts,launch:s.launch,spent:s.spent});}
  async function run(projectId,action,body={}){
   if(['arm','retry'].includes(action))check(signingEnabled,'Public signing is disabled; owner approval and operator activation required');
   await environment();
@@ -151,9 +156,10 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
     const existing=await adminPool.query('SELECT id FROM launchpad.projects WHERE id=$1 OR slug=$2',[projectId,input.slug]);check(!existing.rowCount,'Project already exists; cannot replace a lost journal');
     const used=await adminPool.query('SELECT sender FROM launchpad.production_wallets WHERE chain_id=4663 AND sender=ANY($1::text[])',[[profile.executor,profile.publisher].map(x=>x.toLowerCase())]);check(!used.rowCount,'Executor/publisher already belongs to another project');
     const preflight=await preparePlan(provider,input.draft,owner);
-    s={schema:'owner-launch-v2',routes:ROUTE_PROFILE,purchaseAccounting:DEFERRED,input,roles:{executor:profile.executor,publisher:profile.publisher},profileHash,identity:digest({input,profileHash,build:BUILD,routes:ROUTE_PROFILE,purchaseAccounting:DEFERRED}),termsIdentity:termsIdentity(preflight),creatorTaxBps:preflight.input.params.creatorTaxBps,stage:'deploying',done:{},history:[],contracts:{},spent:'0',candidate:null,pending:null};await save(s);
+    const accounting=input.draws.asset==='ETH'?{purchaseAccounting:'pons-api-v1'}:{routes:ROUTE_PROFILE,purchaseAccounting:DEFERRED};
+    s={schema:'owner-launch-v2',...accounting,input,roles:{executor:profile.executor,publisher:profile.publisher},profileHash,identity:digest({input,profileHash,build:buildHashFor(input),...accounting}),termsIdentity:termsIdentity(preflight),creatorTaxBps:preflight.input.params.creatorTaxBps,stage:'deploying',done:{},history:[],contracts:{},spent:'0',candidate:null,pending:null};await save(s);
    }else{
-    check((s.purchaseAccounting===undefined||s.purchaseAccounting===DEFERRED)&&(s.routes===undefined||s.routes===ROUTE_PROFILE)&&s.schema==='owner-launch-v2'&&s.profileHash===profileHash&&s.identity===digest({input:s.input,profileHash,build:BUILD,...(s.routes?{routes:s.routes}:{}),...(s.purchaseAccounting?{purchaseAccounting:s.purchaseAccounting}:{})}),'Launch profile/input changed');
+    check((s.purchaseAccounting===undefined||s.purchaseAccounting===DEFERRED||s.purchaseAccounting==='pons-api-v1')&&(s.routes===undefined||s.routes===ROUTE_PROFILE)&&s.schema==='owner-launch-v2'&&s.profileHash===profileHash&&s.identity===digest({input:s.input,profileHash,build:buildHashFor(s.input),...(s.routes?{routes:s.routes}:{}),...(s.purchaseAccounting?{purchaseAccounting:s.purchaseAccounting}:{})}),'Launch profile/input changed');
     if(action==='create')check(digest(validateLaunch(body.input))===digest(s.input),'Launch input is immutable');
    }
    await checkHistory(s);await lease();
@@ -197,5 +203,5 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
    return view(s,revision());
   });
  }
- return {run,info:()=>plain({owner,chainId:4663,instanceId:profile.instanceId,mode:profile.mode,signingEnabled,buildHash:BUILD,profile})};
+ return {run,info:()=>plain({owner,chainId:4663,instanceId:profile.instanceId,mode:profile.mode,signingEnabled,buildHash:BUILD,buildHashes:{USDG:BUILD,ETH:NATIVE_BUILD},profile})};
 }

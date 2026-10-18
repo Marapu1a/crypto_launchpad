@@ -4,7 +4,7 @@ import {advancePonsAccounting,ponsWallets,snapshotPonsTickets} from '../../src/t
 import {digest} from '../../src/tickets/digest.mjs';
 import {runDrawWorker} from '../../server/shared/draw-worker.mjs';
 const token='0x'+'1'.repeat(40),quote='0x'+'2'.repeat(40),wallet='0x'+'3'.repeat(40),tx='0x'+'4'.repeat(64);
-const policy={contracts:{token:{address:token},quote:{address:quote}},template:{config:{ticketPurchase:'100'}}};
+const policy={contracts:{token:{address:token},quote:{address:quote}},template:{config:{asset:'USDG',ticketPurchase:'100'}}};
 const head={number:100,hash:'0x'+'5'.repeat(64),timestamp:1000};
 const row={id:tx+':0',txHash:tx,trader:wallet,quoteRaw:'198000000',timestamp:900,side:'buy',venue:'curve',decision:'purchase'};
 const report={schema:'pons-purchase-accounting-v1',source:'Pons API',status:'current',checkedAt:1000,reviewCount:0,

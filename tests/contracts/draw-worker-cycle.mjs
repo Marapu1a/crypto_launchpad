@@ -6,7 +6,7 @@ import {BrowserProvider,Contract,ContractFactory,HDNodeWallet,id,keccak256,ZeroA
 import {compileProduction} from '../../src/worker/production-build.mjs';
 import {compileDrawPrograms} from '../../src/worker/draw-build.mjs';
 import {qianqiPreset,amount} from '../../src/draws/config.mjs';
-import {upgradeProgramDraft} from '../../src/draws/program-config.mjs';
+import {upgradeProgramDraft,igwMonthlyDraft} from '../../src/draws/program-config.mjs';
 import {createTestPostgres} from './production-postgres.mjs';
 import {runDrawWorker,runDrawProjects} from '../../server/shared/draw-worker.mjs';
 import {registerDeployedDraw} from '../../server/owner-launch/draw-handoff.mjs';
@@ -34,15 +34,15 @@ try{
  const timing={lead:3600,clockLag:30,clockAhead:30,finalizedLag:1800,beaconLag:30};
  for(const [i,bps] of [10000,0,5000].entries()){
   const signer=wallet(1+i*2),publisher=wallet(2+i*2),projectId=randomUUID(),instance=id(projectId);
-  const raw=qianqiPreset();raw.short.enabled=bps>0;raw.monthly.enabled=bps<10000;raw.short.minimumFund='1';raw.short.basket={weights:[1],minimumUnit:'1'};raw.monthly.minimumFund='1';raw.monthly.nextReserve='1';raw.ticketPurchase='10';raw.fees={prizesBps:8000,teamBps:1500,operationsBps:500};const config=upgradeProgramDraft(raw,bps);
+  const raw=qianqiPreset();raw.short.enabled=bps>0;raw.monthly.enabled=bps<10000;raw.short.minimumFund='1';raw.short.basket={weights:[1],minimumUnit:'1'};raw.monthly.minimumFund='1';raw.monthly.nextReserve='1';raw.ticketPurchase='10';raw.fees={prizesBps:8000,teamBps:1500,operationsBps:500};const config=process.env.IGW_MONTHLY_REHEARSAL==='1'&&i===0?igwMonthlyDraft(upgradeProgramDraft(raw,bps)):upgradeProgramDraft(raw,bps);
   const c={quote,hook,factory,router,escrow};
-  if(bps>0){c.short=await prod('ShortProgram',[{asset:quote.target,operator:signer.address,instance,interval:raw.short.intervalSeconds,minimumFund:1000000,minimumUnit:1000000},[1],timing]);c.shortAdapter=new Contract(await c.short.randomness(),build.artifacts.ShortDrandAdapter.abi,deployer);}
+  if(bps>0){c.short=await prod('ShortProgram',[{asset:quote.target,operator:signer.address,instance,interval:config.short.intervalSeconds,minimumFund:1000000,minimumUnit:1000000},[1],timing]);c.shortAdapter=new Contract(await c.short.randomness(),build.artifacts.ShortDrandAdapter.abi,deployer);}
   if(bps<10000){c.monthly=await prod('MonthlyProgram',[{asset:quote.target,operator:signer.address,instance,minimumFund:1000000,nextTarget:1000000},timing]);c.monthlyAdapter=new Contract(await c.monthly.randomness(),build.artifacts.ShortDrandAdapter.abi,deployer);}
   c.fundingRouter=await prod('DrawFundingRouter',[quote.target,c.short?.target??ZeroAddress,c.monthly?.target??ZeroAddress,bps]);
   c.splitter=await prod('FeeSplitter',[quote.target,c.fundingRouter.target,wallet(15).address,wallet(16).address,[8000,1500,500]]);
   c.collector=await prod('PonsFeeCollector',[quote.target,escrow.target,c.splitter.target,factory.target]);c.token=await fixture('TestUSDG',[],'Fixtures');c.curve=await fixture('WorkerCurve',[c.token.target,factory.target,quote.target,c.collector.target,escrow.target]);
   await tx(factory.setLaunch([c.token.target,c.curve.target,owner,c.collector.target,quote.target,4200000,3000,60,200,false,0,0,0,0,true]));await tx(c.collector.bind(c.token.target));await tx(c.token.mint(c.curve.target,1000000000000n));
-  c.recognition=await prod('PurchaseRecognition',[instance,publisher.address]);const anchor=await provider.getBlock('latest');
+  c.recognition=await prod('PurchaseRecognition',[instance,publisher.address]);const anchor=await provider.getBlock('latest');await hre.network.provider.send('evm_mine');
   const policy={schema:'draw-production-policy-v2',purchaseAccounting:DEFERRED,chainId:4663,projectId,executor:signer.address,publisher:publisher.address,buildHash:build.manifest.buildHash,anchor:{number:anchor.number,hash:anchor.hash},contracts:{},limits:{maxGasPrice:'100000000000',maxGasLimit:'15000000',nativeFloor:'100000'},timing,template:{schema:'draw-template-v2',instanceId:instance,config,team:wallet(15).address,operations:wallet(16).address,creatorTaxBps:200}};
   for(const [role,obj] of Object.entries(c))policy.contracts[role]={address:obj.target,codeHash:keccak256(await provider.getCode(obj.target))};
   await withOwnerLaunch({pool:db.pools.executor,projectId,owner},async({save})=>{const s={schema:'owner-launch-v2',stage:'deployed',history:[{hash:c.recognition.deploymentTransaction().hash,blockNumber:anchor.number,blockHash:anchor.hash}],input:{id:projectId,slug:'worker-'+i,draft:{name:'Worker '+i}},roles:{executor:signer.address,publisher:publisher.address},identity:digest({projectId}),policy,launch:{token:c.token.target}};await save(s);await save(s);});

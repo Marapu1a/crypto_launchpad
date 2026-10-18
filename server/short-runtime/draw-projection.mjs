@@ -1,3 +1,5 @@
+import {drawAsset} from '../../src/draws/assets.mjs';
+import {drawEligibleAt} from '../../src/worker/draw-schedule.mjs';
 import {keccak256} from 'ethers';
 import {digest} from '../../src/tickets/digest.mjs';
 import {drawContracts,validateDrawPolicy} from '../../src/worker/draw-policy.mjs';
@@ -16,7 +18,7 @@ export async function buildDrawSnapshot({provider,policy,state,metadata={}}){
  const ledger=state.runtime.ledger,pons=state.runtime.ponsAccounting,reference=pons?.head??ledger.head,head=await provider.getBlock(reference.number),finalized=await provider.getBlock('finalized');
  check(head&&finalized&&head.number<=finalized.number&&same(head.hash,reference.hash),'Projection is not finalized/canonical');
  const c=drawContracts({call:r=>provider.call({...r,blockTag:head.number})},policy);
- const thresholdRaw=String(amount(config.ticketPurchase)),credited=creditedPurchases(policy,ledger,head.number),wallets=pons?ponsWallets(pons,thresholdRaw):replayTickets(credited,thresholdRaw),ids=new Set(credited.map(e=>e.candidateId));
+ const thresholdRaw=String(amount(config.ticketPurchase,undefined,config.asset)),credited=creditedPurchases(policy,ledger,head.number),wallets=pons?ponsWallets(pons,thresholdRaw):replayTickets(credited,thresholdRaw),ids=new Set(credited.map(e=>e.candidateId));
  const waiting=!pons&&deferred(policy)?pendingPurchases(ledger,ids):[],pendingByWallet={};
  for(const e of waiting)for(const address of new Set([e.observedSender,e.observedRecipient].filter(Boolean))){
   const bucket=pendingByWallet[address]??={count:0,items:[]};bucket.count++;
@@ -36,12 +38,12 @@ export async function buildDrawSnapshot({provider,policy,state,metadata={}}){
    check(frozen&&same(d.participantsHash,frozen.participantsHash)&&d.budget===BigInt(frozen.budget),'Draw snapshot missing');
    draw={cycle:String(cycle),budgetRaw:String(d.budget),awardedRaw:String(d.awarded),settled:d.settled};
   }
-  let minimum=amount(settings.minimumFund);
-  if(kind==='short'){const basket=validateBasket(settings.basket).minimumBudget;if(basket>minimum)minimum=basket;}
-  draws.push({...common,kind,program:program.target,settings:{asset:'USDG',decimals:6,thresholdRaw,minimumFundRaw:String(minimum),intervalSeconds:settings.intervalSeconds,
+  let minimum=amount(settings.minimumFund,undefined,config.asset);
+  if(kind==='short'){const basket=validateBasket(settings.basket,config.asset).minimumBudget;if(basket>minimum)minimum=basket;}
+  draws.push({...common,kind,program:program.target,settings:{asset:config.asset,decimals:drawAsset(config.asset).decimals,...(config.schedule?{schedule:{...config.schedule}}:{}),thresholdRaw,minimumFundRaw:String(minimum),intervalSeconds:settings.intervalSeconds,
    creatorFeeBps:policy.template.creatorTaxBps,splitBps:[config.fees.prizesBps,config.fees.teamBps,config.fees.operationsBps],weights:kind==='short'?[...settings.basket.weights]:[1],allocationBps:kind==='short'?config.allocation.shortBps:10000-config.allocation.shortBps},
    walletSnapshot:{schema:'draw-wallets-v1',pending:pendingByWallet,items:await projectWallets({wallets,program,pending,cycle,frozen:state.runtime.cycles[kind]?.[String(cycle)]})},
-   fundRaw:String(fund),liabilitiesRaw:String(liabilities),cycle:String(cycle),pending,nextEligibleAt:String(lastTerminal+BigInt(settings.intervalSeconds)),draw,
+   fundRaw:String(fund),liabilitiesRaw:String(liabilities),cycle:String(cycle),pending,nextEligibleAt:String(await drawEligibleAt(provider,policy,kind,cycle,lastTerminal,settings.intervalSeconds)),draw,
    ...(kind==='monthly'?{nextFundRaw:String(await program.freeNext()),nextTargetRaw:String(await program.nextTarget())}:{})});
  }
  check(same((await provider.getBlock(head.number))?.hash,head.hash)&&same((await provider.getBlock(finalized.number))?.hash,finalized.hash),'Projection branch changed');

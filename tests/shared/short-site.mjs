@@ -43,6 +43,14 @@ try{
   await page.screenshot({path:root+'/desktop.png',fullPage:true});
   await page.goto('http://beta.localhost:'+port);await page.getByRole('heading',{name:'beta',exact:true}).waitFor();assert.match(await page.locator('.token-metrics').innerText(),/96 USDG/);
  });
+ await scenario('ETH public snapshot uses 18 decimals without changing USDG project',async()=>{
+  const native={...snapshot(96),fundRaw:'5000000000000001',settings:{...snapshot(96).settings,asset:'ETH',decimals:18,intervalSeconds:2592000,schedule:{algorithm:'igw-short-v1',cadence:'launch-then-terminal-30d'},thresholdRaw:'1000000000000000',minimumFundRaw:'5000000000000000'}};
+  await db.admin.query('UPDATE launchpad.short_public_views SET snapshot=$2 WHERE project_id=$1',[b,JSON.stringify(native)]);
+  await page.goto('http://beta.localhost:'+port);await page.getByRole('heading',{name:'beta',exact:true}).waitFor();
+  assert.match(await page.locator('.token-metrics').innerText(),/0\.005000000000000001 ETH/);assert.match(await page.locator('main').innerText(),/0\.001 ETH/);
+  assert.match(await page.locator('h2').first().innerText(),/IGW/);assert.match(await page.locator('main').innerText(),/30 суток от запуска/);
+  assert.doesNotMatch(await page.locator('main').innerText(),/USDG/);await page.screenshot({path:root+'/native-eth.png',fullPage:true});
+ });
  await scenario('Stale/offline states preserve last values, escaped metadata cannot execute, mobile fits',async()=>{
   await db.admin.query("UPDATE launchpad.short_public_views SET observed_at=clock_timestamp()-interval '10 minutes',service_at=clock_timestamp()-interval '10 minutes' WHERE project_id=$1",[a]);
   await db.admin.query('UPDATE launchpad.projects SET display_name=$2 WHERE id=$1',[a,'<img src=x onerror=window.pwn=1>']);

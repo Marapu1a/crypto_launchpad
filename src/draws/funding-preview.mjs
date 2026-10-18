@@ -8,7 +8,7 @@ function totals(config,received){
  const short=ceilDiv(received*BigInt(config.allocation.shortBps),10000n);
  const monthly=received-short;
  const candidate=monthly/3n;
- const cap=amount(config.monthly.nextReserve);
+ const cap=amount(config.monthly.nextReserve,undefined,config.asset);
  const next=candidate>cap?cap:candidate;
  return {short,current:monthly-next,next};
 }

@@ -1,3 +1,7 @@
+> Решение 18.10.2026: розыгрыш по механике IGW и выплаты держателям — раз в месяц. Выкуп/сжигание вне v1. Более ранние варианты ниже не являются действующими решениями. Текущая очередь: [ROADMAP](ROADMAP.md).
+
+> Update 2026-10-18: [bounded live holder API probe](PONS_HOLDER_SOURCE_20261018.md) confirms IGW enumeration and 12 PONS pages; atomic snapshot semantics remain unresolved. Earlier availability statements below are historical.
+
 # Pattern Watcher: holder rewards research
 
 2026-10-17. Read-only research; proposals below are not approved financial terms.
@@ -73,3 +77,5 @@ token at purchase time, as previously agreed; no balance-time index required.
 Recommended next investigation: prove full holder pagination and settlement
 balance availability, then compare the cost of snapshots versus historical
 tracking. No financial implementation or launch changes yet.
+
+> Реализация 18.10.2026: [расчётное ядро держателей](HOLDER_LEDGER.md) проверено на fixtures. [Финансовая политика PW утверждена](PATTERN_WATCHER_RULES.md); production acceptance не реализован.

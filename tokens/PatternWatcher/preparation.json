@@ -1,0 +1,99 @@
+{
+  "schema": "pattern-watcher-preparation-v1",
+  "status": "mechanics-approved-eth-amounts-pending-not-executable",
+  "name": "Pattern Watcher",
+  "symbol": null,
+  "chainId": 4663,
+  "quoteAsset": "ETH",
+  "creatorTaxBps": 300,
+  "feeSplitBps": {
+    "holders": 6000,
+    "draw": 2000,
+    "operations": 2000
+  },
+  "draw": {
+    "mechanism": "igw-short-outcome-v1",
+    "eligibility": "purchase-tickets",
+    "cadence": "monthly",
+    "intervalSeconds": 2592000,
+    "calendarSemantics": "30-days-from-launch-then-terminal",
+    "prizeWeights": [
+      1
+    ],
+    "maximumWinners": 1,
+    "winnerGuaranteed": false,
+    "ticketPurchase": null,
+    "minimumFund": null,
+    "minimumUnit": null,
+    "outcomeRules": {
+      "version": 1,
+      "pNumerator": 4,
+      "pDenominator": 5,
+      "hNumerator": 1,
+      "hDenominator": 1
+    }
+  },
+  "holders": {
+    "cadence": "monthly",
+    "eligibilityPolicy": "positive-balance-at-accepted-snapshot",
+    "weightPolicy": "snapshot-balance",
+    "snapshotSemantics": "unverified",
+    "dustCarry": true,
+    "minimumPaymentRaw": null,
+    "payoutMode": null,
+    "intervalSeconds": 2592000,
+    "calendarSemantics": "fixed-30-day-periods-from-token-launch",
+    "minimumHoldingRaw": "1",
+    "exclusionCategories": [
+      "curve",
+      "pools",
+      "burn",
+      "published-project-service-wallets"
+    ],
+    "excludedAddresses": null,
+    "excludeAllContracts": false,
+    "accruedRewardsSurviveSale": true,
+    "gasPaidBy": "operations",
+    "expensiveGasAction": "defer-payment-preserve-debt",
+    "gasCostLimit": null
+  },
+  "buyback": {
+    "enabled": false,
+    "inV1": false
+  },
+  "burn": {
+    "enabled": false,
+    "inV1": false
+  },
+  "servicePayments": {
+    "inThisPackage": false,
+    "asset": "ETH",
+    "periodDays": [
+      1,
+      7,
+      30
+    ]
+  },
+  "reference": {
+    "project": "IGW",
+    "publicSource": "https://igw.qianqi.site/api/draws",
+    "observedDate": "2026-10-18",
+    "asset": "USDG",
+    "ticketPurchase": "10",
+    "minimumFund": "50",
+    "minimumUnit": "50",
+    "intervalSeconds": 86400,
+    "creatorTaxBps": 200,
+    "feeSplitBps": [
+      8000,
+      1500,
+      500
+    ],
+    "note": "Reference only. minimumUnit comes from documented launch profile, not public snapshot. No wallets, keys, deployment IDs or live configuration copied."
+  },
+  "rulesApprovedAt": "2026-10-18",
+  "rulesDocument": "docs/PATTERN_WATCHER_RULES.md",
+  "quoteDecimals": 18,
+  "feeSplitBasis": "actually-received-creator-trading-fees",
+  "executionEnabled": false
+}

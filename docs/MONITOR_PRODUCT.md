@@ -1,3 +1,5 @@
+> Решение 18.10.2026: розыгрыш по механике IGW и выплаты держателям — раз в месяц. Выкуп/сжигание вне v1. Более ранние варианты ниже не являются действующими решениями. Текущая очередь: [ROADMAP](ROADMAP.md).
+
 > 2026-10-17: Compact EN/zh-CN monitor and wallet layout implemented and tested locally. [Layout and limits](MONITOR_LAYOUT_20261017.md). Visual review pending; no deployment.
 
 > 2026-10-16: [Monitor reliability](MONITOR_RELIABILITY_20261016.md) implemented and tested locally: bounded backfill, coverage journal, snapshot-only refresh, neutral observations. Primary collector not switched; deployment pending.

@@ -5,6 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {BrowserProvider,Contract,ContractFactory,HDNodeWallet,id,keccak256,ZeroAddress} from 'ethers';
 import {compileProduction} from '../../src/worker/production-build.mjs';
 import {compileDrawPrograms} from '../../src/worker/draw-build.mjs';
+import {compileNativePrograms} from '../../src/worker/native-build.mjs';
 import {qianqiPreset,amount} from '../../src/draws/config.mjs';
 import {upgradeProgramDraft} from '../../src/draws/program-config.mjs';
 import {createTestPostgres} from './production-postgres.mjs';
@@ -42,6 +43,7 @@ const bridge=createServer(async(req,res)=>{
  }catch(e){res.end(JSON.stringify({jsonrpc:'2.0',id:q.id,error:{code:-32000,message:e.message}}));}
 });await new Promise(r=>bridge.listen(0,'127.0.0.1',r));
 const hostPass=async p=>{
+ if(process.argv.includes('--direct'))return runDrawWorker(p);
  let result;
  await runPonsRuntime({mode:'rehearsal',lockFile:resolve(root,'host.lock'),healthFile:resolve(root,'health.json'),rpcBudget:budgetOptions,once:true,failFast:true,prepare:async({provider:makeProvider})=>{
   const gated=makeProvider('http://127.0.0.1:'+bridge.address().port);gated.pollingInterval=10;
@@ -51,33 +53,36 @@ const hostPass=async p=>{
 };
 const scenario=async(name,f)=>{await f();report.scenarios.push({name,status:'PASS'});console.log('PASS '+name);};const tx=async p=>(await p).wait();
 try{
- const build=compileDrawPrograms(),fixtures=compileProduction({'tests/contracts/WorkerFixtures.sol':{content:readFileSync('tests/contracts/WorkerFixtures.sol','utf8')}});report.buildHash=build.manifest.buildHash;
+ const native=process.argv.includes('--native'),scale=native?1000000000000n:1n;
+ const build=native?compileNativePrograms():compileDrawPrograms(),fixtures=compileProduction({'tests/contracts/NativeFixtures.sol':{content:readFileSync('tests/contracts/NativeFixtures.sol','utf8')}});report.buildHash=build.manifest.buildHash;report.asset=native?'ETH':'USDG';
  const deployer=await base.getSigner(0),owner=await deployer.getAddress();
  const deploy=async(a,args=[])=>{const c=await new ContractFactory(a.abi,a.evm.bytecode.object,deployer).deploy(...args);await c.waitForDeployment();return c;};
  const prod=(name,args)=>deploy(build.artifacts[name],args),fixture=(name,args=[],file='WorkerFixtures')=>deploy(fixtures.contracts['tests/contracts/'+file+'.sol'][name],args);
- const quote=await fixture('TestUSDG',[],'Fixtures'),hook=await fixture('WorkerHook'),factory=await fixture('WorkerFactory',[hook.target]),router=await fixture('WorkerRouter',[factory.target]),escrow=await fixture('WorkerEscrow',[quote.target]);
+ const quote=native?{target:ZeroAddress,balanceOf:address=>provider.getBalance(address)}:await fixture('TestUSDG',[],'Fixtures'),hook=await fixture('WorkerHook'),factory=await fixture('WorkerFactory',[hook.target]),router=await fixture('WorkerRouter',[factory.target]),escrow=native?await fixture('NativeEscrowFixture',[],'NativeFixtures'):await fixture('WorkerEscrow',[quote.target]);
  db=await createTestPostgres(root+'/postgres');const projects=[];
  const wallet=i=>HDNodeWallet.fromPhrase('test test test test test test test test test test test junk',undefined,"m/44'/60'/0'/0/"+i).connect(provider);
  const timing={lead:3600,clockLag:30,clockAhead:30,finalizedLag:1800,beaconLag:30};
- for(const [i,bps] of (process.argv.includes('--dual-only')?[5000]:[10000,0,5000]).entries()){
+ for(const [i,bps] of (native||process.argv.includes('--dual-only')?[5000]:[10000,0,5000]).entries()){
   const signer=wallet(1+i*2),publisher=wallet(2+i*2),projectId=randomUUID(),instance=id(projectId);
   const raw=qianqiPreset();raw.short.enabled=bps>0;raw.monthly.enabled=bps<10000;raw.short.minimumFund='1';raw.short.basket={weights:[1],minimumUnit:'1'};raw.monthly.minimumFund='1';raw.monthly.nextReserve='1';raw.ticketPurchase='10';raw.fees={prizesBps:8000,teamBps:1500,operationsBps:500};const config=upgradeProgramDraft(raw,bps);
-  const c={quote,hook,factory,router,escrow};
-  if(bps>0){c.short=await prod('ShortProgram',[{asset:quote.target,operator:signer.address,instance,interval:raw.short.intervalSeconds,minimumFund:1000000,minimumUnit:1000000},[1],timing]);c.shortAdapter=new Contract(await c.short.randomness(),build.artifacts.ShortDrandAdapter.abi,deployer);}
-  if(bps<10000){c.monthly=await prod('MonthlyProgram',[{asset:quote.target,operator:signer.address,instance,minimumFund:1000000,nextTarget:1000000},timing]);c.monthlyAdapter=new Contract(await c.monthly.randomness(),build.artifacts.ShortDrandAdapter.abi,deployer);}
+  if(native){config.version=4;config.asset='ETH';}
+  const c={...(native?{}:{quote}),hook,factory,router,escrow};
+  if(bps>0){c.short=await prod('ShortProgram',[{asset:quote.target,operator:signer.address,instance,interval:raw.short.intervalSeconds,minimumFund:1000000n*scale,minimumUnit:1000000n*scale},[1],timing]);c.shortAdapter=new Contract(await c.short.randomness(),build.artifacts.ShortDrandAdapter.abi,deployer);}
+  if(bps<10000){c.monthly=await prod('MonthlyProgram',[{asset:quote.target,operator:signer.address,instance,minimumFund:1000000n*scale,nextTarget:1000000n*scale},timing]);c.monthlyAdapter=new Contract(await c.monthly.randomness(),build.artifacts.ShortDrandAdapter.abi,deployer);}
   c.fundingRouter=await prod('DrawFundingRouter',[quote.target,c.short?.target??ZeroAddress,c.monthly?.target??ZeroAddress,bps]);
-  c.splitter=await prod('FeeSplitter',[quote.target,c.fundingRouter.target,wallet(15).address,wallet(16).address,[8000,1500,500]]);
-  c.collector=await prod('PonsFeeCollector',[quote.target,escrow.target,c.splitter.target,factory.target]);c.token=await fixture('TestUSDG',[],'Fixtures');c.curve=await fixture('WorkerCurve',[c.token.target,factory.target,quote.target,c.collector.target,escrow.target]);
+  const nativeRecipient=native?await fixture('NativeRecipientFixture',[],'NativeFixtures'):null,operations=nativeRecipient?.target??wallet(16).address;
+  c.splitter=await prod('FeeSplitter',[quote.target,c.fundingRouter.target,wallet(15).address,operations,[8000,1500,500]]);
+  c.collector=await prod('PonsFeeCollector',[quote.target,escrow.target,c.splitter.target,factory.target]);c.token=await fixture('TestUSDG',[],'Fixtures');c.curve=native?await fixture('NativeCurveFixture',[c.token.target,factory.target,c.collector.target,escrow.target],'NativeFixtures'):await fixture('WorkerCurve',[c.token.target,factory.target,quote.target,c.collector.target,escrow.target]);
   await tx(factory.setLaunch([c.token.target,c.curve.target,owner,c.collector.target,quote.target,4200000,3000,60,200,false,0,0,0,0,true]));await tx(c.collector.bind(c.token.target));await tx(c.token.mint(c.curve.target,1000000000000n));
   c.recognition=await prod('PurchaseRecognition',[instance,publisher.address]);const anchor=await provider.getBlock('latest');
-  const policy={schema:'draw-production-policy-v2',purchaseAccounting:DEFERRED,chainId:4663,projectId,executor:signer.address,publisher:publisher.address,buildHash:build.manifest.buildHash,anchor:{number:anchor.number,hash:anchor.hash},contracts:{},limits:{maxGasPrice:'100000000000',maxGasLimit:'15000000',nativeFloor:'100000'},timing,template:{schema:'draw-template-v2',instanceId:instance,config,team:wallet(15).address,operations:wallet(16).address,creatorTaxBps:200}};
+  const policy={schema:'draw-production-policy-v2',purchaseAccounting:native?'pons-api-v1':DEFERRED,chainId:4663,projectId,executor:signer.address,publisher:publisher.address,buildHash:build.manifest.buildHash,anchor:{number:anchor.number,hash:anchor.hash},contracts:{},limits:{maxGasPrice:'100000000000',maxGasLimit:'15000000',nativeFloor:'100000'},timing,template:{schema:'draw-template-v2',instanceId:instance,config,team:wallet(15).address,operations,creatorTaxBps:200}};
   for(const [role,obj] of Object.entries(c))policy.contracts[role]={address:obj.target,codeHash:keccak256(await provider.getCode(obj.target))};
   await withOwnerLaunch({pool:db.pools.executor,projectId,owner},async({save})=>{const s={schema:'owner-launch-v2',stage:'deployed',history:[{hash:c.recognition.deploymentTransaction().hash,blockNumber:anchor.number,blockHash:anchor.hash}],input:{id:projectId,slug:'worker-'+i,draft:{name:'Worker '+i}},roles:{executor:signer.address,publisher:publisher.address},identity:digest({projectId}),policy,launch:{token:c.token.target}};await save(s);await save(s);});
   const handoff={pool:db.pools.executor,adminPool:db.admin,provider,projectId,owner};
   // adminPool needs a leased client; use isolated admin connection adapter without closing it.
   handoff.adminPool={connect:async()=>({query:(...a)=>db.admin.query(...a),release:()=>{}})};
   assert.equal((await registerDeployedDraw(handoff)).enabled,false);assert.equal((await registerDeployedDraw(handoff)).enabled,false);
-  projects.push({pool:db.pools.executor,provider,signer,publisher,projectId,moduleId:projectId,policy,c,now:()=>clock,getLatestBeacon:async()=>preceding,getBeacon:async round=>{assert.equal(round,vector.beacon.round);return vector.beacon;}});
+  projects.push({pool:db.pools.executor,provider,signer,publisher,projectId,moduleId:projectId,policy,c,nativeRecipient,now:()=>clock,getLatestBeacon:async()=>preceding,getBeacon:async round=>{assert.equal(round,vector.beacon.round);return vector.beacon;}});
  }
  const state=async p=>JSON.parse((await db.admin.query('SELECT state_text FROM launchpad.production_senders WHERE project_id=$1',[p.projectId])).rows[0].state_text);
  const pass=async p=>{const m=await meter.measure(()=>hostPass(p));rpcPasses.push({status:m.result.status,action:m.result.action??null,methods:m.methods,total:m.total});return m.result;},until=async(p,predicate,max=50)=>{for(let i=0;i<max;i++){if(await predicate())return;const r=await pass(p);if(r.status==='blocked')throw Error(JSON.stringify(r));}assert.ok(await predicate(),'Worker condition not reached');};
@@ -87,19 +92,20 @@ try{
  for(const p of projects){
   p.apiRows=[];
   p.ponsRehearsal={load:async()=>({schema:'pons-purchase-accounting-v1',source:'Pons API',status:'current',error:null,reviewCount:0,checkedAt:clock,
-   profile:{project:p.projectId,token:p.c.token.target,quote:quote.target,decimals:6,threshold:'10',excludedWallets:[],venues:['curve']},
+   profile:{project:p.projectId,token:p.c.token.target,quote:quote.target,decimals:native?18:6,threshold:'10',excludedWallets:[],venues:['curve']},
    tradeCount:p.apiRows.length,activity:structuredClone(p.apiRows)})};
  }
  const apiBuy=async(p,n)=>{
+  n*=scale;
   const buyer=await base.getSigner(8),address=(await buyer.getAddress()).toLowerCase();
-  await tx(quote.mint(address,n));await tx(quote.connect(buyer).approve(p.c.curve.target,n));
-  const receipt=await tx(p.c.curve.connect(buyer).buy(n,0,address));
+  if(!native){await tx(quote.mint(address,n));await tx(quote.connect(buyer).approve(p.c.curve.target,n));}
+  const receipt=await tx(native?p.c.curve.connect(buyer).recordFees({value:n/50n}):p.c.curve.connect(buyer).buy(n,0,address));
   const block=await base.getBlock(receipt.blockNumber);const hash=receipt.hash.toLowerCase();
   p.apiRows.push({id:hash+':0',txHash:hash,trader:address,quoteRaw:String(n),timestamp:block.timestamp,side:'buy',venue:'curve',decision:'purchase'});
  };
- await scenario('Pons source: three modes, no event scan, no traces, no recognition transaction',async()=>{
+ await scenario('Pons source: '+(native?'ETH dual draw':'USDG configured modes')+', no event scan, no traces, no recognition transaction',async()=>{
   for(const p of projects)await apiBuy(p,400000000n);await move(time-timing.lead-61);
-  for(const p of projects)await until(p,async()=>{const s=await state(p);return s.runtime?.ponsAccounting&&await p.c.fundingRouter.totalReceived()===6400000n&&await p.c.fundingRouter.credit(0)===0n&&await p.c.fundingRouter.credit(1)===0n&&await p.c.splitter.credit(1)===0n&&await p.c.splitter.credit(2)===0n;});
+  for(const p of projects)await until(p,async()=>{const s=await state(p);return s.runtime?.ponsAccounting&&await p.c.fundingRouter.totalReceived()===6400000n*scale&&await p.c.fundingRouter.credit(0)===0n&&await p.c.fundingRouter.credit(1)===0n&&await p.c.splitter.credit(1)===0n&&await p.c.splitter.credit(2)===0n;});
   for(const p of projects){const s=await state(p);assert.equal(s.runtime.publisher.history.length,0);assert.equal(s.runtime.ledger.events.length,0);}
  });
  await scenario('Pons freeze and persisted signed-intent restart',async()=>{
@@ -123,7 +129,7 @@ try{
    const availableSource=p.ponsRehearsal;p.ponsRehearsal={load:async()=>{throw Error('Pons offline during settlement');}};
    for(const k of ['short','monthly'])if(p.c[k])await until(p,async()=>(await p.c[k].draws(1)).settled&&await p.c[k].liabilities()===0n);
    p.ponsRehearsal=availableSource;
-   await until(p,async()=>await p.c.curve.creatorTaxBalance()===0n&&await p.c.curve.quoteFeeBalance()===0n&&await quote.balanceOf(p.c.collector.target)===0n&&await p.c.escrow.balanceOfToken(p.c.collector.target,quote.target)===0n&&await p.c.splitter.credit(0)===0n&&await p.c.splitter.credit(1)===0n&&await p.c.splitter.credit(2)===0n&&await p.c.fundingRouter.credit(0)===0n&&await p.c.fundingRouter.credit(1)===0n);
+   await until(p,async()=>await p.c.curve.creatorTaxBalance()===0n&&await p.c.curve.quoteFeeBalance()===0n&&await quote.balanceOf(p.c.collector.target)===0n&&(native?await p.c.escrow.balanceOf(p.c.collector.target):await p.c.escrow.balanceOfToken(p.c.collector.target,quote.target))===0n&&await p.c.splitter.credit(0)===0n&&await p.c.splitter.credit(1)===0n&&await p.c.splitter.credit(2)===0n&&await p.c.fundingRouter.credit(0)===0n&&await p.c.fundingRouter.credit(1)===0n);
    const n=await provider.getTransactionCount(p.signer.address);await pass(p);await pass(p);assert.equal(await provider.getTransactionCount(p.signer.address),n);
   }
   const p=projects.at(-1),s=await state(p),buyer=(await (await base.getSigner(8)).getAddress()).toLowerCase();
@@ -135,6 +141,15 @@ try{
   const supervised=createPonsDrawService(p),first=await meter.measure(()=>supervised()),sleeping=await meter.measure(()=>supervised());
   assert.equal(first.result.service.ran,true);assert.equal(sleeping.result.service.ran,false);assert.equal(sleeping.total,0);
   report.rpc.supervisor={initial:first.total,unchangedSource:sleeping.total,nextCheckAt:sleeping.result.service.nextCheckAt};
+ });
+ if(native)await scenario('Refusing native recipient preserves debt, other lanes progress, retry sleeps without RPC and recovers',async()=>{
+  const p=projects[0];await tx(p.nativeRecipient.configure(true,ZeroAddress,'0x'));await apiBuy(p,10000000n);clock=(await base.getBlock('latest')).timestamp;
+  await until(p,async()=>await p.c.splitter.credit(2)>0n&&await p.c.splitter.credit(0)===0n&&await p.c.splitter.credit(1)===0n&&await p.c.fundingRouter.credit(0)===0n&&await p.c.fundingRouter.credit(1)===0n&&await p.c.curve.creatorTaxBalance()===0n);
+  const debt=await p.c.splitter.credit(2),supervised=createPonsDrawService(p),first=await supervised();
+  assert.equal(first.status,'waiting');assert.equal(first.deferredNativePayments.length,1);assert.equal(first.nextCheckAt,clock+3600);
+  const n=await provider.getTransactionCount(p.signer.address),sleeping=await meter.measure(()=>supervised());assert.equal(sleeping.total,0);assert.equal(sleeping.result.service.ran,false);assert.equal(await provider.getTransactionCount(p.signer.address),n);
+  await tx(p.nativeRecipient.configure(false,ZeroAddress,'0x'));await move(clock+3601);
+  const before=await provider.getBalance(p.nativeRecipient.target);await supervised();await until(p,async()=>await p.c.splitter.credit(2)===0n);assert.equal(await provider.getBalance(p.nativeRecipient.target)-before,debt);
  });
  report.status='PASS';
 }catch(e){report.status='FAIL';report.error=e.shortMessage||e.message;console.error(e);process.exitCode=1;}

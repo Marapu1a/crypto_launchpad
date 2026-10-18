@@ -1,3 +1,4 @@
+import {drawAsset} from './assets.mjs';
 // Configuration and preview only. No custody, RNG, ticket ledger or deployment.
 import { parseUnits } from 'ethers';
 const MAX = (1n << 256n) - 1n;
@@ -9,9 +10,10 @@ function integer(value, min, max, path) {
   if (!Number.isSafeInteger(value) || value < min || value > max) throw Error(`${path}: ожидается целое от ${min} до ${max}`);
   return value;
 }
-export function amount(value, path = 'Сумма') {
-  if (typeof value !== 'string' || value.length > 80 || !/^(0|[1-9]\d*)(?:[.,]\d{1,6})?$/.test(value)) throw Error(`${path}: число с точностью до 6 знаков`);
-  const result = parseUnits(value.replace(',', '.'), 6);
+export function amount(value, path = 'Сумма', asset = 'USDG') {
+  const decimals=drawAsset(asset).decimals;
+  if (typeof value !== 'string' || value.length > 80 || !new RegExp('^(0|[1-9]\\d*)(?:[.,]\\d{1,'+decimals+'})?$').test(value)) throw Error(`${path}: число с точностью до ${decimals} знаков`);
+  const result = parseUnits(value.replace(',', '.'), decimals);
   if (result <= 0n || result > MAX) throw Error(`${path}: сумма вне допустимого диапазона`);
   return result;
 }
@@ -19,19 +21,19 @@ export function equalWeights(count) {
   integer(count, 1, 64, 'Количество мест');
   return Array(count).fill(1);
 }
-export function validateBasket(basket) {
+export function validateBasket(basket, asset='USDG') {
   keys(basket, ['weights', 'minimumUnit'], 'Корзина');
   if (!Array.isArray(basket.weights) || basket.weights.length < 1 || basket.weights.length > 64) throw Error('Корзина: от 1 до 64 мест');
   const weights = basket.weights.map(w => BigInt(integer(w, 1, Number.MAX_SAFE_INTEGER, 'Вес приза')));
   const sum = weights.reduce((a, b) => a + b, 0n);
-  const minimumUnit = amount(basket.minimumUnit, 'Минимальная единица');
+  const minimumUnit = amount(basket.minimumUnit, 'Минимальная единица', asset);
   if (sum * minimumUnit > MAX) throw Error('Корзина превышает uint256');
   return { weights, sum, minimumUnit, minimumBudget: sum * minimumUnit };
 }
 // Exact port of QIANQI ShortPrizeBasket.build: divide budget once, then multiply.
-export function previewBasket(budget, basket) {
+export function previewBasket(budget, basket, asset='USDG') {
   if (typeof budget !== 'bigint' || budget < 0n || budget > MAX) throw Error('Бюджет: требуется uint256 bigint');
-  const { weights, sum, minimumUnit, minimumBudget } = validateBasket(basket);
+  const { weights, sum, minimumUnit, minimumBudget } = validateBasket(basket, asset);
   const unit = budget / sum;
   if (unit < minimumUnit) return { ready: false, minimumBudget, missing: minimumBudget - budget, prizes: [], total: 0n, remainder: budget };
   const prizes = weights.map(w => unit * w);
@@ -47,10 +49,11 @@ export function qianqiPreset() {
       nextReserve: '100', winnerCount: 1 },
   };
 }
-export function validateConfig(config) {
+export function validateConfig(config, {asset='USDG'}={}) {
   keys(config, ['version', 'asset', 'ticketPurchase', 'fees', 'short', 'monthly'], 'Программа');
-  if (config.version !== 1 || config.asset !== 'USDG') throw Error('Поддерживается конфигурация v1 / USDG');
-  amount(config.ticketPurchase, 'Покупки на билет');
+  if (config.version !== 1 || config.asset !== asset) throw Error('Поддерживается конфигурация v1 / USDG');
+  drawAsset(asset);
+  amount(config.ticketPurchase, 'Покупки на билет', asset);
   keys(config.fees, ['prizesBps', 'teamBps', 'operationsBps'], 'Доли комиссий');
   const total = ['prizesBps', 'teamBps', 'operationsBps'].reduce((sum, k) => sum + integer(config.fees[k], 0, 10000, k), 0);
   if (total !== 10000) throw Error('Доли комиссий должны составлять 100%');
@@ -59,10 +62,10 @@ export function validateConfig(config) {
     keys(lane, kind === 'short' ? ['enabled', 'intervalSeconds', 'minimumFund', 'basket'] : ['enabled', 'intervalSeconds', 'minimumFund', 'nextReserve', 'winnerCount'], kind);
     if (typeof lane.enabled !== 'boolean') throw Error(`${kind}: enabled должен быть boolean`);
     integer(lane.intervalSeconds, 1, Number.MAX_SAFE_INTEGER, `${kind}: интервал`);
-    amount(lane.minimumFund, `${kind}: минимальный фонд`);
+    amount(lane.minimumFund, `${kind}: минимальный фонд`, asset);
   }
-  validateBasket(config.short.basket);
-  amount(config.monthly.nextReserve, 'Следующий месячный резерв');
+  validateBasket(config.short.basket, asset);
+  amount(config.monthly.nextReserve, 'Следующий месячный резерв', asset);
   // Multi-winner Monthly requires a new outcome algorithm, not a basket substitution.
   if (config.monthly.winnerCount !== 1) throw Error('Monthly: несколько победителей ещё не реализованы');
   if (!config.short.enabled && !config.monthly.enabled) throw Error('Включите хотя бы один розыгрыш; без розыгрышей используйте базовый запуск Pons');

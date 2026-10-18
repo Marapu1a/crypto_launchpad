@@ -1,6 +1,6 @@
-> Latest monitor implementation: [reliability package](MONITOR_RELIABILITY_20261016.md).
+> [Результат подготовки Pattern Watcher](PATTERN_WATCHER_PREPARATION_20261018.md): сверка IGW, ограничения платформы, профиль и держатели.
 
-> Latest: [Monitor product decisions, 2026-10-16](MONITOR_DECISIONS_20261016.md); [Repository layout](REPOSITORY_LAYOUT_PLAN.md).
+> Актуально 18.10.2026: [контекст](CURRENT_CONTEXT.md), [очередь](ROADMAP.md), [подготовка Pattern Watcher](../tokens/PatternWatcher/README.md). Датированные исследования и ревью — свидетельства, не финансовые решения.
 
 # Документация
 
@@ -130,3 +130,18 @@
 
 - [Shared Pons runtime and validation](PONS_RUNTIME.md)
 - [Pons release and rollback procedure](PONS_RELEASE.md)
+
+- [Розыгрыш IGW каждые 30 суток](IGW_MONTHLY_DRAW.md).
+
+- [Фонд и начисления держателям](HOLDER_LEDGER.md).
+
+- [Утверждённые правила Pattern Watcher v1](PATTERN_WATCHER_RULES.md).
+
+## Две пары
+
+[USDG и нативный ETH](NATIVE_ETH.md): конфигурация определяет актив, точность,
+контракты и единицы сумм. ETH — новая v4; существующие USDG не мигрируют.
+
+- [Подготовка холдеров PW: PostgreSQL и preview](HOLDER_PREPARATION.md).
+
+- [Фонд холдеров: контракты и проверка поступлений](HOLDER_FUNDING.md).

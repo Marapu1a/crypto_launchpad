@@ -1,3 +1,4 @@
+import {drawAsset,quoteAddress} from '../draws/assets.mjs';
 import {isAddress, ZeroAddress} from 'ethers';
 import {digest} from './digest.mjs';
 import {replayTickets} from './ledger.mjs';
@@ -16,7 +17,7 @@ export function advancePonsAccounting({policy,report,prior,legacyCredits=[],head
  check(Number.isSafeInteger(report.checkedAt)&&now-report.checkedAt>=0&&now-report.checkedAt<=maxAge,'Stale Pons report');
  check(Number.isSafeInteger(head.number)&&Number.isSafeInteger(head.timestamp)&&/^0x[0-9a-f]{64}$/i.test(head.hash),'Invalid source checkpoint');
  const p=report.profile;
- check(same(p.token,policy.contracts.token.address)&&same(p.quote,policy.contracts.quote.address)&&p.decimals===6&&amount(p.threshold)===amount(policy.template.config.ticketPurchase),'Pons profile mismatch');
+ check(same(p.token,policy.contracts.token.address)&&same(p.quote,quoteAddress(policy))&&p.decimals===drawAsset(policy.template.config.asset).decimals&&amount(p.threshold,undefined,policy.template.config.asset)===amount(policy.template.config.ticketPurchase,undefined,policy.template.config.asset),'Pons profile mismatch');
  check(Array.isArray(p.excludedWallets)&&Array.isArray(p.venues)&&p.venues.length===1&&p.venues[0]==='curve','Invalid Pons eligibility profile');
  const binding=digest({policy:digest(policy),profile:p});
  check(!prior||prior.binding===binding,'Pons accounting identity changed');
@@ -46,7 +47,7 @@ export function advancePonsAccounting({policy,report,prior,legacyCredits=[],head
    [{id,decision:'preserve-existing-credit',legacyWallet:e.recipient,legacyAmountRaw:e.netQuoteDebitRaw,pons:observed??null}]:[];
  });
  // Validate original credits before exposing a new state to the caller.
- ponsWallets(next,String(amount(p.threshold)),head.number);
+ ponsWallets(next,String(amount(p.threshold,undefined,policy.template.config.asset)),head.number);
  return next;
 }
 
@@ -69,7 +70,7 @@ export function ponsWallets(state,threshold,cutoff=state.head.number,revision=st
 
 export async function snapshotPonsTickets(policy,state,program,cutoff=state.head,revision=state.revision){
  check(Number.isSafeInteger(revision)&&revision>0&&revision<=state.revision,'Invalid Pons snapshot revision');
- const wallets=ponsWallets(state,String(amount(policy.template.config.ticketPurchase)),cutoff.number,revision),participants=[];
+ const wallets=ponsWallets(state,String(amount(policy.template.config.ticketPurchase,undefined,policy.template.config.asset)),cutoff.number,revision),participants=[];
  for(const wallet of Object.keys(wallets).sort()){
   const used=BigInt(await program.consumedThrough(wallet)),end=BigInt(wallets[wallet].tickets);
   check(used>=0n&&used<=end,'Consumed attempts exceed Pons/migrated history');
