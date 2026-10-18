@@ -1,3 +1,9 @@
+> 19.10: [Полный PW launch на fork, восстановление и календарь холдеров](PW_LAUNCH_RECOVERY_20261019.md).
+
+> Обновление 18.10: [ETH-пороги и реальные контракты Pons](PW_ETH_ADMISSION_20261018.md). Runtime одного token подтверждён; admission будущего PW пока не выдан.
+
+> [Минимальное управление holder-фондом PW](HOLDER_GOVERNANCE.md): пауза, смена рабочего адреса, сохранение долгов.
+
 > [Результат подготовки Pattern Watcher](PATTERN_WATCHER_PREPARATION_20261018.md): сверка IGW, ограничения платформы, профиль и держатели.
 
 > Актуально 18.10.2026: [контекст](CURRENT_CONTEXT.md), [очередь](ROADMAP.md), [подготовка Pattern Watcher](../tokens/PatternWatcher/README.md). Датированные исследования и ревью — свидетельства, не финансовые решения.
@@ -145,3 +151,23 @@
 - [Подготовка холдеров PW: PostgreSQL и preview](HOLDER_PREPARATION.md).
 
 - [Фонд холдеров: контракты и проверка поступлений](HOLDER_FUNDING.md).
+
+- [PW: исправления промежуточного ревью и замеры](PW_INTERIM_FIXES_20261018.md).
+
+- [Допуск снимка холдеров: Pons и finalized balances](HOLDER_SNAPSHOT_ADMISSION.md).
+
+- [Начисления и выплаты холдерам — локальный прототип](HOLDER_PAYOUT.md).
+
+- [Журнал исполнения холдеров — PostgreSQL и восстановление](HOLDER_EXECUTION.md).
+
+- [Периоды холдеров, прямые выплаты и восстановление](HOLDER_PERIODS_RECOVERY.md).
+
+- [PW: единая локальная репетиция запуска и обслуживания](PW_LOCAL_REHEARSAL.md).
+
+## Holder gas check — 19.10.2026
+
+[Measured local gas and scaling limits](HOLDER_GAS_BENCHMARK.md): PASS for 10/100/500/1,000/5,000 recipients; payouts sampled, totals extrapolated. Large-list production remains blocked on resumable reconciliation beyond cumulative journal limits and actual-network cost preview. No production changes or new financial rules.
+
+- [PW operator: launch, holder handoff, gas preview and paged reconciliation](PW_OPERATOR.md).
+
+- [PW_SERVICE](PW_SERVICE.md) — отдельная служба комиссий и draw PW, экономный режим и регистрация.

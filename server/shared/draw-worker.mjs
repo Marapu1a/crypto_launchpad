@@ -1,3 +1,4 @@
+import {verifyPwPolicy,pwContracts} from '../../src/worker/pw-policy.mjs';
 import {drawEligibleAt} from '../../src/worker/draw-schedule.mjs';
 import {nativeDeliveryReady} from '../../src/worker/native-delivery.mjs';
 import {scanDrawHistory} from '../../src/tickets/draw-scan.mjs';
@@ -24,9 +25,9 @@ const json = v => JSON.parse(JSON.stringify(v,(_,x) => typeof x === 'bigint' ? S
 // Internal v2 runner. Sending requires explicitly enabled runtime configuration.
 // Both journals and planner/ledger share one session lease and one CAS revision.
 export async function runDrawWorker({ pool, provider, signer, publisher, projectId, moduleId,
-  getBeacon = fetchBeacon, getLatestBeacon = fetchLatest, now = () => Math.floor(Date.now()/1000), hook, recognitionAdapters, ponsRehearsal,ponsSourceMode='rehearsal',guard:sourceGuard }) {
+  getBeacon = fetchBeacon, getLatestBeacon = fetchLatest, now = () => Math.floor(Date.now()/1000), hook, recognitionAdapters, ponsRehearsal,ponsSourceMode='rehearsal',guard:sourceGuard,pw=false,allowPublicTransactions=false }) {
   try {
-    // Deliberately unavailable on production RPC. No runtime/config switch exposes this yet.
+    // Pons accounting requires an explicit production guard or an isolated local chain.
     if(ponsRehearsal){
       check(['rehearsal','production'].includes(ponsSourceMode),'Invalid Pons source mode');
       if(ponsSourceMode==='production'){check(typeof sourceGuard==='function','Production source guard required');await sourceGuard();}
@@ -34,13 +35,16 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
     }
     return await runDrawSender({ pool, provider, signer, projectId, moduleId, operate: async ({ policy, state, save, lease }) => {
       check(same(await publisher.getAddress(),policy.publisher), 'Wrong recognition publisher');
-      await verifyDrawPolicy(provider,policy);const latestContracts=contracts(provider,policy),t=policy.template.config;
+      check(pw===(policy.schema==='pw-service-policy-v1'),'Worker/policy adapter mismatch');
+      if(pw){check(ponsRehearsal,'PW requires Pons accounting');if(policy.mode==='production'&&allowPublicTransactions!==true)return {status:'paused',reason:'execution-disabled'};}
+      const verify=pw?verifyPwPolicy:verifyDrawPolicy,bind=pw?pwContracts:contracts;
+      await verify(provider,policy);const latestContracts=bind(provider,policy),t=policy.template.config;
       check(t.asset!=='ETH'||ponsRehearsal,'Native draws require Pons source');
       const kinds=['short','monthly'].filter(k=>t[k].enabled);let draw=kinds[0];
       let readBlock = 'latest';
       // Financial decisions use one finalized state, even if a permissionless caller
       // has already mined a newer fund/proof/settle. Explicit BLS block tags stay explicit.
-      const c = contracts({ getBalance:(wallet,blockTag)=>provider.getBalance(wallet,blockTag??readBlock), call: request => provider.call({ ...request, blockTag: request.blockTag ?? readBlock }) },policy);
+      const c = bind({ getBalance:(wallet,blockTag)=>provider.getBalance(wallet,blockTag??readBlock), call: request => provider.call({ ...request, blockTag: request.blockTag ?? readBlock }) },policy);
       if (!state.runtime) {
         for(const kind of kinds)check(await c[kind].cycle()===0n&&!state.pending&&state.history.length===0,'Active program requires runtime history');
         state.runtime = { schema: 'draw-runtime-v2', ledger: newLedger(policy), cycles: Object.fromEntries(kinds.map(k=>[k,{}])), sequence: 0, lane: 0,
@@ -87,7 +91,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
         if (result.status !== 'observed') wait(result.reasons.join(','));
       };
       const admit = async ({ action, request }) => {
-        await lease(); await verifyDrawPolicy(provider,policy);
+        await lease(); await verify(provider,policy);
         const op = r.operation;
         check(op && op.action === action && same(request.to,op.request.to) && same(request.data,op.request.data) && String(request.value) === '0', 'Unplanned transaction');
         const encoded = c[op.kind].interface.encodeFunctionData(op.method,op.args);
@@ -166,9 +170,9 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
         nextCheckAt=Math.min(nextCheckAt,observation.now+3600);return false;
       };
       const feePlan = async () => {
-        for(let lane=0;lane<2;lane++)if(await c.fundingRouter.credit(lane)>0n)return plan('fundingRouter','deliver',[lane]);
+        for(let lane=0;!pw&&lane<2;lane++)if(await c.fundingRouter.credit(lane)>0n)return plan('fundingRouter','deliver',[lane]);
         for (let lane = 0; lane < 3; lane++) if (await c.splitter.credit(lane) > 0n && (lane===0||await paymentReady('splitter','deliver',[lane]))) return plan('splitter','deliver',[lane]);
-        if (await c.quote.balanceOf(c.collector.target) > 0n) return plan('collector','forward');
+        if ((pw?await c.collector.forwardableFees():await c.quote.balanceOf(c.collector.target)) > 0n) return plan('collector','forward');
         if ((t.asset==='ETH'?await c.escrow.balanceOf(c.collector.target):await c.escrow.balanceOfToken(c.collector.target,c.quote.target)) > 0n) return plan('collector','collect');
         if (!await c.curve.graduated() && (await c.curve.quoteFeeBalance() > 0n || await c.curve.creatorTaxBalance() > 0n)) return plan('collector','sweepCurve');
       };

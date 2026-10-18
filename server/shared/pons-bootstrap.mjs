@@ -1,9 +1,13 @@
+import {readPwService} from './pw-service.mjs';
+import {verifyPwPolicy} from '../../src/worker/pw-policy.mjs';
+import {digest} from '../../src/tickets/digest.mjs';
+import {publishPwService} from './pw-public.mjs';
 import {readFile} from 'node:fs/promises';
-import {isAbsolute} from 'node:path';
+import {isAbsolute,resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import {Contract} from 'ethers';
 import {privateText,validateRuntimeConfig,loadRuntimeProject,runtimeEnvironment} from '../short-runtime/config.mjs';
-import {createPool} from './store.mjs';
+import {createPool,verifyRole} from './store.mjs';
 import {refreshDrawHeartbeat,refreshQianqiHeartbeat} from './pons-heartbeat.mjs';
 import {loadExecutorKeystore} from '../../src/worker/executor-keystore.mjs';
 import {publishShortView} from '../short-runtime/projection.mjs';
@@ -12,6 +16,14 @@ import {savePonsPublic} from '../adapters/qianqi/pons-public-store.mjs';
 import {withQianqiExecutor} from '../adapters/qianqi/executor.mjs';
 const require=createRequire(import.meta.url);
 const json=async file=>{if(!isAbsolute(file??''))throw Error('Absolute Pons configuration path required');return JSON.parse(await readFile(file,'utf8'));};
+export function validatePwRuntimeEntry(entry){
+ const paths=['rpcFile','databaseFile','jobsDatabaseFile','keyFile','passwordFile','reportFile','publicFile'].map(k=>entry[k]);
+ if(paths.some(p=>typeof p!=='string'||!isAbsolute(p)))throw Error('Absolute PW runtime paths required');
+ const normalized=paths.map(p=>process.platform==='win32'?resolve(p).toLowerCase():resolve(p));
+ if(new Set(normalized).size!==paths.length)throw Error('PW runtime paths must be isolated');
+ if(typeof entry.policyHash!=='string'||!/^[0-9a-f]{64}$/.test(entry.policyHash))throw Error('Pinned PW policy hash required');
+ return entry;
+}
 
 // Fixed adapters and encrypted key loaders. No credentials are accepted inline.
 export function configuredPonsBootstrap(config){
@@ -21,9 +33,19 @@ export function configuredPonsBootstrap(config){
   const close=async()=>{await Promise.all(pools.map(p=>p.end()));};
   try{
    for(const entry of config.projects){
-    if(!['qianqi','draw-v2'].includes(entry.adapter)||typeof entry.id!=='string'||!entry.id)throw Error('Invalid Pons adapter');
+    if(!['qianqi','draw-v2','pw'].includes(entry.adapter)||typeof entry.id!=='string'||!entry.id)throw Error('Invalid Pons adapter');
     const loadReport=()=>json(entry.reportFile);
-    if(entry.adapter==='draw-v2'){
+    if(entry.adapter==='pw'){
+     validatePwRuntimeEntry(entry);
+     const provider=makeProvider(await privateText(entry.rpcFile)),pool=createPool(await privateText(entry.databaseFile)),jobsPool=createPool(await privateText(entry.jobsDatabaseFile));pools.push(pool,jobsPool);
+     await verifyRole(pool,'lp_executor');await verifyRole(jobsPool,'lp_jobs');
+     const {policy}=await readPwService(pool,entry.id);
+     if(policy.mode!==config.mode||entry.policyHash!==digest(policy)||!isAbsolute(entry.publicFile??''))throw Error('PW runtime binding mismatch');
+     await verifyPwPolicy(provider,policy);
+     const signer=await loadExecutorKeystore({file:entry.keyFile,password:await privateText(entry.passwordFile),expectedAddress:policy.executor,provider});
+     const input={pool,jobsPool,provider,signer,publisher:{getAddress:async()=>policy.publisher},projectId:entry.id,moduleId:entry.id,ponsRehearsal:{load:loadReport},ponsSourceMode:config.mode,allowPublicTransactions:config.allowPublicTransactions===true,guard:()=>verifyPwPolicy(provider,policy)};
+     projects.push({id:entry.id,adapter:'pw',input,publish:(result,serviceObservation)=>publishPwService({pool,projectId:entry.id,file:entry.publicFile,result,serviceObservation})});
+    }else if(entry.adapter==='draw-v2'){
      const c=validateRuntimeConfig(await json(entry.runtimeConfigFile));
      if(c.mode!==config.mode||c.schema!=='draw-runtime-config-v2'||c.readRpcFile||c.traceRpcFile)throw Error('Pons draw requires one matching-mode transport');
      const selected=c.projects.find(p=>p.projectId===entry.id&&p.enabled);if(!selected)throw Error('Enabled draw project required');

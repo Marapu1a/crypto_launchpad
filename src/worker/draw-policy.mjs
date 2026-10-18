@@ -1,4 +1,5 @@
 import {compileNativePrograms} from './native-build.mjs';
+import {assertDrawFeePolicy} from '../launch/fee-policy.mjs';
 import {Contract,ZeroAddress,id,keccak256,isAddress} from 'ethers';
 import {validatePolicy} from './production-policy.mjs';
 import {ABI} from './production-template.mjs';
@@ -16,12 +17,13 @@ const build=asset=>asset==='ETH'?(nativeBuild??=compileNativePrograms()):(truste
 const externalAbi=role=>role==='escrow'?[...ABI.escrow,'function balanceOf(address) view returns(uint256)']:ABI[role];
 const baseRoles=['quote','token','hook','factory','router','curve','escrow','collector','splitter','recognition','fundingRouter'];
 export function validateDrawPolicy(p){
+ assertDrawFeePolicy(p?.template??{});
  check(p?.schema==='draw-production-policy-v2','Invalid v2 policy');
  check(Object.keys(p).every(k=>['schema','chainId','projectId','executor','publisher','buildHash','anchor','contracts','limits','timing','template','routes','purchaseAccounting'].includes(k)),'Unexpected policy field');
  check(p.purchaseAccounting===undefined||p.purchaseAccounting===DEFERRED||p.purchaseAccounting==='pons-api-v1','Unreviewed purchase accounting');
  check(p.routes===undefined||p.routes===ROUTE_PROFILE,'Unreviewed route profile');
  validatePolicy({...p,schema:'short-production-policy-v1'});
- const t=p.template;check(t?.schema==='draw-template-v2'&&Object.keys(t).every(k=>['schema','instanceId','config','team','operations','creatorTaxBps'].includes(k)),'Invalid template');
+ const t=p.template;check(t?.schema==='draw-template-v2'&&Object.keys(t).every(k=>['schema','instanceId','config','team','operations','creatorTaxBps','feePolicyKind'].includes(k)),'Invalid template');
  check(/^0x[0-9a-f]{64}$/i.test(t.instanceId)&&t.instanceId!=='0x'+'0'.repeat(64),'Invalid instance');
  const c=validateProgramConfig(t.config);
  if(c.asset==='ETH')check(p.purchaseAccounting==='pons-api-v1'&&!p.routes,'Native draws require Pons accounting');

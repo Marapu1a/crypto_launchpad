@@ -1,4 +1,5 @@
 import {getAddress,keccak256,ZeroAddress} from 'ethers';
+import {assertDrawFeePolicy} from '../../src/launch/fee-policy.mjs';
 import pins from '../../config/pons-production-pins.json' with {type:'json'};
 import {validatePolicy,finalizedObservation} from '../../src/worker/production-policy.mjs';
 import {UUID} from '../../src/launch/template.mjs';
@@ -7,6 +8,7 @@ import {check,same} from './store.mjs';
 export const DRAW_BUILD='0x2824a5d90a5160f42449e82ad770e57d68c9124dbf99177da396b74dd853f640';
 const fixtureOwners=new Set(['0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266','0x70997970c51812dc3a010c7d01b50e0d17dc79c8']);
 export function validateProductionProfile(p){
+ assertDrawFeePolicy({},p??{});
  check(p?.schema==='owner-production-profile-v2'&&p.mode==='production'&&UUID.test(p.id),'Explicit production profile required');
  check(p.chainId===4663&&p.instanceId==='production:'+p.id,'Production profile identity mismatch');
  for(const role of ['owner','executor','publisher']){

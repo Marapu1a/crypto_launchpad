@@ -8,7 +8,7 @@ import {compileProduction} from '../../src/worker/production-build.mjs';
 import {holderFundingInstance,observeHolderFunding} from '../../src/holders/funding-receipt.mjs';
 import {createHolderProgram} from '../../src/holders/program.mjs';
 import {identity} from '../../src/holders/values.mjs';
-import {registerHolderPreparation,importHolderFunding,readHolderPreparation} from '../../server/shared/holder-preparation.mjs';
+import {registerHolderPreparation,importHolderFunding,readHolderPreparation,appendHolderPreparation,reconcileHolderPreparation,readReconciledHolderPreparation} from '../../server/shared/holder-preparation.mjs';
 import {createTestPostgres} from '../contracts/production-postgres.mjs';
 process.env.HARDHAT_CONFIG=resolve('tests/contracts/production-worker-hardhat.config.cjs');
 const {default:hre}=await import('hardhat');
@@ -20,7 +20,7 @@ try{
  const build=compileHolderFunding(),native=compileNativePrograms();
  assert.equal(native.manifest.buildHash,'0x278b4f1610ef08160374c1cb46a03d47361bb079cf7fb1711d2c8ffb9c2205bb');
  report.build=build.manifest;
- const fixtures=compileProduction({'tests/contracts/NativeFixtures.sol':{content:readFileSync('tests/contracts/NativeFixtures.sol','utf8')}});
+ const fixtures=compileProduction({'tests/contracts/NativeFixtures.sol':{content:readFileSync('tests/contracts/NativeFixtures.sol','utf8')},'ForceETH.sol':{content:'pragma solidity ^0.8.24; contract ForceETH {constructor(address payable to) payable {selfdestruct(to);}}'}});
  const signer=await provider.getSigner(0),outsider=await provider.getSigner(1),owner=await signer.getAddress();
  const deploy=async(a,args=[])=>{const c=await new ContractFactory(a.abi,a.evm.bytecode.object,signer).deploy(...args);await c.waitForDeployment();return c;};
  const fixture=(n,args=[],file='NativeFixtures')=>deploy(fixtures.contracts['tests/contracts/'+file+'.sol'][n],args);
@@ -32,7 +32,7 @@ try{
  const project=await fixture('NativeRecipientFixture');
  const split=await deploy(build.artifacts.NativeHolderFeeSplitter,[instance,vault.target,draw.target,project.target,[6000,2000,2000]]);
  const escrow=await fixture('NativeEscrowFixture'),hook=await fixture('WorkerHook',[],'WorkerFixtures'),factory=await fixture('WorkerFactory',[hook.target],'WorkerFixtures');
- const collector=await deploy(native.artifacts.PonsFeeCollector,[ZeroAddress,escrow.target,split.target,factory.target]);
+ const collector=await deploy(build.artifacts.NativeHolderCollector,[escrow.target,split.target,factory.target]);
  const curve=await fixture('NativeCurveFixture',[token.target,factory.target,collector.target,escrow.target]);
  await tx(factory.setLaunch([token.target,curve.target,owner,collector.target,ZeroAddress,4200000,3000,60,300,false,0,0,0,0,true]));await tx(collector.bind(token.target));
  await assert.rejects(vault.connect(outsider).bindSource(split.target));await assert.rejects(split.connect(outsider).bindSource(collector.target));
@@ -42,8 +42,14 @@ try{
  const policy={schema:'holder-funding-observer-v1',scopeId:identity(scope),instance,fromBlock:await provider.getBlockNumber(),project:project.target};
  for(const [role,c] of Object.entries({vault,splitter:split,collector,draw}))policy[role]={address:c.target,codeHash:keccak256(await provider.getCode(c.target))};
  report.checks.push('Immutable instance/source bindings; unauthorized funding and rebinding rejected; native build unchanged');
+ await tx(signer.sendTransaction({to:collector.target,value:50n}));
+ const force=fixtures.contracts['ForceETH.sol'].ForceETH;
+ const forced=await new ContractFactory(force.abi,force.evm.bytecode.object,signer).deploy(collector.target,{value:7n});await forced.waitForDeployment();
+ assert.equal(await collector.quarantined(),57n);assert.equal(await collector.forwardableFees(),0n);await assert.rejects(collector.forward());
  await tx(curve.recordFees({value:101n}));await tx(collector.sweepCurve());await tx(collector.collect());const received=await tx(collector.forward());
  assert.equal(await split.credit(0),60n);assert.equal(await split.credit(1),20n);assert.equal(await split.credit(2),20n);assert.equal(await split.roundingReserve(),1n);
+ assert.equal(await collector.quarantined(),57n);assert.equal(await provider.getBalance(collector.target),57n);await assert.rejects(collector.forward());
+ report.checks.push('Direct and forced ETH quarantined; only escrow callback fees forwarded; no double forwarding');
  await tx(project.configure(true,ZeroAddress,'0x'));await assert.rejects(split.deliver(2));assert.equal(await split.credit(2),20n);
  const deposited=await tx(split.deliver(0));await tx(split.deliver(1));assert.equal(await vault.totalReceived(),60n);assert.equal(await draw.freeFund(),20n);
  await assert.rejects(split.deliver(0));
@@ -66,18 +72,41 @@ try{
  await db.admin.query("INSERT INTO launchpad.projects VALUES($1,'pw-holder-funding','PW funding',4663,$2,'test')",[scope.projectId,scope.token]);
  const program=createHolderProgram({scope,launchAt:100,minimumPayment:null,exclusions:[],preset:'pw-v1-60-20-20',fundingPolicy:policy});
  await registerHolderPreparation(db.pools.jobs,program);
+ await assert.rejects(appendHolderPreparation(db.pools.jobs,scope,fee),/trusted funding importer/);
+ await assert.rejects(appendHolderPreparation(db.pools.jobs,scope,{...deposit,evidence:{...deposit.evidence,txHash:'0x'+'a'.repeat(64)}}),/trusted funding importer/);
+ await assert.rejects(appendHolderPreparation(db.pools.jobs,scope,{id:'forged-round',scopeId:identity(scope),type:'round.fixture'}),/Fixture rounds forbidden/);
+ let blockReads=0;
+ const changesBeforeCommit=altered({getBlock:async tag=>{if(tag===received.blockNumber&&++blockReads===3)return {hash:'0x'+'1'.repeat(64)};return provider.getBlock(tag);}});
+ await assert.rejects(importHolderFunding(db.pools.jobs,scope,{...feeArgs,provider:changesBeforeCommit}),/reorg/);
+ assert.equal((await readHolderPreparation(db.pools.api,scope,{now:3000000})).revision,0);
  await assert.rejects(importHolderFunding(db.pools.jobs,scope,depositArgs),/exceeds holder allocation/);
  await importHolderFunding(db.pools.jobs,scope,feeArgs);await importHolderFunding(db.pools.jobs,scope,depositArgs);
  assert.equal((await importHolderFunding(db.pools.jobs,scope,feeArgs)).replayed,true);
  const view=await readHolderPreparation(db.pools.api,scope,{now:3000000});
  assert.equal(view.preview.fees.received,'101');assert.equal(view.preview.ledger.available,'60');assert.equal(view.preview.executionEnabled,false);
  assert.ok(view.preview.blockers.includes('minimum-payment-not-approved'));
+ assert.equal((await reconcileHolderPreparation(db.pools.api,scope,{provider})).checkedEvents,2);
+ await assert.rejects(reconcileHolderPreparation(db.pools.api,scope,{provider,maxEvents:1}),/budget/);
+ await assert.rejects(reconcileHolderPreparation(db.pools.api,scope,{provider:altered({getBlock:async tag=>tag===received.blockNumber?{hash:'0x'+'a'.repeat(64)}:provider.getBlock(tag)})}),/reorg/);
  // Rounding carries across successive real EVM receipts, rather than being lost per transaction.
  await tx(curve.recordFees({value:4n}));await tx(collector.sweepCurve());await tx(collector.collect());const more=await tx(collector.forward());
  assert.equal(await split.credit(0),3n);assert.equal(await split.credit(1),1n);assert.equal(await split.credit(2),1n);assert.equal(await split.roundingReserve(),0n);
+ await assert.rejects(reconcileHolderPreparation(db.pools.api,scope,{provider}),/Missing or changed revenue/);
  await importHolderFunding(db.pools.jobs,scope,{provider,txHash:more.hash,logIndex:index(more,split.target)});
  const next=await tx(split.deliver(0));await importHolderFunding(db.pools.jobs,scope,{provider,txHash:next.hash,logIndex:index(next,vault.target)});
  const final=await readHolderPreparation(db.pools.api,scope,{now:3000000});assert.equal(final.preview.ledger.available,'63');assert.equal(final.preview.fees.holders,'63');
+ assert.equal((await reconcileHolderPreparation(db.pools.api,scope,{provider})).checkedEvents,4);
+ assert.ok(final.preview.blockers.includes('funding-reconciliation-required'));
+ const prepared=await readReconciledHolderPreparation(db.pools.api,scope,{provider,now:3000000});
+ assert.equal(prepared.preview.executionEnabled,false);assert.ok(!prepared.preview.blockers.includes('funding-reconciliation-required'));
+ await assert.rejects(reconcileHolderPreparation(db.pools.api,scope,{provider:altered({getBalance:async()=>0n})}),/underfunded/);
+ let changed=false;
+ const racing=altered({getNetwork:async()=>{
+  if(!changed){changed=true;await appendHolderPreparation(db.pools.jobs,scope,{id:'concurrent-snapshot',scopeId:identity(scope),type:'snapshot.observed',candidate:{schema:'holder-candidate-v1',chainId:4663,token:scope.token,observedAt:100,pages:[{cursor:null,response:{token:scope.token,holders:0,supply:'0',as_of:{rollup_bucket:0,tail_from_block:0},page:[],next_cursor:null}}]}});}
+  return provider.getNetwork();
+ }});
+ await assert.rejects(reconcileHolderPreparation(db.pools.api,scope,{provider:racing}),/changed during reconciliation/);
+ report.checks.push('Generic forged append refused; in-lock receipt recheck rolls back reorg; bounded restart reconciliation refuses missing evidence and changed branch');
  report.checks.push('Verified EVM receipts persist through transactional importer; missing revenue rejected, retry deduplicated, cumulative rounding preserved');
  report.status='PASS';console.log('PASS '+report.checks.join('\nPASS '));
 }finally{writeFileSync(root+'/report.json',JSON.stringify(report,null,2));console.log(root+'/report.json');await db?.close();provider.destroy();}

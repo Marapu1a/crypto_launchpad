@@ -1,3 +1,4 @@
+import {createPwService} from './pw-service.mjs';
 import {open,unlink} from 'node:fs/promises';
 import {isAbsolute} from 'node:path';
 import {createPonsDrawService} from './pons-draw-service.mjs';
@@ -8,7 +9,7 @@ import {runtimeProvider} from '../short-runtime/rpc-provider.mjs';
 import budget from './rpc-budget.cjs';
 import {enableVerificationCache} from '../../src/worker/verification-cache.mjs';
 
-// Rehearsal host: prepare builds adapter inputs using the supplied gated transport.
+// Shared host: prepare builds adapter inputs using the supplied gated transport.
 // Never import a bootstrap module or open keys until the exclusive host lock is held.
 export async function runPonsRuntime({mode,allowPublicTransactions=false,allowedRpcHosts=[],lockFile,healthFile,rpcBudget,prepare,signal,pollMs=15000,once=false,failFast=false,wait}){
  if(!['rehearsal','production'].includes(mode)||(mode==='production'&&(allowPublicTransactions!==true||!Array.isArray(allowedRpcHosts)||!allowedRpcHosts.length))||!isAbsolute(lockFile??'')||!isAbsolute(healthFile??'')||lockFile===healthFile||typeof prepare!=='function'||!rpcBudget?.file)throw Error('Invalid Pons runtime');
@@ -29,14 +30,14 @@ export async function runPonsRuntime({mode,allowPublicTransactions=false,allowed
   if(!Array.isArray(projects)||!projects.length)throw Error('No Pons projects');
   const ids=new Set(),senders=new Set();
   for(const p of projects){
-   if(!['draw-v2','qianqi'].includes(p.adapter)||typeof p.id!=='string'||!p.id||ids.has(p.id)||!providers.includes(p.input?.provider)||typeof p.publish!=='function')throw Error('Invalid Pons project');
+   if(!['draw-v2','qianqi','pw'].includes(p.adapter)||typeof p.id!=='string'||!p.id||ids.has(p.id)||!providers.includes(p.input?.provider)||typeof p.publish!=='function')throw Error('Invalid Pons project');
    ids.add(p.id);
    const signer=p.adapter==='qianqi'?p.input.executor:p.input.signer;
    const sender=(await signer.getAddress()).toLowerCase();
    if(senders.has(sender))throw Error('Duplicate signer domain');senders.add(sender);
    if(signer.provider!==p.input.provider)throw Error('Signer bypasses gated provider');
    if(p.adapter==='draw-v2'&&p.input.publisher?.provider!==p.input.provider)throw Error('Publisher bypasses gated provider');
-   if(p.adapter==='draw-v2'){
+   if(['draw-v2','pw'].includes(p.adapter)){
     const publisher=(await p.input.publisher.getAddress()).toLowerCase();
     if(senders.has(publisher))throw Error('Duplicate publisher domain');senders.add(publisher);
    }
@@ -46,10 +47,10 @@ export async function runPonsRuntime({mode,allowPublicTransactions=false,allowed
    }else{
     if((await p.input.provider.getNetwork()).chainId!==4663n)throw Error('Wrong production network');
     if(p.adapter==='qianqi'&&(!p.input.execution||typeof p.input.withLease!=='function'))throw Error('QIANQI public admission and lease required');
-    if(p.adapter==='draw-v2'&&(p.input.ponsSourceMode!=='production'||typeof p.input.guard!=='function'))throw Error('Draw production guard required');
+    if(['draw-v2','pw'].includes(p.adapter)&&(p.input.ponsSourceMode!=='production'||typeof p.input.guard!=='function'))throw Error('Draw production guard required');
    }
   }
-  const services=projects.map(p=>({id:p.id,tick:(p.adapter==='qianqi'?createPonsSchedulerSupervisor:createPonsDrawService)(p.input,{publish:p.publish})}));
+  const services=projects.map(p=>({id:p.id,tick:(p.adapter==='qianqi'?createPonsSchedulerSupervisor:p.adapter==='pw'?createPwService:createPonsDrawService)(p.input,{publish:p.publish})}));
   await runPonsServices({services,signal,pollMs,once,failFast,wait,heartbeat:async r=>{
    for(const row of r.services)if(!row.schedule?.skipped&&row.result.reason==='service-sleep')await projects.find(p=>p.id===row.id)?.onSleep?.(row.result.service);
    await writeHealthFile(healthFile,{

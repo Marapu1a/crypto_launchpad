@@ -1,4 +1,5 @@
 import {compileNativePrograms} from '../../src/worker/native-build.mjs';
+import {assertDrawFeePolicy} from '../../src/launch/fee-policy.mjs';
 import {drawAsset} from '../../src/draws/assets.mjs';
 import {verifyOwnerHistory,ownerFinality} from './confirmation.mjs';
 import {ownerGasPrice,repriceOwnerRequest,checkRetryFee} from './fees.mjs';
@@ -32,6 +33,7 @@ export function withinOwnerReview(fresh,reviewed,owner){
  return !!fresh&&fresh.kind===reviewed.kind&&matchesOwnerTransaction(fresh.request,reviewed,owner);
 }
 export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allowPublicTransactions=false}){
+ assertDrawFeePolicy({},profile);
  const build=trustedBuild??=compileDrawPrograms();
  profile=plain(profile);const profileHash=digest(profile);
  check(build.manifest.buildHash===BUILD,'Production artifacts changed');
@@ -66,7 +68,7 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
   const externals=Object.fromEntries(['quote','escrow','factory','router','hook'].filter(k=>s.input.draws.asset!=='ETH'||k!=='quote').map(k=>[k,profile.externals[k]]));
   return {schema:'draw-production-policy-v2',...(s.routes?{routes:s.routes}:{}),...(s.purchaseAccounting?{purchaseAccounting:s.purchaseAccounting}:{}),chainId:4663,projectId:s.input.id,executor:profile.executor,publisher:profile.publisher,buildHash:buildHashFor(s.input),
    anchor:s.launchAnchor,contracts:{...externals,...s.contracts},limits:profile.limits,timing:profile.timing,
-   template:{schema:'draw-template-v2',instanceId:id('owner-launch:'+s.input.id),config:s.input.draws,creatorTaxBps:s.creatorTaxBps,team:s.input.team,operations:s.input.operations}};
+   template:{schema:'draw-template-v2',...(s.input.feePolicyKind?{feePolicyKind:s.input.feePolicyKind}:{}),instanceId:id('owner-launch:'+s.input.id),config:s.input.draws,creatorTaxBps:s.creatorTaxBps,team:s.input.team,operations:s.input.operations}};
  }
  async function checkHistory(s){
   await verifyOwnerHistory(provider,s.history);
@@ -147,10 +149,12 @@ export function createDrawOwnerCoordinator({pool,adminPool,provider,profile,allo
  }
  function view(s,revision){return plain({id:s.input.id,input:s.input,owner,mode:profile.mode,signingEnabled,...(production?{walletGuard:walletGuard(profile)}:{}),stage:s.stage,confirmationMode:'receipt-then-finality',finality:s.finality??null,executionEnabled:false,policy:s.policy??null,revision,buildHash:buildHashFor(s.input),instanceId:profile.instanceId,profile:{executor:profile.executor,publisher:profile.publisher,timing:profile.timing,limits:profile.limits,funding:profile.funding,totalNativeLimit:profile.totalNativeLimit},candidate:s.candidate,pending:s.pending,history:s.history,contracts:s.contracts,launch:s.launch,spent:s.spent});}
  async function run(projectId,action,body={}){
+  if(body.input)assertDrawFeePolicy(body.input,profile);
   if(['arm','retry'].includes(action))check(signingEnabled,'Public signing is disabled; owner approval and operator activation required');
   await environment();
   return withOwnerLaunch({pool,projectId,owner},async({state,save,lease,revision})=>{
    let s=state;
+   if(s)assertDrawFeePolicy(s.input,profile);
    if(!s){
     check(action==='create','Launch journal missing');const input=validateLaunch(body.input);check(input.id===projectId,'Launch ID mismatch');
     const existing=await adminPool.query('SELECT id FROM launchpad.projects WHERE id=$1 OR slug=$2',[projectId,input.slug]);check(!existing.rowCount,'Project already exists; cannot replace a lost journal');

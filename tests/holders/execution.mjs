@@ -1,0 +1,215 @@
+import assert from 'node:assert/strict';
+import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {BrowserProvider,ContractFactory,HDNodeWallet,ZeroAddress,keccak256} from 'ethers';
+import {compileHolderFunding,compileHolderPayout} from '../../src/holders/build.mjs';
+import {compileNativePrograms} from '../../src/worker/native-build.mjs';
+import {compileProduction} from '../../src/worker/production-build.mjs';
+import {holderFundingInstance} from '../../src/holders/funding-receipt.mjs';
+import {executionCall} from '../../src/holders/execution.mjs';
+import {collectHolderSnapshot} from '../../src/holders/snapshot.mjs';
+import {createHolderProgram,HOLDER_PERIOD_SECONDS} from '../../src/holders/program.mjs';
+import {identity} from '../../src/holders/values.mjs';
+import {registerHolderPreparation,importHolderFunding,appendHolderPreparation,admitHolderPreparation,advanceHolderPeriod,readHolderPreparation} from '../../server/shared/holder-preparation.mjs';
+import {resumeHolderReconciliation,registerHolderExecution,prepareHolderAllocation,recordHolderTransaction,readHolderExecution,resolveHolderTransaction,reconcileHolderExecution,importExternalHolderPayments,inspectHolderRecovery} from '../../server/shared/holder-execution.mjs';
+import {createPwHolderOperator} from '../../server/shared/pw-holder-operator.mjs';
+import {inProject} from '../../server/shared/store.mjs';
+import {createTestPostgres} from '../contracts/production-postgres.mjs';
+import {setupPwCycle,vectorTime,restartCheckpoint} from './pw-local-cycle.mjs';
+import {scanHolderPayments} from '../../server/shared/holder-execution.mjs';
+const full=process.argv.includes('--pw');
+if(full)process.env.PRODUCTION_TEST_START=new Date((vectorTime-HOLDER_PERIOD_SECONDS-7200)*1000).toISOString();
+process.env.HARDHAT_CONFIG=resolve('tests/contracts/production-worker-hardhat.config.cjs');
+const {default:hre}=await import('hardhat');
+const provider=new BrowserProvider(hre.network.provider,undefined,{cacheTimeout:-1});provider.pollingInterval=10;
+const root='.local/test-results/'+(full?'pw-rehearsal-':'holder-execution-')+new Date().toISOString().replace(/[:.]/g,'-');mkdirSync(root,{recursive:true});
+const report={status:'FAIL',checks:[],limits:['Local Hardhat and isolated PostgreSQL only','No production signer, service, keys or transfers','Two local periods; managed holder recovery tested locally; missed-period policy not selected']};let db;
+try{
+ const funding=compileHolderFunding(),payout=compileHolderPayout(),native=compileNativePrograms();report.build=payout.manifest;
+ const fixtures=compileProduction({'tests/contracts/NativeFixtures.sol':{content:readFileSync('tests/contracts/NativeFixtures.sol','utf8')}});
+ const signer=await provider.getSigner(0),owner=await signer.getAddress(),wallet=await (await provider.getSigner(1)).getAddress();
+ // Public Hardhat development mnemonic, never used outside this isolated test.
+ let signing=HDNodeWallet.fromPhrase('test test test test test test test test test test test junk');assert.equal(signing.address,owner);
+ const deploy=async(a,args=[])=>{const c=await new ContractFactory(a.abi,a.evm.bytecode.object,signer).deploy(...args);await c.waitForDeployment();return c;};
+ const fixture=(n,args=[],file='NativeFixtures')=>deploy(fixtures.contracts['tests/contracts/'+file+'.sol'][n],args);
+ const tx=async p=>(await p).wait();
+ const recipient=await fixture('NativeRecipientFixture');let token,scope,instance,vault,draw,split,collector,curve,pw;
+ if(full){
+  pw=await setupPwCycle({provider,signer,owner,fixture,root});({token,scope,instance,vault,draw,split,collector,curve}=pw);
+  report.launch=pw.manifest;report.limits.push('Modeled local Pons factory/API, not a mainnet factory validation; development amounts and shared test roles');
+ }else{
+  token=await fixture('TestUSDG',[],'Fixtures');scope={projectId:'55555555-5555-4555-8555-555555555555',chainId:4663,token:token.target.toLowerCase(),asset:ZeroAddress};instance=holderFundingInstance(scope);
+  vault=await deploy(payout.artifact,[instance,owner,10]);
+  draw=await deploy(native.artifacts.ShortProgram,[{asset:ZeroAddress,operator:owner,instance,interval:2592000,minimumFund:5n,minimumUnit:1n},[1],{lead:3600,clockLag:30,clockAhead:30,finalizedLag:1800,beaconLag:30}]);
+  split=await deploy(funding.artifacts.NativeHolderFeeSplitter,[instance,vault.target,draw.target,owner,[6000,2000,2000]]);
+  const escrow=await fixture('NativeEscrowFixture'),hook=await fixture('WorkerHook',[],'WorkerFixtures'),factory=await fixture('WorkerFactory',[hook.target],'WorkerFixtures');
+  collector=await deploy(funding.artifacts.NativeHolderCollector,[escrow.target,split.target,factory.target]);
+  curve=await fixture('NativeCurveFixture',[token.target,factory.target,collector.target,escrow.target]);
+  await tx(factory.setLaunch([token.target,curve.target,owner,collector.target,ZeroAddress,4200000,3000,60,300,false,0,0,0,0,true]));await tx(collector.bind(token.target));
+  await tx(vault.bindSource(split.target));await tx(split.bindSource(collector.target));
+ }
+ const fundingPolicy={schema:'holder-funding-observer-v1',scopeId:identity(scope),instance,fromBlock:await provider.getBlockNumber(),project:owner};
+ for(const [role,c] of Object.entries({vault,splitter:split,collector,draw}))fundingPolicy[role]={address:c.target,codeHash:keccak256(await provider.getCode(c.target))};
+ if(full)await pw.purchases([wallet,recipient.target]);else await tx(curve.recordFees({value:100}));
+ await tx(collector.sweepCurve());await tx(collector.collect());const received=await tx(collector.forward()),deposited=await tx(split.deliver(0));
+ if(full){report.draw=await pw.drawCycle();report.checks.push('PW local launch graph -> ETH purchases at 3% -> Pons tickets -> 60/20/20 -> monthly draw with historical BLS and proof/delivery resume');}
+ else for(const w of [wallet,recipient.target])await tx(token.mint(w,1));
+ const block=await provider.getBlock('latest'),now=block.timestamp+1;
+ const snapshotPolicy={schema:'holder-snapshot-policy-v1',scopeId:identity(scope),semantics:'reviewed-nonproxy-erc20-supply-sum',tokenCodeHash:keccak256(await provider.getCode(token.target)),maxHolders:5,maxRpcCalls:13,maxAgeSeconds:600};
+ const program=createHolderProgram({scope,...(full?{schedulePolicy:'first-accepted-carry-v1'}:{}),launchAt:full?pw.launchAt:block.timestamp-HOLDER_PERIOD_SECONDS,minimumPayment:'10',exclusions:[],preset:'pw-v1-60-20-20',fundingPolicy,snapshotPolicy});
+ db=await createTestPostgres(root+'/postgres');
+ await db.admin.query("INSERT INTO launchpad.projects VALUES($1,'execution-fixture','Execution',4663,$2,'test')",[scope.projectId,scope.token]);
+ await registerHolderPreparation(db.pools.jobs,program);
+ const index=(r,c)=>r.logs.find(l=>l.address.toLowerCase()===c.target.toLowerCase()).index;
+ for(const [receipt,c] of [[received,split],[deposited,vault]])await importHolderFunding(db.pools.jobs,scope,{provider,txHash:receipt.hash,logIndex:index(receipt,c)});
+ const candidate=await collectHolderSnapshot({chainId:4663,token:token.target,maxPages:1,maxHolders:5,observedAt:block.timestamp,fetchPage:async()=>({token:token.target,holders:2,supply:'2',as_of:{rollup_bucket:1,tail_from_block:1},page:[wallet,recipient.target].map(wallet=>({wallet,balance:'1'})),next_cursor:null})});
+ await appendHolderPreparation(db.pools.jobs,scope,{id:'snapshot',scopeId:identity(scope),type:'snapshot.observed',candidate});
+ const policy={schema:full?'holder-execution-local-v2':'holder-execution-local-v1',...(full?{initialOwner:pw.manifest.parameters.owner}:{}),executionEnabled:false,scopeId:identity(scope),instance,vault:vault.target,source:split.target,publisher:owner,codeHash:fundingPolicy.vault.codeHash,minimumPayment:'10',maxGasLimit:'2000000',maxFeePerGas:'3000000000'};
+ await registerHolderExecution(db.pools.executor,scope,policy,{provider});
+ await assert.rejects(prepareHolderAllocation(db.pools.executor,scope,{provider,period:1,budget:'60',now}),/trusted admission/);
+ await admitHolderPreparation(db.pools.jobs,scope,{provider,candidateId:candidate.id,now});
+ const prepared=await prepareHolderAllocation(db.pools.executor,scope,{provider,period:1,budget:'60',now});let plan=prepared.plan;
+ assert.equal((await prepareHolderAllocation(db.pools.executor,scope,{provider,period:1,budget:'60',now})).replayed,true);
+ await assert.rejects(prepareHolderAllocation(db.pools.executor,scope,{provider,period:1,budget:'59',now}),/already fixed/);
+ await assert.rejects(registerHolderExecution(db.pools.executor,scope,{...policy,maxGasLimit:'1000000'},{provider}),/already fixed/);
+ await assert.rejects(readHolderExecution(db.pools.api,scope),/permission denied/);
+ const foreign='66666666-6666-4666-8666-666666666666';
+ assert.equal((await inProject(db.pools.executor,foreign,c=>c.query('SELECT * FROM launchpad.holder_executions'))).rowCount,0);
+ report.checks.push('Observed funding and trusted stored admission required; immutable plan/config; API denial and project RLS isolation');
+ const signed=async(operation,overrides={})=>signing.signTransaction({type:2,chainId:4663,to:vault.target,value:0,data:executionCall(plan,operation),nonce:await provider.getTransactionCount(signing.address),gasLimit:1000000,maxFeePerGas:2000000000,maxPriorityFeePerGas:1000000000,...overrides});
+ const save=async(operation,raw)=>recordHolderTransaction(db.pools.executor,scope,{provider,period:plan.period,operation,raw});
+ const operator=createPwHolderOperator({pool:db.pools.executor,provider,scope});
+ const open={kind:'open'};const cost=await operator.quote(plan.period,open);assert.equal(cost.authorizationToSend,false);assert.ok(BigInt(cost.maximumNativeCost)>0n);
+ const raw=await signed(open),saved=await operator.record({period:plan.period,operation:open,raw});
+ assert.equal((await save(open,raw)).replayed,true);
+ assert.ok((await Promise.all([save(open,raw),save(open,raw)])).every(r=>r.replayed));
+ await assert.rejects(save(open,await signed(open,{value:1})),/payload/);
+ await assert.rejects(save(open,await signed(open,{maxFeePerGas:4000000000})),/gas policy/);
+ await assert.rejects(save({kind:'append',offset:0,count:1},await signed({kind:'append',offset:0,count:1},{nonce:100})),/unknown transaction/);
+ assert.equal((await resolveHolderTransaction(db.pools.executor,scope,{provider,txHash:saved.txHash})).observation.status,'unknown');
+ // Restart before send: recover exactly the persisted bytes, not a fresh transaction.
+ let recovered=await readHolderExecution(db.pools.executor,scope);assert.equal(recovered.transactions[0].body.raw,raw);
+ if(full)assert.equal((await restartCheckpoint({provider,db,scope,root,txHash:saved.txHash,resolveReceipt:false})).status,'unknown');
+ const recovery=await inspectHolderRecovery(db.pools.executor,scope,{provider});
+ assert.equal(recovery.rotationSupported,full);assert.equal(recovery.pendingTransactions[0].txHash,saved.txHash);assert.ok(!JSON.stringify(recovery).includes(raw));
+ assert.equal((await operator.broadcast(saved.txHash)).hash,saved.txHash);assert.equal((await operator.broadcast(saved.txHash)).replayed,true);
+ // Simulate response loss after broadcast; status is still unknown in PostgreSQL.
+ assert.equal((await readHolderExecution(db.pools.executor,scope)).transactions[0].status,'unknown');
+ const delayed=new Proxy(provider,{get:(target,name)=>name==='getBlock'?async tag=>tag==='finalized'?{number:0}:target.getBlock(tag):typeof target[name]==='function'?target[name].bind(target):target[name]});
+ assert.equal((await resolveHolderTransaction(db.pools.executor,scope,{provider:delayed,txHash:saved.txHash})).observation.status,'unknown');
+ if(full){assert.equal((await restartCheckpoint({provider,db,scope,root,txHash:saved.txHash,resolveReceipt:true})).status,'succeeded');report.checks.push('Fresh child processes reload durable state before send and resolve lost-response transaction after send, without keys or parent memory');}
+ assert.equal((await resolveHolderTransaction(db.pools.executor,scope,{provider,txHash:saved.txHash})).observation.status,'succeeded');
+ assert.equal((await resolveHolderTransaction(db.pools.executor,scope,{provider,txHash:saved.txHash})).replayed,true);
+ report.checks.push('Signed-before-send journal; gas/payload guards; unknown blocks competing work; restart before send and lost response recover same hash; finality wait and duplicate import');
+ const execute=async(operation)=>{const bytes=await signed(operation),r=await save(operation,bytes);try{await tx(provider.broadcastTransaction(bytes));}catch{}return resolveHolderTransaction(db.pools.executor,scope,{provider,txHash:r.txHash});};
+ assert.equal((await execute({kind:'append',offset:0,count:1})).observation.status,'succeeded');
+ const partialRecovery=await inspectHolderRecovery(db.pools.executor,scope,{provider});
+ assert.deepEqual(partialRecovery.publications,[{period:1,status:'resume-same-plan',offset:1}]);
+ await assert.rejects(vault.connect(await provider.getSigner(4)).seal(1));
+ if(full){
+  const control=vault.connect(await provider.getSigner(9));
+  await tx(control.setPublicationsPaused(true));
+  await assert.rejects(save({kind:'append',offset:1,count:1},await signed({kind:'append',offset:1,count:1})),/paused|revert/);
+  const replacement=HDNodeWallet.fromPhrase('test test test test test test test test test test test junk',undefined,"m/44'/60'/0'/0/5");
+  await tx(control.setPublisher(replacement.address));
+  await tx(control.setPublicationsPaused(false));
+  await assert.rejects(save({kind:'append',offset:1,count:1},await signed({kind:'append',offset:1,count:1})),/sender mismatch/);
+  assert.equal((await save(open,raw)).replayed,true);
+  assert.equal((await restartCheckpoint({provider,db,scope,root,txHash:saved.txHash,resolveReceipt:true})).status,'succeeded');
+  signing=replacement;
+  const rotated=await inspectHolderRecovery(db.pools.executor,scope,{provider});
+  assert.equal(rotated.publisher,replacement.address.toLowerCase());assert.equal(rotated.publications[0].offset,1);
+  report.checks.push('Owner pauses and replaces publisher mid-plan; old key denied; original history replays in fresh process; new nonce sequence resumes identical prefix');
+ }
+ // Persisted prefix is checked even after reloading all state from PostgreSQL.
+ recovered=await readHolderExecution(db.pools.executor,scope);assert.equal(recovered.plans[0].commitment,plan.commitment);
+ await assert.rejects(save({kind:'append',offset:0,count:1},await signed({kind:'append',offset:0,count:1})),/position/);
+ assert.equal((await execute({kind:'append',offset:1,count:1})).observation.status,'succeeded');
+ assert.equal((await execute({kind:'seal'})).observation.allocated,'60');
+ assert.equal((await reconcileHolderExecution(db.pools.executor,scope,{provider})).owed,'60');
+ const balanceSnapshot=await provider.send('evm_snapshot',[]);
+ await provider.send('hardhat_setBalance',[vault.target,'0x1']);
+ await assert.rejects(reconcileHolderExecution(db.pools.executor,scope,{provider}),/solvency/);
+ await provider.send('evm_revert',[balanceSnapshot]);
+ const payment={kind:'pay',wallet:recipient.target,periods:[1]},paymentRaw=await signed(payment),paymentSaved=await save(payment,paymentRaw);
+ // Recipient state changes AFTER simulation and persistence, using another sender.
+ await tx(recipient.connect(await provider.getSigner(2)).configure(true,ZeroAddress,'0x'));
+ try{await tx(provider.broadcastTransaction(paymentRaw));}catch{}
+ const failed=await resolveHolderTransaction(db.pools.executor,scope,{provider,txHash:paymentSaved.txHash});assert.equal(failed.observation.status,'reverted');
+ assert.equal((await reconcileHolderExecution(db.pools.executor,scope,{provider})).owed,'60');
+ await tx(recipient.configure(false,ZeroAddress,'0x'));
+ assert.equal((await execute({kind:'pay',wallet:recipient.target,periods:[1]})).observation.paid,'30');
+ const summary=await reconcileHolderExecution(db.pools.executor,scope,{provider});assert.equal(summary.owed,'30');assert.equal(summary.paid,'30');assert.equal(summary.available,'0');report.summary=summary;
+ assert.equal((await reconcileHolderExecution(db.pools.executor,scope,{provider,maxTransactions:1})).status,'progress');
+ const snapshot=await provider.send('evm_snapshot',[]);
+ const altered=new Proxy(provider,{get:(target,name)=>name==='getBlock'?async tag=>{const b=await target.getBlock(tag);return typeof tag==='number'?{...b,hash:'0x'+'f'.repeat(64)}:b;}:typeof target[name]==='function'?target[name].bind(target):target[name]});
+ await assert.rejects(resolveHolderTransaction(db.pools.executor,scope,{provider:altered,txHash:saved.txHash}),/mismatch|reorg/);
+ await provider.send('evm_revert',[snapshot]);
+ report.checks.push('Partial publication resumes at saved prefix; finalized allocation and payout receipts reconcile counters; refused payout preserves debt; new attempt pays once; altered canonical evidence and scan budget fail closed');
+
+ await assert.rejects(appendHolderPreparation(db.pools.jobs,scope,{id:'forged-completion',scopeId:identity(scope),type:'round.finalized',period:1}),/trusted period/);
+ await assert.rejects(advanceHolderPeriod(db.pools.jobs,db.pools.executor,scope,{provider,period:1,reconciliationMaxItems:1}),/in progress/);
+ const advance=()=>advanceHolderPeriod(db.pools.jobs,db.pools.executor,scope,{provider,period:1});
+ assert.equal((await advance()).replayed,false);assert.equal((await advance()).replayed,true);
+ let preview=(await readHolderPreparation(db.pools.api,scope,{now})).preview;
+ assert.equal(preview.lastPeriod,1);assert.equal(preview.availableForAllocation,'0');assert.equal(preview.observedAllocated,'60');
+ await assert.rejects(admitHolderPreparation(db.pools.jobs,scope,{provider,candidateId:candidate.id,now}),/Period not open/);
+ const nextWallet=await (await provider.getSigner(3)).getAddress();
+ await tx(token.connect(await provider.getSigner(1)).transfer(nextWallet,1));
+ await provider.send('evm_setNextBlockTimestamp',[block.timestamp+(full?2:1)*HOLDER_PERIOD_SECONDS+1]);await provider.send('evm_mine',[]);
+ if(full)await pw.purchases([nextWallet,recipient.target]);else await tx(curve.recordFees({value:100}));
+ await tx(collector.sweepCurve());await tx(collector.collect());const more=await tx(collector.forward()),moreDeposit=await tx(split.deliver(0));
+ for(const [receipt,c] of [[more,split],[moreDeposit,vault]])await importHolderFunding(db.pools.jobs,scope,{provider,txHash:receipt.hash,logIndex:index(receipt,c)});
+ const secondBlock=await provider.getBlock('latest'),now2=secondBlock.timestamp+1;
+ const candidate2=await collectHolderSnapshot({chainId:4663,token:token.target,maxPages:1,maxHolders:5,observedAt:secondBlock.timestamp,fetchPage:async()=>({token:token.target,holders:2,supply:full?'4':'2',as_of:{rollup_bucket:2,tail_from_block:secondBlock.number},page:[nextWallet,recipient.target].map(wallet=>({wallet,balance:full?'2':'1'})),next_cursor:null})});
+ await appendHolderPreparation(db.pools.jobs,scope,{id:'snapshot-2',scopeId:identity(scope),type:'snapshot.observed',candidate:candidate2});
+ await admitHolderPreparation(db.pools.jobs,scope,{provider,candidateId:candidate2.id,now:now2});
+ plan=(await prepareHolderAllocation(db.pools.executor,scope,{provider,period:2,budget:'11',now:now2})).plan;
+ assert.equal(plan.allocated,'10');assert.equal(plan.remainder,'1');assert.ok(!plan.allocations.some(h=>h.wallet===wallet.toLowerCase()));
+ for(const operation of [{kind:'open'},{kind:'append',offset:0,count:2},{kind:'seal'}])assert.equal((await execute(operation)).observation.status,'succeeded');
+ await advanceHolderPeriod(db.pools.jobs,db.pools.executor,scope,{provider,period:2});
+ preview=(await readHolderPreparation(db.pools.api,scope,{now:now2})).preview;
+ assert.equal(preview.lastPeriod,2);assert.equal(preview.availableForAllocation,'50');
+ if(full){assert.equal(preview.lastCalendarPeriod,3);report.checks.push('Missed calendar period carries available fees into next accepted snapshot; allocation numbers remain contiguous and previous debt survives');}
+ await assert.rejects(vault.pay(nextWallet,[2]));assert.equal(await vault.entitlement(2,nextWallet),5n);
+ // Sold-out holder claims old debt directly; sponsor is unrelated to publisher.
+ const external=await tx(vault.connect(await provider.getSigner(4)).pay(wallet,[1]));
+ await assert.rejects(reconcileHolderExecution(db.pools.executor,scope,{provider}),/Missing allocation or payout evidence/);
+ const unavailable=new Proxy(provider,{get:(target,name)=>name==='getLogs'?async()=>{throw Error('scan unavailable');}:typeof target[name]==='function'?target[name].bind(target):target[name]});
+ const page=await scanHolderPayments(db.pools.executor,scope,{provider,maxBlocks:1});assert.equal(page.status,'more');assert.equal(page.range.toBlock,page.range.fromBlock);
+ await assert.rejects(scanHolderPayments(db.pools.executor,scope,{provider:unavailable}),/scan unavailable/);
+ const scan=await scanHolderPayments(db.pools.executor,scope,{provider,maxBlocks:2000});assert.equal(scan.status,'caught-up');assert.ok(scan.receipts>=2);
+ assert.equal(scan.range.fromBlock,page.cursor.nextBlock);
+ assert.equal((await scanHolderPayments(db.pools.executor,scope,{provider})).receipts,0);
+ const imported=await importExternalHolderPayments(db.pools.executor,scope,{provider,txHash:external.hash});assert.equal(imported.observation.paid,'30');assert.equal(imported.replayed,true);
+ assert.equal((await importExternalHolderPayments(db.pools.executor,scope,{provider,txHash:external.hash})).replayed,true);
+ await assert.rejects(importExternalHolderPayments(db.pools.executor,scope,{provider,txHash:saved.txHash}),/tracked transaction/);
+ await assert.rejects(importExternalHolderPayments(db.pools.executor,scope,{provider,txHash:more.hash}),/payment count/);
+ await assert.rejects(importExternalHolderPayments(db.pools.api,scope,{provider,txHash:external.hash}),/permission denied/);
+ assert.equal((await inProject(db.pools.executor,foreign,c=>c.query('SELECT * FROM launchpad.holder_external_payments'))).rowCount,0);
+ const final=await reconcileHolderExecution(db.pools.executor,scope,{provider});
+ assert.equal(final.received,'120');assert.equal(final.allocated,'70');assert.equal(final.paid,'60');assert.equal(final.owed,'10');assert.equal(final.available,'50');report.twoPeriods=final;
+ await assert.rejects(importExternalHolderPayments(db.pools.executor,scope,{provider:altered,txHash:external.hash}),/reorg|mismatch/);
+ await assert.rejects(scanHolderPayments(db.pools.executor,scope,{provider:altered}),/reorg/);
+ // Page size one intentionally smaller than lifetime history; resume from DB each call.
+ let reconPage=await resumeHolderReconciliation(db.pools.executor,scope,{provider,maxItems:1,restart:true});
+ assert.equal(reconPage.status,'progress');const reconProgress=reconPage.processed;
+ if(full){const resumed=await restartCheckpoint({provider,db,scope,root,txHash:saved.txHash,reconcilePage:true});assert.equal(resumed.reconciliation.status,'progress');assert.ok(resumed.reconciliation.processed>reconProgress);}
+ await assert.rejects(resumeHolderReconciliation(db.pools.executor,scope,{provider:altered,maxItems:1}),/reorg/);
+ await inProject(db.pools.executor,scope.projectId,c=>c.query("UPDATE launchpad.holder_transactions SET observation=observation || '{\"page_test\":true}'::jsonb WHERE project_id=$1 AND tx_hash=$2",[scope.projectId,saved.txHash]),{readOnly:false});
+ await assert.rejects(resumeHolderReconciliation(db.pools.executor,scope,{provider,maxItems:1}),/input changed/);
+ await inProject(db.pools.executor,scope.projectId,c=>c.query("UPDATE launchpad.holder_transactions SET observation=observation - 'page_test' WHERE project_id=$1 AND tx_hash=$2",[scope.projectId,saved.txHash]),{readOnly:false});
+ const savedPage=await inProject(db.pools.executor,scope.projectId,async c=>(await c.query('SELECT body_hash FROM launchpad.holder_reconciliation WHERE project_id=$1',[scope.projectId])).rows[0].body_hash);
+ const reconBroken=new Proxy(provider,{get(target,key){if(key==='getTransactionReceipt')return async()=>{throw Error('reconPage RPC unavailable');};const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;}});
+ await assert.rejects(resumeHolderReconciliation(db.pools.executor,scope,{provider:reconBroken,maxItems:1}),/reconPage RPC unavailable/);
+ assert.equal(await inProject(db.pools.executor,scope.projectId,async c=>(await c.query('SELECT body_hash FROM launchpad.holder_reconciliation WHERE project_id=$1',[scope.projectId])).rows[0].body_hash),savedPage);
+ let reconPages=1;while(reconPage.status==='progress'&&reconPages++<100)reconPage=await resumeHolderReconciliation(db.pools.executor,scope,{provider,maxItems:1});
+ assert.equal(reconPage.status,'reconciled');assert.equal(reconPage.paid,final.paid);assert.equal(reconPage.owed,final.owed);assert.ok(reconPages>reconProgress);
+ await assert.rejects(resumeHolderReconciliation(db.pools.api,scope,{provider}),/permission denied/);
+ assert.equal((await inProject(db.pools.executor,foreign,c=>c.query('SELECT * FROM launchpad.holder_reconciliation'))).rowCount,0);
+ report.pagedReconciliation={reconPages,result:reconPage};
+ report.checks.push('Resumable reconciliation with one item per page, cumulative history exceeds page budget; failed RPC preserves cursor; final totals match full reconciliation and RLS isolates cursor');
+ report.checks.push('Bounded Paid-only scan resumes saved cursor, RPC failure preserves cursor, known/external receipts deduplicate and checkpoint reorg stops scan');
+ report.checks.push('Two monthly periods, early admission denied, completion importer is private and repeat-safe; changed holders, preserved old debt, division dust and below-minimum debt; direct sponsored payout imports once, RLS and canonical rechecks');
+ report.status='PASS';
+}finally{writeFileSync(root+'/report.json',JSON.stringify(report,null,2));await db?.close();provider.destroy();console.log(root+'/report.json',report.status);}

@@ -9,13 +9,14 @@ const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 const decode = (text, hash) => { const v = JSON.parse(text); check(digest(v) === hash, 'Production DB checksum mismatch'); return v; };
 async function binding(c, p, m, policy) {
   const { rows: [row] } = await c.query('SELECT p.chain_id::text,m.program_address,m.kind,m.adapter_version,m.config_hash FROM launchpad.projects p JOIN launchpad.module_instances m ON m.project_id=p.id WHERE p.id=$1 AND m.id=$2', [p, m]);
-  check(row?.kind==='draw'&&row.adapter_version==='draw-candidate-v2'&&row.config_hash===digest(policy)&&row.chain_id === '4663' && policy.projectId === p && same(row.program_address, policy.contracts.fundingRouter?.address), 'Production project binding mismatch');
+  const pw=policy.schema==='pw-service-policy-v1';
+  check(row?.kind==='draw'&&row.adapter_version===(pw?'pw-service-v1':'draw-candidate-v2')&&row.config_hash===digest(policy)&&row.chain_id === '4663' && policy.projectId === p && same(row.program_address, pw?policy.contracts.short?.address:policy.contracts.fundingRouter?.address), 'Production project binding mismatch');
 }
 
 // Provision only a new program, never silently adopt active contracts or QIANQI state.
 export async function registerDrawSender({ pool, provider, projectId, moduleId, policy }) {
   await verifyRole(pool, 'lp_executor'); await verifyProductionBindings(provider, policy);
-  check(policy.schema==='draw-production-policy-v2','V2 policy required');
+  check(['draw-production-policy-v2','pw-service-policy-v1'].includes(policy.schema),'Supported draw policy required');
   for(const kind of ['short','monthly'])if(policy.template.config[kind].enabled){
     const program=new Contract(policy.contracts[kind].address,['function cycle() view returns(uint256)','function pending() view returns(bool)','function operator() view returns(address)'],provider);
     check(await program.cycle()===0n&&!await program.pending()&&same(await program.operator(),policy.executor),'New program/executor required');

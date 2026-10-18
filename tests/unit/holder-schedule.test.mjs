@@ -1,0 +1,30 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createHolderProgram,applyHolderProgramEvent,replayHolderProgram,previewHolderProgram,holderObservationWindow,HOLDER_PERIOD_SECONDS as P} from '../../src/holders/program.mjs';
+import {collectHolderSnapshot} from '../../src/holders/snapshot.mjs';
+import {identity} from '../../src/holders/values.mjs';
+const addr=n=>'0x'+n.toString(16).padStart(40,'0'),hash=n=>'0x'+n.repeat(64);
+const scope={projectId:'schedule-test',chainId:4663,token:addr(10),asset:addr(0)},launchAt=100;
+const policy={schema:'holder-snapshot-policy-v1',scopeId:identity(scope),semantics:'reviewed-nonproxy-erc20-supply-sum',tokenCodeHash:hash('a'),maxHolders:5,maxRpcCalls:13,maxAgeSeconds:600};
+const create=schedulePolicy=>createHolderProgram({scope,launchAt,minimumPayment:'1',exclusions:[],preset:'pw-v1-60-20-20',snapshotPolicy:policy,...(schedulePolicy?{schedulePolicy}:{})});
+test('Calendar skips do not invent on-chain allocation numbers or change legacy windows',()=>{
+ const modern=create('first-accepted-carry-v1'),state=replayHolderProgram(modern);
+ assert.deepEqual(holderObservationWindow(modern,state,launchAt+3*P+10),{calendarPeriod:3,dueAt:launchAt+3*P,until:launchAt+4*P,skippedCalendarPeriods:2});
+ assert.equal(holderObservationWindow(modern,state,launchAt+P-1).calendarPeriod,1);
+ assert.equal(holderObservationWindow(create(),state,launchAt+3*P+10).calendarPeriod,1);
+ assert.equal(state.lastPeriod,0);assert.equal(state.availableForAllocation,'0');
+});
+test('First accepted snapshot is immutable and remains usable after later calendar boundaries',async()=>{
+ const now=launchAt+3*P+10;
+ const candidate=await collectHolderSnapshot({chainId:4663,token:scope.token,observedAt:now,maxPages:1,maxHolders:5,fetchPage:async()=>({token:scope.token,holders:1,supply:'1',as_of:{rollup_bucket:1,tail_from_block:1},page:[{wallet:addr(1),balance:'1'}],next_cursor:null})});
+ const proof={schema:'holder-chain-admission-v1',scopeId:identity(scope),policyHash:identity(policy),candidateId:candidate.id,period:1,dueAt:launchAt+3*P,until:launchAt+4*P,checkedAt:now,block:{number:1,hash:hash('b'),timestamp:now},tokenCodeHash:policy.tokenCodeHash,totalSupply:'1',balancesHash:identity(candidate.holders),executionEnabled:false};
+ const event=(id,type,extra)=>({id,type,scopeId:identity(scope),...extra});
+ let program=applyHolderProgramEvent(create('first-accepted-carry-v1'),event('candidate','snapshot.observed',{candidate}));
+ program=applyHolderProgramEvent(program,event('accepted','snapshot.admitted',{proof}));
+ const view=previewHolderProgram(program,{now:launchAt+5*P});
+ assert.equal(view.period,1);assert.equal(view.calendarPeriod,3);assert.equal(view.skippedCalendarPeriods,2);assert.equal(view.acceptedSnapshotAt,now);
+ assert.ok(!view.blockers.includes('holder-period-missed'));
+ assert.throws(()=>applyHolderProgramEvent(program,event('replacement','snapshot.admitted',{proof})),/already admitted/);
+ const legacy=applyHolderProgramEvent(create(),event('candidate','snapshot.observed',{candidate}));
+ assert.throws(()=>applyHolderProgramEvent(legacy,event('accepted','snapshot.admitted',{proof})),/schedule mismatch/);
+});

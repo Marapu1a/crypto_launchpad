@@ -47,6 +47,7 @@ export async function finalizedObservation(provider, now = Math.floor(Date.now()
 }
 
 export async function verifyProductionBindings(provider, policy) {
+  if(policy?.schema==='pw-service-policy-v1')return (await import('./pw-policy.mjs')).verifyPwPolicy(provider,policy);
   if(policy?.schema==='draw-production-policy-v2')return (await import('./draw-policy.mjs')).verifyDrawPolicy(provider,policy);
   validatePolicy(policy);
   check((await provider.getNetwork()).chainId === 4663n, 'Wrong production chain');

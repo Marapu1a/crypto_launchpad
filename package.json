@@ -4,6 +4,7 @@
   "private": true,
   "description": "Pons launch integration and configurable token platform",
   "scripts": {
+    "test:holder-admission": "node tests/holders/admission.mjs",
     "test:holder-funding": "node tests/holders/funding.mjs",
     "test:holder-preparation": "node tests/holders/preparation.mjs",
     "docs:check": "node scripts/check-docs.mjs",
@@ -76,7 +77,18 @@
     "sites:test": "node tests/studio/token-sites.mjs",
     "monitor": "python apps/monitor/monitor.py",
     "test:monitor": "python -m unittest discover -s apps/monitor -p test_*.py",
-    "hub:preview": "python -m http.server 4212 --bind 127.0.0.1 --directory apps/hub/site"
+    "hub:preview": "python -m http.server 4212 --bind 127.0.0.1 --directory apps/hub/site",
+    "test:holder-payout": "node tests/holders/payout.mjs",
+    "pw:operator": "node scripts/pw-operator.mjs",
+    "test:pw-production": "node --test tests/unit/pw-production.test.mjs",
+    "test:pw-launch": "node tests/holders/pw-launch.mjs",
+    "test:pw-service": "node tests/holders/pw-service.mjs",
+    "test:holder-schedule": "node --test tests/unit/holder-schedule.test.mjs",
+    "test:pw-eth-amounts": "node tests/holders/pw-eth-amounts.mjs",
+    "benchmark:holder-gas": "node tests/holders/gas-benchmark.mjs",
+    "test:holder-governance": "node tests/holders/payout.mjs --managed",
+    "test:holder-execution": "node tests/holders/execution.mjs",
+    "test:pw-rehearsal": "node tests/holders/execution.mjs --pw"
   },
   "engines": {
     "node": ">=22"

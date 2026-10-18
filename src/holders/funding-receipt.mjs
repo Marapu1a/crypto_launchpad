@@ -40,14 +40,15 @@ export async function observeHolderFunding({provider,policy,scope:input,txHash,l
   check(code!=='0x'&&keccak256(code)===policy[role].codeHash,'Funding code changed: '+role);
  }
  const split=new Contract(policy.splitter.address,splitterAbi,provider),vault=new Contract(policy.vault.address,vaultAbi,provider);
- const collector=new Contract(policy.collector.address,['function destination() view returns(address)','function quote() view returns(address)'],provider);
+ const collector=new Contract(policy.collector.address,['function destination() view returns(address)','function quote() view returns(address)','function accountingVersion() view returns(bytes32)','function token() view returns(address)'],provider);
  const eq=(a,b)=>String(a).toLowerCase()===String(b).toLowerCase();
  const comparisons=[
   [await split.instance(overrides),policy.instance],[await vault.instance(overrides),policy.instance],
   [await split.source(overrides),policy.collector.address],[await vault.source(overrides),policy.splitter.address],
   [await split.holderFund(overrides),policy.vault.address],[await split.drawFund(overrides),policy.draw.address],
   [await split.project(overrides),policy.project],[await collector.destination(overrides),policy.splitter.address],
-  [await collector.quote(overrides),instance.asset]
+  [await collector.quote(overrides),instance.asset],
+  [await collector.accountingVersion(overrides),id('holder-escrow-fees-v1')],[await collector.token(overrides),instance.token]
  ];
  check(comparisons.every(([a,b])=>eq(a,b)),'Funding contract binding mismatch');
  for(const [lane,bps] of [6000n,2000n,2000n].entries())check(await split.bps(lane,overrides)===bps,'Wrong PW funding split');
