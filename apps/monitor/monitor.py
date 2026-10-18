@@ -329,6 +329,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             except Exception:
                 self.send_error(503);return
             body=json.dumps(data).encode();kind='application/json'
+        elif parsed.path in ('/imgs/pw_eye.png','/imgs/pw_mascot.png'):
+            body=(pathlib.Path(__file__).parent / parsed.path.lstrip('/')).read_bytes()
+            kind='image/png'
+        elif parsed.path in ('/ui.css','/ui.js','/tokens.js','/wallet-ui.js'):
+            body=pathlib.Path(__file__).with_name(parsed.path[1:]).read_bytes()
+            kind='text/css; charset=utf-8' if parsed.path.endswith('.css') else 'text/javascript; charset=utf-8'
         elif parsed.path == '/wallets':
             body=pathlib.Path(__file__).with_name('wallets.html').read_bytes();kind='text/html; charset=utf-8'
         elif self.path == '/api/status':

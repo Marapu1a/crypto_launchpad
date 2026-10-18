@@ -1,3 +1,5 @@
+> 2026-10-17: Compact EN/zh-CN monitor and wallet layout implemented and tested locally. [Layout and limits](MONITOR_LAYOUT_20261017.md). Visual review pending; no deployment.
+
 > 2026-10-17: Manual wallet cards and monitor review fixes implemented locally; scope frozen after wallets. Full ETH portfolio unavailable (Pons balances API 403). See [monitor product](MONITOR_PRODUCT.md). No production deployment.
 
 > 2026-10-16: [Monitor reliability](MONITOR_RELIABILITY_20261016.md) implemented and tested locally: bounded backfill, coverage journal, snapshot-only refresh, neutral observations. Primary collector not switched; deployment pending.
