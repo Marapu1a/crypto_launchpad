@@ -1,3 +1,4 @@
+function shortCount(n){return n==null?'-':n<1000?U.num(n):new Intl.NumberFormat(U.locale(),{notation:'compact',maximumSignificantDigits:2}).format(n)}
 let lastData=null,mode='recent',unavailable=false,fetching=false,metric='buyers',selectedEnd=null;
 const el=id=>document.getElementById(id),fmt=U.num,amount=U.amount,clock=U.clock,node=U.node,t=U.t;
 const metrics={buyers:'buyers',buys:'buys',tokens:'activeTokens',launches:'launches'};
@@ -53,7 +54,7 @@ function heatDetail(x,k,intervals){
  const content=node('div','','summary-content'),stat=node('div','','summary-stat');stat.append(node('strong',fmt(x.current?.[k])),node('span',t(metrics[k])));
  const explanation=node('div','','summary-explanation');explanation.append(node('p',t({buyers:'buyerMeaning',buys:'buysMeaning',tokens:'tokensMeaning',launches:'launchesMeaning'}[k])));
  if(!valid)explanation.append(node('p',t('partialHelp'),'quality'));
- const compare=node('div','','summary-compare');compare.append(node('strong',c?t('contextAverage',{value:fmt(c.mean)}):t('noDelta')),node('small',c?t('meanExplanation'):t('heatUnknown')));
+ const compare=node('div','','summary-compare');compare.append(node('strong',c?t('contextAverage',{value:fmt(c.mean)}):t('noDelta')),node('small',c?t('meanExplanation'):t(x.windowEnd!==lastData.windowEnd?'earlierComparison':'heatUnknown')));
  content.append(stat,explanation,compare);box.append(head,content,node('small',t('local',{zone:Intl.DateTimeFormat().resolvedOptions().timeZone}),'summary-zone'));
  if(!x.board)box.append(node('p',t('heatUnavailable')));
 
@@ -73,7 +74,7 @@ function drawSelection(){const d=selected();if(!d?.current)return;el('heat-metri
   heading.append(node('small',baseline?t('chartMean',{value:fmt(baseline.mean)}):t('noDelta')));
   const maximum=Math.max(1,...intervals.map(x=>Number(x.current?.[k])||0)),scale=maximum*1.2;
   const plot=node('div','','trend-plot');plot.style.setProperty('--windows',intervals.length||1);
-  plot.append(node('span',fmt(maximum),'axis-max'),node('span','0','axis-zero'));
+  plot.append(node('span',shortCount(maximum),'axis-max'),node('span','0','axis-zero'));
   if(baseline){const line=node('div','','mean-line');line.style.bottom=(baseline.mean/scale*100)+'%';line.title=t('chartMean',{value:fmt(baseline.mean)});line.setAttribute('aria-label',line.title);plot.append(line);}
   for(const x of intervals){
    const value=x.current?.[k],valid=x.complete===true&&!x.error&&Number.isFinite(value);
@@ -83,11 +84,11 @@ function drawSelection(){const d=selected();if(!d?.current)return;el('heat-metri
    const bar=node('button','','trend-bar '+(valid?direction:'trend-gap'));
    bar.dataset.metricKey=k;bar.dataset.end=x.windowEnd;bar.dataset.selected=String(x.windowEnd===d.windowEnd);
    bar.setAttribute('aria-pressed',String(k===metric&&x.windowEnd===d.windowEnd));
-   const description=t(key)+': '+fmt(value)+' · '+clock(x.windowEnd-300)+' – '+clock(x.windowEnd,true)+' · '+t(!valid?'heatGap':direction==='up'?'chartUp':direction==='down'?'chartDown':'chartNeutral');
+   const description=t(key)+': '+fmt(value)+' · '+clock(x.windowEnd-300)+' – '+clock(x.windowEnd,true)+' · '+t(!valid?'heatGap':direction==='up'?'chartUp':direction==='down'?'chartDown':direction==='flat'?'chartNeutral':'chartUnknown');
    bar.title=description;bar.setAttribute('aria-label',description);
    const height=Number.isFinite(value)?value/scale*100:0;bar.style.setProperty('--bar-height',height+'%');
    const fill=node('span','','trend-fill');fill.style.height=height+'%';
-   bar.append(fill,node('span',fmt(value),'trend-value'));
+   bar.append(fill,node('span',shortCount(value),'trend-value'));
    bar.onclick=()=>{if(x.board){selectedEnd=x.windowEnd;metric=k;drawSelection();el('chart').querySelector('.trend-bar[aria-pressed="true"]')?.focus({preventScroll:true});}else{el('heat-detail').textContent=t('heatUnavailable');}};
    plot.append(bar);
   }

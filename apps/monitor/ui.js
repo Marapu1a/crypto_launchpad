@@ -127,11 +127,16 @@ const U=(()=>{
  save:['Save in this browser','保存在此浏览器','Сохранить в этом браузере'],
  localOnly:['Stored only in this browser. Not shared or synced to other devices.','仅保存在此浏览器，不会共享或同步到其他设备。','Хранится только в этом браузере. Другие пользователи этого не видят; между устройствами данные не синхронизируются.']
  });
+ Object.assign(copy,{
+ chartNeutral:['Unchanged','不变','Без изменений'],
+ chartUnknown:['Previous interval unavailable','上一时段数据不可用','Нет данных предыдущего интервала'],
+ earlierComparison:['The dashed line refers to the latest interval. This earlier selection has fewer than 6 complete preceding intervals available.','虚线对应最新时段。所选较早时段之前不足 6 个完整时段，无法比较。','Пунктир относится к последнему интервалу. Для выбранного раннего интервала нет шести полных предыдущих интервалов в доступной истории.']
+ });
  let lang='en';try{lang=localStorage.getItem('pw-language')??(navigator.language.startsWith('zh')?'zh':navigator.language.startsWith('ru')?'ru':'en')}catch{}if(!['en','zh','ru'].includes(lang))lang='en';
  const t=(key,values={})=>(copy[key]?.[lang==='ru'?2:lang==='zh'?1:0]??key).replace(/\{(\w+)\}/g,(_,k)=>String(values[k]??'—'));
  const locale=()=>lang==='ru'?'ru-RU':lang==='zh'?'zh-CN':'en-US';
  const num=n=>n==null?'—':Number(n).toLocaleString(locale(),{maximumFractionDigits:2});
- const amount=n=>{if(n==null)return '—';let text=String(n);if(!/^\d+(\.\d+)?$/.test(text)){const value=Number(n);return Number.isFinite(value)?value.toLocaleString(locale(),{maximumSignificantDigits:6}):'—'}let [whole,f='']=text.split('.');whole=whole.replace(/^0+(?=\d)/,'');const first=f.search(/[1-9]/),places=whole==='0'&&first>=0?Math.max(2,first+2):2;let scaled=BigInt(whole+f.padEnd(places,'0').slice(0,places));if(Number(f[places]??0)>=5)scaled++;const rounded=scaled.toString().padStart(places+1,'0');whole=rounded.slice(0,-places);f=rounded.slice(-places).replace(/0+$/,'');return whole.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(f?'.'+f:'')};
+ const amount=n=>{if(n==null)return '—';let text=String(n);if(!/^\d+(\.\d+)?$/.test(text)){const value=Number(n);return Number.isFinite(value)?value.toLocaleString(locale(),{maximumSignificantDigits:6}):'—'}let [whole,f='']=text.split('.');whole=whole.replace(/^0+(?=\d)/,'');const first=f.search(/[1-9]/),places=whole==='0'&&first>=0?Math.max(2,first+2):2;let scaled=BigInt(whole+f.padEnd(places,'0').slice(0,places));if(Number(f[places]??0)>=5)scaled++;const rounded=scaled.toString().padStart(places+1,'0');whole=rounded.slice(0,-places);f=rounded.slice(-places).replace(/0+$/,'');const parts=new Intl.NumberFormat(locale()).formatToParts(1234.5),group=parts.find(x=>x.type==='group')?.value??'',decimal=parts.find(x=>x.type==='decimal')?.value??'.';return whole.replace(/\B(?=(\d{3})+(?!\d))/g,group)+(f?decimal+f:'')};
  const clock=(n,short=false,zone)=>n?new Date(n*1000).toLocaleString(locale(),{...(short?{}:{month:'short',day:'numeric'}),hour:'2-digit',minute:'2-digit',hour12:false,...(zone?{timeZone:zone}:{})}):'—';
  const node=(tag,text,cls)=>{const n=document.createElement(tag);n.textContent=text;if(cls)n.className=cls;return n};
  function apply(){document.documentElement.lang=locale();document.querySelectorAll('[data-i18n]').forEach(n=>n.textContent=t(n.dataset.i18n));document.querySelectorAll('[data-placeholder]').forEach(n=>n.placeholder=t(n.dataset.placeholder));document.querySelectorAll('[data-label]').forEach(n=>n.setAttribute('aria-label',t(n.dataset.label)));const select=document.getElementById('language');if(select)select.value=lang;}
