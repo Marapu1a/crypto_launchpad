@@ -3,20 +3,17 @@
   "status": "draft-not-executable",
   "executionEnabled": false,
   "reviewedAt": "2026-10-19",
-  "sourceCommit": "de9a7ac26aed087382904889b07735dcb87667e4",
-  "sourceIncludesUncommittedPackages": [
-    "PW review fixes",
-    "PW owner UI"
-  ],
+  "sourceCommit": "0488c5e",
+  "sourceIncludesUncommittedPackages": [],
   "mechanicsSource": "tokens/PatternWatcher/preparation.json",
   "identity": {
     "name": "Pattern Watcher",
     "symbol": "PW",
     "website": "https://pw.qianqi.site",
-    "logoUri": null,
-    "descriptionStatus": "draft",
+    "logoUri": "ipfs://bafybeievuz2nzgzeg7uzvrokgu6vtv6evdmif4sqmqhyhyoukgapun3uky",
+    "descriptionStatus": "prepared",
     "approvedAt": "2026-10-19",
-    "websiteStatus": "selected-not-published",
+    "websiteStatus": "published-https",
     "description": "Pattern Watcher explores the first hour of tokens on Pons: buyer addresses, purchases, volumes and wallet activity. Observe the patterns. Draw your own conclusions."
   },
   "proposals": {},
@@ -90,23 +87,18 @@
     "createdAt": "2026-10-19",
     "source": "owner-authorized-new-role-wallets",
     "keystoreRestoreVerified": true,
-    "deployed": false,
+    "deployed": true,
     "funded": false
   },
   "walletObservation": {
-    "at": "2026-10-19T00:25:13.677Z",
+    "at": "2026-10-19T08:52:26.897Z",
     "rpcHost": "robinhood-mainnet.g.alchemy.com",
-    "chainId": 4663,
-    "anchor": {
-      "number": 92183258,
-      "hash": "0xfa8fd1c8537bfede81fc773a92d5087868bb8a601eae8256943d0c622f54c799",
-      "timestamp": 1792368565
-    },
+    "readOnly": true,
     "wallets": [
       {
         "role": "owner",
         "address": "0x098afA6731239a00CE0aff669aaefD16b7C72114",
-        "balanceETH": "0.003105040619154011",
+        "balanceETH": "0.008055362290600187",
         "code": "0x"
       },
       {
@@ -122,6 +114,35 @@
         "code": "0x"
       }
     ],
-    "spendingApproved": false
+    "chainId": 4663,
+    "anchor": {
+      "number": 92478763,
+      "hash": "0x3961441c5689f5b204659e980662ea7bce0066015e6bfbbe15c4e22c1f9e27ea",
+      "timestamp": 1792398873
+    },
+    "gasPriceWei": "20000000",
+    "status": "PASS",
+    "calls": 9
+  },
+  "deploymentPreparation": {
+    "at": "2026-10-19",
+    "website": "https://pw.qianqi.site",
+    "monitorService": "pons-market-monitor",
+    "database": "isolated PostgreSQL 18/pw, loopback 5434",
+    "migrations": 21,
+    "restoreVerified": true,
+    "offserverBackup": true,
+    "ownerConsole": "loopback only; signing/send disabled",
+    "budgetApprovalPending": true,
+    "noPublicTransactions": true
+  },
+  "budgetProposal": {
+    "launchCapETH": "0.003",
+    "executorReserveETH": "0.001",
+    "publisherReserveETH": "0.0005",
+    "maxGasLimit": "6500000",
+    "maxFeePerGasWei": "40000000",
+    "nativeFloorETH": "0.0005",
+    "approved": false
   }
 }

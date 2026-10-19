@@ -1,0 +1,7 @@
+[Unit]
+Description=Daily Pons market monitor backup
+[Timer]
+OnCalendar=daily
+Persistent=true
+[Install]
+WantedBy=timers.target

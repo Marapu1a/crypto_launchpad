@@ -29,13 +29,10 @@ original timestamps, and never starts a collector. Wallet network lookups are no
 provided by this preview. The regular monitor server is unchanged.
 
 The overview uses four aligned bar charts. Height represents count; green/red
-means more/fewer than the immediately preceding complete interval. Neutral means
-equal or no valid comparison. Incomplete counts are striped. The dashed mean uses
+means more/fewer than the immediately preceding complete interval. Neutral filled bars mean equal counts; dashed outlines mean no valid comparison. Incomplete counts are striped. The dashed mean uses
 six complete intervals before the latest displayed interval and disappears if any
 are missing. Selecting a time highlights it in all rows and updates the token table.
 
 On phones one selectable metric shows all seven intervals without side scrolling.
-Data freshness and missing-data messages appear next to the counts. Cards show
-percentage change against the preceding 30-minute mean; a zero mean never produces
-a percentage. Wallet navigation refers to the latest snapshot, not token-specific
+Data freshness and missing-data messages appear next to the counts. The selected summary shows the exact count and preceding 30-minute mean when available. Wallet navigation refers to the latest snapshot, not token-specific
 buyer lists. Colours describe activity, not price forecasts.

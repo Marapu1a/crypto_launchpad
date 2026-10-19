@@ -1,0 +1,6 @@
+[Unit]
+Description=Consistent Pons market monitor backup
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/pons-monitor/backup.py

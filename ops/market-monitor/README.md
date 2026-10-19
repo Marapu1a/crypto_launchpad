@@ -1,4 +1,6 @@
-# Market monitor service — deployment template, not activated
+> Live on pw.qianqi.site since 2026-10-19. See [deployment report](../../docs/PW_PRELAUNCH_20261019.md). Production uses a dedicated static pons-market-monitor user instead of DynamicUser to preserve explicit SQLite ownership. No RPC or financial execution.
+
+# Market monitor service
 
 This collector is separate from the financial `pons-collector.service` and
 `pons-runtime.service`. It calls Pons HTTP only; it needs no RPC URL or wallet keys.
