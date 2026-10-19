@@ -39,16 +39,16 @@
     "resolvedCurveRequired": true
   },
   "launchBudget": {
-    "approved": false,
-    "totalNativeLimit": null,
+    "approved": true,
+    "totalNativeLimit": "3000000000000000",
     "maxGasLimit": null,
     "maxFeePerGas": null,
     "nativeFloor": null
   },
   "serviceBudget": {
-    "approved": false,
-    "executorReserve": null,
-    "publisherReserve": null,
+    "approved": true,
+    "executorReserve": "1000000000000000",
+    "publisherReserve": "500000000000000",
     "maxGasPrice": null,
     "maxGasLimit": null,
     "nativeFloor": null
@@ -133,7 +133,7 @@
     "restoreVerified": true,
     "offserverBackup": true,
     "ownerConsole": "loopback only; signing/send disabled",
-    "budgetApprovalPending": true,
+    "budgetApprovalPending": false,
     "noPublicTransactions": true
   },
   "budgetProposal": {
@@ -143,6 +143,16 @@
     "maxGasLimit": "6500000",
     "maxFeePerGasWei": "40000000",
     "nativeFloorETH": "0.0005",
-    "approved": false
+    "approved": true,
+    "approvalScope": "Launch total and two service-wallet reserves only; no signing, funding or activation authorization"
+  },
+  "budgetApproval": {
+    "at": "2026-10-19",
+    "source": "explicit-owner-reply",
+    "launchCapETH": "0.003",
+    "executorReserveETH": "0.001",
+    "publisherReserveETH": "0.0005",
+    "transfersAuthorizedNow": false,
+    "launchAuthorizedNow": false
   }
 }
