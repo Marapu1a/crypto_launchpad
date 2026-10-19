@@ -170,4 +170,10 @@
 
 - [PW operator: launch, holder handoff, gas preview and paged reconciliation](PW_OPERATOR.md).
 
+- [PW owner UI: локальный экран запуска и подпись](PW_OWNER_UI.md).
+
+- [Паспорт запуска PW: решения, метаданные, роли, бюджет и порядок выпуска](PW_LAUNCH_PASSPORT.md).
+
+- [PW: общий RPC-бюджет, строгие receipts и восстановление внешних поступлений](PW_REVIEW_FIXES_20261019.md).
+
 - [PW_SERVICE](PW_SERVICE.md) — отдельная служба комиссий и draw PW, экономный режим и регистрация.

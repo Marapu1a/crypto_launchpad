@@ -3,7 +3,7 @@
   "status": "mechanics-and-eth-amounts-approved-not-executable",
   "feePolicyKind": "pw-holders-draw-project-v1",
   "name": "Pattern Watcher",
-  "symbol": null,
+  "symbol": "PW",
   "chainId": 4663,
   "quoteAsset": "ETH",
   "creatorTaxBps": 300,
@@ -97,5 +97,7 @@
   "rulesDocument": "docs/PATTERN_WATCHER_RULES.md",
   "quoteDecimals": 18,
   "feeSplitBasis": "actually-received-creator-trading-fees",
-  "executionEnabled": false
+  "executionEnabled": false,
+  "website": "https://pw.qianqi.site",
+  "identityApprovedAt": "2026-10-19"
 }

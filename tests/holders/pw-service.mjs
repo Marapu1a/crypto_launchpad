@@ -25,6 +25,8 @@ import {verifyPwPolicy} from '../../src/worker/pw-policy.mjs';
 import {enableVerificationCache} from '../../src/worker/verification-cache.mjs';
 import {publishPwService} from '../../server/shared/pw-public.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
+import {recoverHolderFunding} from '../../server/shared/holder-funding-recovery.mjs';
+import {checkFundingCounters} from '../../src/holders/funding-counters.mjs';
 const vector=JSON.parse(readFileSync('vendor/qianqi/research/drand-feasibility/vector.json'));
 const preceding=JSON.parse(readFileSync('tests/fixtures/production-pre-freeze-beacon.json'));
 const time=GENESIS+(vector.beacon.round-1)*PERIOD;
@@ -94,6 +96,18 @@ try{
  const imported=await readHolderPreparation(db.pools.jobs,scope,{now:clock});report.holderFunding=imported;
  const count=Number((await db.admin.query('SELECT jsonb_array_length(body->\'events\') AS n FROM launchpad.holder_preparations WHERE project_id=$1',[projectId])).rows[0].n);assert.equal(count,2);
  await syncPwHolderFunding(input);assert.equal((await readHolderPreparation(db.pools.jobs,scope,{now:clock})).revision,imported.revision);
+ // A successful receipt with missing/mismatched logs must not advance the cursor.
+ const replaceState=async value=>db.admin.query('UPDATE launchpad.production_senders SET state_text=$2,state_hash=$3,revision=revision+1 WHERE project_id=$1',[projectId,JSON.stringify(value),digest(value)]);
+ const good=await state(),fundingRows=good.history.map((h,i)=>({h,i})).filter(({h})=>/:(collector\.forward|splitter\.deliver)$/.test(h.action));
+ for(const {h,i} of fundingRows){
+  await replaceState({...good,runtime:{...good.runtime,holderFundingCursor:i}});
+  const incomplete=new Proxy(provider,{get(t,k){if(k==='getTransactionReceipt')return async hash=>{const r=await t.getTransactionReceipt(hash);return hash===h.hash?{...r,logs:[]}:r;};const v=Reflect.get(t,k);return typeof v==='function'?v.bind(t):v;}});
+  await assert.rejects(syncPwHolderFunding({...input,provider:incomplete}),/holder-funding-evidence-missing/);
+  assert.equal((await state()).runtime.holderFundingCursor,i);
+  await syncPwHolderFunding(input);
+  assert.equal((await readHolderPreparation(db.pools.jobs,scope,{now:clock})).revision,imported.revision);
+ }
+ report.checks.push('Every funding action rejects an empty successful receipt without cursor advancement; intact replay imports no duplicate credit, including non-holder delivery lanes');
  report.checks.push('Pons activity wakes zero-RPC idle; two buys collect 0.03 ETH and split 60/20/20, automatically import two holder funding events without duplicates; unsolicited ETH stays quarantined');
  // Service restart reconstructs the next monthly deadline from chain and journal.
  service=createPwService(input);const waiting=await service();assert.equal(waiting.nextCheckAt,launchAt+2592000);
@@ -122,6 +136,8 @@ try{
  const candidate=await collectHolderSnapshot({chainId:4663,token:tokenAddress,maxPages:1,maxHolders:5,observedAt:block.timestamp,fetchPage:async()=>({token:tokenAddress,holders:2,supply:'2',as_of:{rollup_bucket:1,tail_from_block:block.number},page:buyers.map(wallet=>({wallet,balance:'1'})),next_cursor:null})});
  await appendHolderPreparation(db.pools.jobs,scope,{id:'first-snapshot',scopeId:identity(scope),type:'snapshot.observed',candidate});
  await admitHolderPreparation(db.pools.jobs,scope,{provider,candidateId:candidate.id,now:clock});
+ const missingRevenue=new Proxy(provider,{get(t,k){if(k==='call')return async request=>request.to?.toLowerCase()===splitter.target.toLowerCase()&&request.data==='0x'+keccak256(Buffer.from('totalReceived()')).slice(2,10)?'0x'+'0'.repeat(64):t.call(request);const v=Reflect.get(t,k);return typeof v==='function'?v.bind(t):v;}});
+ await assert.rejects(prepareHolderAllocation(db.pools.executor,scope,{provider:missingRevenue,period:1,budget:String(parseEther('0.018')),now:clock}),/holder-funding-evidence-missing/);
  const plan=await prepareHolderAllocation(db.pools.executor,scope,{provider,period:1,budget:String(parseEther('0.018')),now:clock});assert.equal(plan.plan.allocations.length,2);
  const operator=createPwHolderOperator({pool:db.pools.executor,provider,scope});
  for(const operation of [{kind:'open'},{kind:'append',offset:0,count:2},{kind:'seal'},...buyers.map(wallet=>({kind:'pay',wallet,periods:[1]}))]){
@@ -135,6 +151,44 @@ try{
  report.checks.push('Automatically imported fees feed the same holder operator: accepted first snapshot, durable allocation and two 0.009 ETH payments; replay sends nothing; journal reconciles to zero debt');
  await publishPwService({pool:db.pools.executor,projectId,file:resolve(root,'public.json'),result:await pass()});
  const publicText=readFileSync(root+'/public.json','utf8');assert.ok(!publicText.includes('privateKey')&&!publicText.includes(pending.raw));
- report.checks.push('Public service snapshot contains no signed bytes or private execution policy');report.history=(await state()).history;report.status='PASS';
+ report.checks.push('Public service snapshot contains no signed bytes or private execution policy');report.history=(await state()).history;
+ // Permissionless external calls are deliberately absent from service history.
+ await buy(buyers[0]);await tx(collector.sweepCurve());await tx(collector.collect());await tx(collector.forward());
+ const program=async()=>(await db.admin.query('SELECT body FROM launchpad.holder_preparations WHERE project_id=$1',[projectId])).rows[0].body;
+ await assert.rejects(checkFundingCounters(await program(),base,await base.getBlock('finalized')),/holder-funding-evidence-missing/);
+ await tx(splitter.deliver(0));
+ const beforeRecovery=(await program()).events.length;
+ await assert.rejects(recoverHolderFunding(db.pools.jobs,scope,{provider:base,maxReceipts:1}),/receipt\/log budget/);
+ assert.equal((await program()).events.length,beforeRecovery);
+ const missing=new Proxy(base,{get(t,k){if(k==='getLogs')return async()=>[];const v=Reflect.get(t,k);return typeof v==='function'?v.bind(t):v;}});
+ await assert.rejects(recoverHolderFunding(db.pools.jobs,scope,{provider:missing}),/holder-funding-evidence-missing/);
+ assert.equal((await db.admin.query('SELECT count(*) FROM launchpad.holder_funding_scans')).rows[0].count,'0');
+ let interrupted=false;
+ const stopBeforeCursor=new Proxy(base,{get(t,k){if(k==='getBlock')return async tag=>{if(!interrupted&&typeof tag==='number'&&(await program()).events.length===beforeRecovery+2){interrupted=true;throw Error('recovery interrupted before cursor');}return t.getBlock(tag);};const v=Reflect.get(t,k);return typeof v==='function'?v.bind(t):v;}});
+ await assert.rejects(recoverHolderFunding(db.pools.jobs,scope,{provider:stopBeforeCursor}),/recovery interrupted/);
+ assert.equal((await program()).events.length,beforeRecovery+2);
+ assert.equal((await db.admin.query('SELECT count(*) FROM launchpad.holder_funding_scans')).rows[0].count,'0');
+ const firstPage=await recoverHolderFunding(db.pools.jobs,scope,{provider:base,maxBlocks:1});
+ assert.equal(firstPage.status,'progress');assert.equal(firstPage.nextBlock,1);
+ const recoveryBridge=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;const q=JSON.parse(body);try{res.end(JSON.stringify({jsonrpc:'2.0',id:q.id,result:await base.send(q.method,q.params)}));}catch(e){res.end(JSON.stringify({jsonrpc:'2.0',id:q.id,error:{code:-32000,message:e.message}}));}});
+ await new Promise(r=>recoveryBridge.listen(0,'127.0.0.1',r));let recovered;
+ try{
+  const file=resolve(root,'funding-restart.json');writeFileSync(file,JSON.stringify({rpc:'http://127.0.0.1:'+recoveryBridge.address().port,scope}));
+  const {stdout}=await promisify(execFile)(process.execPath,['tests/holders/restart-funding-recovery.mjs',file],{windowsHide:true,env:{...process.env,PW_TEST_JOBS_DB:db.url('lp_jobs')},timeout:120000});
+  recovered=JSON.parse(stdout.trim());
+ }finally{recoveryBridge.closeAllConnections();await new Promise(r=>recoveryBridge.close(r));}
+ assert.equal(recovered.status,'reconciled');assert.equal(recovered.imported,0);
+ assert.equal(recovered.received,String(parseEther('0.045')));assert.equal(recovered.holderDelivered,String(parseEther('0.027')));
+ assert.equal((await program()).events.length,beforeRecovery+2);
+ await buy(buyers[1]);
+ await until(async()=>await vault.totalReceived()===parseEther('0.036')&&await splitter.credit(2)===0n);
+ const resumedCounters=await checkFundingCounters(await program(),base,await base.getBlock('finalized'));
+ assert.equal(resumedCounters.received,String(parseEther('0.06')));assert.equal(resumedCounters.holderDelivered,String(parseEther('0.036')));
+ const scanRow=(await db.admin.query('SELECT * FROM launchpad.holder_funding_scans')).rows[0];
+ const changed=new Proxy(base,{get(t,k){if(k==='getBlock')return async tag=>{const b=await t.getBlock(tag);return tag===scanRow.body.checkpoint.number?{...b,hash:'0x'+'f'.repeat(64)}:b;};const v=Reflect.get(t,k);return typeof v==='function'?v.bind(t):v;}});
+ await assert.rejects(recoverHolderFunding(db.pools.jobs,scope,{provider:changed}),/checkpoint changed/);
+ assert.equal((await db.admin.query('SELECT body_hash FROM launchpad.holder_funding_scans')).rows[0].body_hash,scanRow.body_hash);
+ report.checks.push('External revenue/deposit recovered on demand after actual holder payouts; receipt cap and omitted logs fail closed; crash leaves imports durable but cursor untouched; bounded first page resumes in a new keyless process and deduplicates; changed checkpoint stops recovery');
+ report.fundingRecovery=recovered;report.status='PASS';
 }catch(e){report.error=e.shortMessage||e.message;console.error(e);process.exitCode=1;}
 finally{writeFileSync(root+'/report.json',JSON.stringify(report,null,2));await db?.close();provider.destroy();meter.restore();console.log(root+'/report.json',report.status);}

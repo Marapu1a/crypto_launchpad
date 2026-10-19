@@ -1,4 +1,5 @@
 import {Transaction} from 'ethers';
+import {checkFundingCounters} from '../../src/holders/funding-counters.mjs';
 import {inProject} from './store.mjs';
 import {address,check,hash,identity,scope,uint} from '../../src/holders/values.mjs';
 import {replayHolderProgram} from '../../src/holders/program.mjs';
@@ -51,6 +52,7 @@ export async function prepareHolderAllocation(pool,input,{provider,period,budget
   check(pending.length===0,'Resolve unknown execution before allocation');
   const {vault,block}=await checkpointExecution(provider,policy,s),opts={blockTag:block.number};
   check(await vault.totalReceived(opts)===uint(state.fees.holderDelivered),'Unreconciled holder funding');
+  await checkFundingCounters(program,provider,block);
   check(await vault.lastPeriod(opts)===BigInt(period-1)&&await vault.pendingBudget(opts)===0n,'Unexpected allocation period');
   check(uint(budget)<=await vault.available(opts),'Insufficient allocation budget');
   check(await provider.getBalance(policy.vault,block.number)>=await vault.totalReceived(opts)-await vault.totalPaid(opts),'Insolvent execution vault');

@@ -7,6 +7,7 @@ import {runPonsServices} from './pons-service-loop.mjs';
 import {writeHealthFile} from '../short-runtime/health-file.mjs';
 import {runtimeProvider} from '../short-runtime/rpc-provider.mjs';
 import budget from './rpc-budget.cjs';
+import {validateRpcUrl} from './rpc-policy.mjs';
 import {enableVerificationCache} from '../../src/worker/verification-cache.mjs';
 
 // Shared host: prepare builds adapter inputs using the supplied gated transport.
@@ -20,9 +21,7 @@ export async function runPonsRuntime({mode,allowPublicTransactions=false,allowed
   await lock.writeFile(JSON.stringify({pid:process.pid,startedAt:new Date().toISOString()}));await lock.sync();
   if(signal?.aborted)return;
   const prepared=await prepare({signal,provider:url=>{
-   const u=new URL(url);
-   if(mode==='rehearsal'&&(!['http:','https:'].includes(u.protocol)||!['127.0.0.1','[::1]','localhost'].includes(u.hostname)||u.username||u.password))throw Error('Rehearsal requires loopback RPC');
-   if(mode==='production'&&(u.protocol!=='https:'||u.username||u.password||!allowedRpcHosts.includes(u.hostname)||/quicknode|quiknode/i.test(u.hostname)))throw Error('Unapproved RPC host');
+   validateRpcUrl(url,{mode,allowedRpcHosts});
    const p=runtimeProvider(url,{gate});enableVerificationCache(p);providers.push(p);return p;
   }});
   cleanup=prepared.close;

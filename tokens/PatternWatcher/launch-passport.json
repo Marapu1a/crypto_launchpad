@@ -1,0 +1,127 @@
+{
+  "schema": "pw-launch-passport-v1",
+  "status": "draft-not-executable",
+  "executionEnabled": false,
+  "reviewedAt": "2026-10-19",
+  "sourceCommit": "de9a7ac26aed087382904889b07735dcb87667e4",
+  "sourceIncludesUncommittedPackages": [
+    "PW review fixes",
+    "PW owner UI"
+  ],
+  "mechanicsSource": "tokens/PatternWatcher/preparation.json",
+  "identity": {
+    "name": "Pattern Watcher",
+    "symbol": "PW",
+    "website": "https://pw.qianqi.site",
+    "logoUri": null,
+    "descriptionStatus": "draft",
+    "approvedAt": "2026-10-19",
+    "websiteStatus": "selected-not-published",
+    "description": "Pattern Watcher explores the first hour of tokens on Pons: buyer addresses, purchases, volumes and wallet activity. Observe the patterns. Draw your own conclusions."
+  },
+  "proposals": {},
+  "assets": {
+    "emblem": {
+      "path": "apps/monitor/imgs/pw_eye.png",
+      "sha256": "c0fb14d0877f10567034c3302fd5a828772bdb430b31dd00614b396eeb5aabcb"
+    },
+    "mascot": {
+      "path": "apps/monitor/imgs/pw_mascot.png",
+      "sha256": "f74bb758b69cac17d4e3fbf51d8400c32ed1b1d8e86aab93c1e7b81a4faf4c89"
+    }
+  },
+  "wallets": {
+    "owner": "0x098afA6731239a00CE0aff669aaefD16b7C72114",
+    "executor": "0x9083FF89eaa43f6442471A66a917579C7a482D74",
+    "publisher": "0x8A9Fa285A82aaDBF3aC7030eC6Ec9edd6a068A11",
+    "project": "0x098afA6731239a00CE0aff669aaefD16b7C72114"
+  },
+  "holderExclusions": {
+    "source": "preparation.json#/holders/exclusionCategories",
+    "addresses": null,
+    "resolvedCurveRequired": true
+  },
+  "launchBudget": {
+    "approved": false,
+    "totalNativeLimit": null,
+    "maxGasLimit": null,
+    "maxFeePerGas": null,
+    "nativeFloor": null
+  },
+  "serviceBudget": {
+    "approved": false,
+    "executorReserve": null,
+    "publisherReserve": null,
+    "maxGasPrice": null,
+    "maxGasLimit": null,
+    "nativeFloor": null
+  },
+  "rpcPolicy": {
+    "paidProviderAllowed": false,
+    "allowedHosts": null,
+    "sharedBudgetFile": null,
+    "maxRequests": null,
+    "windowMs": null,
+    "intervalMs": null
+  },
+  "holderSnapshot": {
+    "reviewedTokenCodeHash": null,
+    "maxHolders": null,
+    "maxRpcCalls": null,
+    "maxAgeSeconds": null
+  },
+  "release": {
+    "buildApproval": null,
+    "finalizedAnchor": null,
+    "integratedRehearsal": null,
+    "independentReview": null,
+    "activationApproved": false
+  },
+  "walletApproval": {
+    "approvedAt": "2026-10-19",
+    "source": "explicit-owner-message",
+    "roles": [
+      "owner",
+      "project"
+    ],
+    "balanceVerified": true
+  },
+  "serviceWalletPreparation": {
+    "createdAt": "2026-10-19",
+    "source": "owner-authorized-new-role-wallets",
+    "keystoreRestoreVerified": true,
+    "deployed": false,
+    "funded": false
+  },
+  "walletObservation": {
+    "at": "2026-10-19T00:25:13.677Z",
+    "rpcHost": "robinhood-mainnet.g.alchemy.com",
+    "chainId": 4663,
+    "anchor": {
+      "number": 92183258,
+      "hash": "0xfa8fd1c8537bfede81fc773a92d5087868bb8a601eae8256943d0c622f54c799",
+      "timestamp": 1792368565
+    },
+    "wallets": [
+      {
+        "role": "owner",
+        "address": "0x098afA6731239a00CE0aff669aaefD16b7C72114",
+        "balanceETH": "0.003105040619154011",
+        "code": "0x"
+      },
+      {
+        "role": "executor",
+        "address": "0x9083FF89eaa43f6442471A66a917579C7a482D74",
+        "balanceETH": "0.0",
+        "code": "0x"
+      },
+      {
+        "role": "publisher",
+        "address": "0x8A9Fa285A82aaDBF3aC7030eC6Ec9edd6a068A11",
+        "balanceETH": "0.0",
+        "code": "0x"
+      }
+    ],
+    "spendingApproved": false
+  }
+}

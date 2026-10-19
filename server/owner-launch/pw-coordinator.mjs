@@ -58,6 +58,7 @@ export function createPwOwnerCoordinator({pool,provider,profile,preparation,allo
  }
  return {
   info(){return {mode:profile.mode,profileHash:identity(profile),preparationHash:identity(preparation),buildHash:build.manifest.buildHash,signingEnabled:!production||allowPublicTransactions,executionEnabled:false};},
+  async inspect(id){return lock(id,async({state})=>{if(state)stateCheck(state);return state;});},
   async prepare(input){return lock(input.id,async({state,save})=>{
    if(production)check(input.id===profile.id&&input.draft.name===preparation.name&&typeof input.draft.symbol==='string'&&input.draft.symbol.length>0,'Production project/name/ticker required');
    if(state){stateCheck(state);check(identity(input)===state.inputHash,'Launch input changed');await history(state);return state;}

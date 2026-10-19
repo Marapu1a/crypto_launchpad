@@ -1,6 +1,7 @@
+import {recoverHolderFunding} from '../server/shared/holder-funding-recovery.mjs';
 import {preparePwServiceHandoff,registerPwServiceHandoff} from '../server/owner-launch/pw-service-handoff.mjs';
 import {readFile} from 'node:fs/promises';
-import {FetchRequest,JsonRpcProvider} from 'ethers';
+import {operatorRpc} from '../server/shared/rpc-policy.mjs';
 import {privateText} from '../server/short-runtime/config.mjs';
 import {createPool,verifyRole} from '../server/shared/store.mjs';
 import {createPwOwnerCoordinator} from '../server/owner-launch/pw-coordinator.mjs';
@@ -9,11 +10,11 @@ import {createPwHolderOperator} from '../server/shared/pw-holder-operator.mjs';
 import {importHolderFunding,appendHolderPreparation,admitHolderPreparation,advanceHolderPeriod} from '../server/shared/holder-preparation.mjs';
 import {prepareHolderAllocation,scanHolderPayments} from '../server/shared/holder-execution.mjs';
 
-const commands=['service-handoff-preview','service-handoff-register','launch-prepare','launch-read','launch-quote','launch-record','launch-broadcast','launch-resolve','handoff-preview','handoff-register','holder-quote','holder-record','holder-broadcast','holder-resolve','holder-reconcile','holder-scan','holder-funding','holder-snapshot','holder-admit','holder-plan','holder-advance'];
+const commands=['service-handoff-preview','service-handoff-register','launch-prepare','launch-read','launch-quote','launch-record','launch-broadcast','launch-resolve','handoff-preview','handoff-register','holder-quote','holder-record','holder-broadcast','holder-resolve','holder-reconcile','holder-scan','holder-funding','holder-recover-funding','holder-snapshot','holder-admit','holder-plan','holder-advance'];
 if(process.argv.includes('--help')){
  console.log('node scripts/pw-operator.mjs PRIVATE_CONFIG COMMAND [PAYLOAD_JSON]\n'+commands.join('\n')+'\nNo keys or automatic signing. Sending defaults to disabled; config paths must be absolute.');
 }else{
- let provider;const pools={};let phase='configuration';
+ let provider,usage;const pools={};let phase='configuration';
  try{
   const [, ,file,command,payload]=process.argv;
   if(!commands.includes(command))throw Error('Unknown command');
@@ -21,8 +22,7 @@ if(process.argv.includes('--help')){
   if(config.schema!=='pw-operator-v1'||config.profile?.mode!=='production'||typeof config.allowPublicTransactions!=='boolean')throw Error('Explicit production operator configuration required');
   const input=payload?JSON.parse(await readFile(payload,'utf8')):{};
   const preparation=JSON.parse(await readFile(new URL('../tokens/PatternWatcher/preparation.json',import.meta.url),'utf8'));
-  phase='connections';const rpc=new FetchRequest(await privateText(config.rpcFile));rpc.timeout=15000;
-  provider=new JsonRpcProvider(rpc,undefined,{cacheTimeout:-1,batchMaxCount:1});
+  phase='connections';({provider,usage}=await operatorRpc(await privateText(config.rpcFile),config));
   const pool=async role=>{
    if(!pools[role]){pools[role]=createPool(await privateText(config.databaseFiles[role]));if(role!=='admin')await verifyRole(pools[role],{executor:'lp_executor',jobs:'lp_jobs'}[role]);}
    return pools[role];
@@ -52,6 +52,7 @@ if(process.argv.includes('--help')){
      case 'holder-resolve':result=await operator.resolve(input.txHash);break;
      case 'holder-reconcile':result=await operator.reconcile(input);break;
      case 'holder-scan':result=await scanHolderPayments(executor,scope,{...input,provider});break;
+     case 'holder-recover-funding':result=await recoverHolderFunding(await pool('jobs'),scope,{...input,provider});break;
      case 'holder-funding':result=await importHolderFunding(await pool('jobs'),scope,{...input,provider});break;
      case 'holder-snapshot':result=await appendHolderPreparation(await pool('jobs'),scope,input);break;
      case 'holder-admit':result=await admitHolderPreparation(await pool('jobs'),scope,{...input,provider});break;
@@ -61,8 +62,12 @@ if(process.argv.includes('--help')){
    }
   }
   console.log(JSON.stringify(result,(_,v)=>typeof v==='bigint'?String(v):v,2));
- }catch{
+ }catch(error){
   // RPC/DB exceptions may contain credential URLs or signed payloads.
   console.error('PW operator failed at '+phase+'; no automatic retry or new signature. Check the private configuration and durable journal.');process.exitCode=1;
- }finally{await Promise.allSettled(Object.values(pools).map(p=>p.end()));provider?.destroy();}
+  if(['HOLDER_FUNDING_EVIDENCE_MISSING','RPC_BUDGET_EXHAUSTED','RPC_BUDGET_LOCKED'].includes(error.code))console.error(error.code==='HOLDER_FUNDING_EVIDENCE_MISSING'?'holder-funding-evidence-missing: run holder-recover-funding with bounded ranges, then retry.':error.code);
+ }finally{
+  if(usage){const s=usage();console.error(JSON.stringify({rpcBudget:{...s,remaining:s.maxRequests-s.used}}));}
+  await Promise.allSettled(Object.values(pools).map(p=>p.end()));provider?.destroy();
+ }
 }

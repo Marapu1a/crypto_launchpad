@@ -44,6 +44,11 @@ function persistentRpcGate({file,maxRequests,windowMs,intervalMs=50,now=Date.now
   }
  };
  gate.snapshot=()=>last?{...last,persistent:true}: {persistent:true,checked:false};
+ gate.preflight=async()=>{
+  const s=valid(JSON.parse(await fs.readFile(file,'utf8')));
+  if(s.maxRequests!==maxRequests||s.windowMs!==windowMs)throw Error('RPC budget policy mismatch');
+  last={...s};return gate.snapshot();
+ };
  return gate;
 }
 function configuredRpcGate(options={}){return Object.hasOwn(options,'file')?persistentRpcGate(options):createRpcGate(options);}

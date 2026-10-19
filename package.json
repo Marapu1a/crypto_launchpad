@@ -79,6 +79,7 @@
     "test:monitor": "python -m unittest discover -s apps/monitor -p test_*.py",
     "hub:preview": "python -m http.server 4212 --bind 127.0.0.1 --directory apps/hub/site",
     "test:holder-payout": "node tests/holders/payout.mjs",
+    "owner:pw": "node scripts/run-pw-owner.mjs",
     "pw:operator": "node scripts/pw-operator.mjs",
     "test:pw-production": "node --test tests/unit/pw-production.test.mjs",
     "test:pw-launch": "node tests/holders/pw-launch.mjs",

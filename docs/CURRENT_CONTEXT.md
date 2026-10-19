@@ -1,5 +1,23 @@
 # Текущий контекст
 
+Текущая работа по просьбе владельца: локальный первый экран монитора со столбчатыми
+графиками активности; визуальное согласование до публикации. См. [MONITOR_PRODUCT](MONITOR_PRODUCT.md).
+Подготовка запуска PW сохраняется; токен и службы не активированы.
+
+19.10.2026: RPC Alchemy и canLaunch владельца PW проверены; свежие fork launch
+и local service cycle — PASS. Ориентир запуска 0.000758 ETH при наблюдавшейся
+цене газа, без рабочих резервов. Подробности и границы проверки — в
+[паспорте запуска](PW_LAUNCH_PASSPORT.md). Производственные лимиты, metadata
+и подключение остаются незавершёнными; реальных отправок не было.
+
+Текущий шаг: [паспорт реального запуска PW](PW_LAUNCH_PASSPORT.md). Утверждённая
+экономика сохранена; публичные данные, роли и бюджеты отделены от демо-значений.
+
+19.10.2026: пакет исправлений ревью — [RPC, receipts и recovery](PW_REVIEW_FIXES_20261019.md).
+Реализован и проверен локально. [Экран запуска PW и подпись](PW_OWNER_UI.md)
+также готовы локально; далее реальные настройки, общая репетиция и ревью.
+Production не активирован.
+
 19.10.2026. Задача — подготовить Pattern Watcher через общую платформу.
 PW ещё не выпущен. Production и существующие QIANQI/IGW в текущих пакетах не менялись.
 
@@ -62,12 +80,12 @@ Pons не утверждён этой локальной ERC20-проверко�
 
 ## PW operator package — 19.10.2026
 
-[Working launch and holder operator](PW_OPERATOR.md): production profile and disabled-by-default send switch, gas quote, durable exact-byte broadcast/recovery, finalized holder handoff, on-demand holder operations and paged reconciliation (migration 020). No production activation. Next: choose real launch settings, connect owner signing/UI, then complete deployment rehearsal/review. The existing IGW runtime is not a drop-in PW worker.
+[Working launch and holder operator](PW_OPERATOR.md): production profile and disabled-by-default send switch, gas quote, durable exact-byte broadcast/recovery, finalized holder handoff, on-demand holder operations and paged reconciliation (migration 020). No production activation. Owner signing/UI is implemented locally (PW_OWNER_UI.md). Next: choose real launch settings, then complete deployment rehearsal/review. The existing IGW runtime is not a drop-in PW worker.
 
 ## PW service — 19.10.2026
 
 [Сбор комиссий и draw PW](PW_SERVICE.md) подключены отдельным адаптером общего
 Pons runtime. При простое RPC не вызывается; активность, срок draw и незавершённая
 операция запускают проход. Подтверждённые поступления импортируются в holder ledger.
-Регистрация службы отделена от активации. Дальше: owner UI/подпись, реальные
+Регистрация службы отделена от активации. Owner UI/подпись готовы локально. Дальше: реальные
 настройки запуска, итоговая репетиция и ревью. Холдеры обслуживаются через operator.

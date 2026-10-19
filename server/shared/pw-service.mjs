@@ -1,4 +1,5 @@
-import {id,ZeroAddress} from 'ethers';
+import {ZeroAddress} from 'ethers';
+import {serviceFundingLogs} from '../../src/holders/service-funding.mjs';
 import {createPonsService} from './pons-service.mjs';
 import {drawServiceObservation} from './pons-draw-service.mjs';
 import {runDrawWorker} from './draw-worker.mjs';
@@ -16,7 +17,6 @@ export async function readPwService(pool,projectId){
   return {policy,state};
  });
 }
-const revenue=id('Revenue(bytes32,address,uint256,uint256)'),deposit=id('Deposited(bytes32,address,uint256,uint256)');
 // Import only finalized, journaled funding receipts. Commit cursor after the
 // idempotent holder import: a crash between the two cannot duplicate credit.
 export async function syncPwHolderFunding(input){
@@ -31,11 +31,10 @@ export async function syncPwHolderFunding(input){
    const h=state.history[cursor];
    if(h.receiptStatus===1&&/:(collector\.forward|splitter\.deliver)$/.test(h.action)){
     const r=await input.provider.getTransactionReceipt(h.hash);
-    check(r?.status===1&&r.blockHash===h.blockHash&&r.blockNumber===h.blockNumber,'PW funding receipt changed');
-    for(const l of r.logs){
-     const role=l.topics[0]===revenue?'splitter':l.topics[0]===deposit?'vault':null;
-     if(role&&l.address.toLowerCase()===policy.contracts[role].address.toLowerCase())await importHolderFunding(input.jobsPool,scope,{provider:input.provider,txHash:r.hash,logIndex:l.index});
-    }
+    const logs=serviceFundingLogs(policy,h,await input.provider.getTransaction(h.hash),r);
+    check((await input.provider.getBlock('finalized'))?.number>=h.blockNumber&&(await input.provider.getBlock(h.blockNumber))?.hash===h.blockHash,'PW funding finality changed');
+    for(const l of logs)await importHolderFunding(input.jobsPool,scope,{provider:input.provider,txHash:r.hash,logIndex:l.index});
+    check((await input.provider.getBlock(h.blockNumber))?.hash===h.blockHash,'PW funding receipt changed before cursor');
    }
    state.runtime.holderFundingCursor=cursor+1;await save(state);
   }

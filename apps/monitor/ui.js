@@ -19,6 +19,114 @@ const U=(()=>{
  copy.gapCount=["{value} missing windows","缺失 {value} 个区间","Пропущено интервалов: {value}"];
  copy.watcherTitle=['Pick a wallet to explore','选择钱包，查看活动','Выберите кошелёк'];
  copy.watcherHint=['Open an active address above or paste your own to view saved activity.','打开上方活跃地址，或粘贴地址查看已保存的活动。','Откройте активный адрес выше или вставьте свой, чтобы посмотреть сохранённую активность.'];
+ Object.assign(copy,{
+ footerAbout:['Activity into perspective. Patterns are yours to interpret.','让活动更清晰，规律由你解读。','Активность в контексте. Выводы — за тобой.'],
+ footerExplore:['Explore','探索','Навигация'],footerContact:['Get in touch','联系我们','Связаться'],footerHub:['Project hub','项目中心','Все проекты'],
+ footerSource:['Independent project using Pons data. Snapshots may be delayed or incomplete.','使用 Pons 数据的独立项目。快照可能延迟或不完整。','Независимый проект на данных Pons. Снимки могут запаздывать или быть неполными.'],
+ footerNav:['Footer navigation','页脚导航','Навигация в футере'],
+ savedWindow:['Saved 5-minute window','已保存的 5 分钟时段','Сохранённая пятиминутка'],
+ introMotto:['OBSERVE / CONNECT / EXPLORE','观察 / 关联 / 探索','НАБЛЮДАЙ / СРАВНИВАЙ / ИССЛЕДУЙ'],
+ heatSwipe:['Scroll sideways to see every window','横向滑动查看所有时段','Листай вбок, чтобы увидеть все интервалы'],
+ introTag:['PONS · FIRST-HOUR ACTIVITY','PONS · 首小时活动','PONS · АКТИВНОСТЬ ПЕРВОГО ЧАСА'],
+ introTitle:['See the activity.\nFind your own patterns.','看见活动。\n发现自己的规律。','Наблюдай активность.\nНаходи свои связи.'],
+ introBody:['A closer look at new tokens on Pons. Compare buys, buyer addresses and launches over time. Explore the activity behind the numbers.','近距离观察 Pons 新代币。对比不同时段的买入、买家地址与发行数量，了解数字背后的活动。','Новые токены Pons в деталях: покупки, адреса покупателей и запуски во времени. Смотри, что стоит за цифрами.'],
+ exploreActivity:['Explore activity','查看活动','Смотреть активность'],exploreTokens:['Browse tokens','浏览代币','Перейти к токенам'],
+ overviewTitle:['The latest 5 minutes','最近 5 分钟','Последние 5 минут'],
+ heatTag:['THE BIGGER PICTURE','活动全貌','КАРТИНА ЦЕЛИКОМ'],heatTitle:['Activity, in context','活动对比','Активность в контексте'],
+ heatHelp:['Each column is 5 minutes. Brighter means more activity within that row, across the displayed windows. Select a cell to explore its tokens.','每列代表 5 分钟。颜色越亮，表示该行在所示时段内的活动越多。选择单元格查看代币。','Каждый столбец — 5 минут. Ярче — больше активности в этой строке среди показанных интервалов. Выбери ячейку, чтобы посмотреть токены.'],
+ heatLow:['Less','较少','Меньше'],heatHigh:['More','较多','Больше'],heatGap:['Incomplete / missing','不完整 / 缺失','Неполные / нет данных'],
+ contextAverage:['Previous 30 min: {value} / 5 min','前 30 分钟：每 5 分钟 {value}','За предыдущие 30 мин: {value} / 5 мин'],
+ contextRange:['Range {low}–{high} · 6 complete windows','范围 {low}–{high} · 6 个完整时段','Диапазон {low}–{high} · 6 полных интервалов'],
+ contextRatio:['{value}× the preceding average','前期均值的 {value} 倍','{value}× к предыдущему среднему'],
+ contextZero:['Previous average: 0','前期均值：0','Предыдущее среднее: 0'],
+ heatSelect:['Select a cell to see its count and time.','选择单元格查看数量与时间。','Выбери ячейку: покажем число и время.'],
+ heatUnknown:['No complete comparison for this window','此时段无完整对比数据','Нет полного сравнения для этого интервала'],
+ heatUnavailable:['Details are unavailable for this window','此时段详情不可用','Детали этого интервала недоступны']
+ });
+ // Plain-language overview copy; comparisons remain descriptive.
+ Object.assign(copy,{
+ subtitle:['Buys in the first hour of new Pons tokens','Pons 新代币首小时的买入','Покупки новых токенов Pons в первый час'],
+ overviewTitle:['What happened in the latest 5 minutes?','最近 5 分钟发生了什么？','Что произошло за последние 5 минут?'],
+ savedWindow:['A look at a saved interval','查看已保存时段','Смотрим сохранённый интервал'],
+ introTitle:['See what’s happening.\nExplore what stands out.','看看正在发生什么。\n探索值得关注的变化。','Смотри, что происходит.\nЗамечай интересное.'],
+ introBody:['Follow new tokens on Pons: how often they’re bought, how many addresses buy them, and how activity changes. Start with the map, then explore the tokens.','观察 Pons 新代币的买入次数、买家地址数量及活动变化。从图表开始，再查看具体代币。','Наблюдай за новыми токенами Pons: сколько их покупают, сколько адресов участвует и как меняется активность. Начни с карты, потом загляни в токены.'],
+ contextAverage:['Earlier: {value} on average per 5 min','此前每 5 分钟平均 {value}','Раньше: в среднем {value} за 5 мин'],
+ contextRange:['Compared with the previous 30 min','与此前 30 分钟比较','Сравниваем с предыдущими 30 минутами'],
+ contextMore:['{value}% more','多 {value}%','На {value}% больше'],contextLess:['{value}% fewer','少 {value}%','На {value}% меньше'],contextSame:['About the same','基本相同','Примерно столько же'],
+ contextZero:['There were none in the previous 30 min','此前 30 分钟为零','В предыдущие 30 минут было 0'],
+ noDelta:['More history needed','需要更多历史数据','Пока мало данных для сравнения'],
+ heatUnknown:['We need 6 complete earlier intervals to compare.','需要此前 6 个完整时段才能比较。','Для сравнения нужны 6 полных предыдущих интервалов.'],
+ heatTitle:['When was it busier?','什么时候更活跃？','Когда было оживлённее?'],
+ heatHelp:['Each square is 5 minutes. Brighter means a higher count in that row — not a forecast. Tap a square to see the tokens below.','每格代表 5 分钟。颜色越亮，表示该行数值越高，并非预测。点选格子查看下方代币。','Каждая ячейка — 5 минут. Ярче — больше активности в этой строке, а не прогноз. Нажми на ячейку — ниже появятся токены.'],
+ mobileMetric:['Show on the map','图表指标','Что показать на карте'],
+ heatGap:['Some data is missing','部分数据缺失','Данные неполные'],heatUnavailable:['We don’t have token details for this interval.','此时段暂无代币详情。','Для этого интервала пока нет списка токенов.'],
+ viewSelected:['See tokens for this interval','查看此时段代币','Посмотреть токены этого интервала'],
+ openPons:['Open on Pons','在 Pons 查看','Открыть на Pons'],
+ walletBridge:['Want to explore who’s buying?','想看看哪些地址在买入？','Хочешь посмотреть, кто покупает?'],
+ walletBridgeLink:['Wallets in the latest snapshot','最新快照中的钱包','Кошельки последнего снимка'],
+ ready:['Snapshot ready','快照已就绪','Данные загружены'],collecting:['Updating the snapshot','正在更新快照','Обновляем данные'],
+ preview:['Preview with saved data','历史数据预览','Превью на сохранённых данных'],stale:['This snapshot is older','这是较早的快照','Это старый снимок'],partial:['Some data is missing','部分数据缺失','Данные неполные'],
+ error:['The update didn’t finish','更新未完成','Не удалось обновить данные'],
+ noteReady:['These counts cover {time}. We update in intervals, not trade by trade.','统计时段为 {time}。数据按时段更新，并非逐笔实时更新。','Это данные за {time}. Мы обновляем их по интервалам, а не после каждой сделки.'],
+ notePreview:['You’re viewing saved data for {time}, not current trading.','你正在查看 {time} 的历史数据，并非当前交易。','Показаны сохранённые данные за {time}, а не текущие торги.'],
+ noteStale:['Last available interval: {time}. We don’t yet know what happened after it.','最新可用时段：{time}。之后的活动暂不可知。','Последний доступный интервал: {time}. Что было после него, пока неизвестно.'],
+ notePartial:['Some data for {time} is missing. Counts may be lower than the actual activity.','{time} 的部分数据缺失，计数可能低于实际活动。','За {time} собраны не все данные. Реальная активность может быть выше показанной.'],
+ noteError:['We couldn’t get a newer snapshot. Showing {time}; you can try Refresh again.','无法获取更新的快照。现显示 {time}，可再次点击刷新。','Новый снимок получить не удалось. Показываем {time}; можно ещё раз нажать «Обновить».'],
+ noteLoading:['Getting the saved snapshot. The numbers will appear here.','正在获取已保存的快照，数字即将显示。','Загружаем сохранённый снимок. Здесь появятся цифры.'],
+ noteUnavailable:['No snapshot is available right now. Try Refresh in a moment.','暂时没有可用快照，请稍后刷新。','Снимок пока недоступен. Попробуй обновить чуть позже.'],
+ zeroBuys:['No buys were recorded in this interval. That’s different from missing data.','此时段未记录到买入，这与数据缺失不同。','В этом интервале покупок не зафиксировано. Это не то же самое, что отсутствие данных.'],
+ emptyPartial:['There’s no token list yet. Missing data doesn’t mean there were no buys.','暂无代币列表。数据缺失并不意味着没有买入。','Списка токенов пока нет. Неполные данные не означают, что покупок не было.'],
+ emptyFiltered:['No tokens match this view. Try another interval or “Since launch”.','此视图没有匹配的代币，可尝试其他时段或“自发行以来”。','В этом режиме токенов нет. Попробуй другой интервал или «С запуска».'],
+ emptyLaunches:['No launches were recorded in this interval.','此时段未记录到新发行。','В этом интервале запусков не зафиксировано.'],
+ addresses:['We count wallet addresses, not people. One person may use several addresses.','统计的是钱包地址，并非人数。一个人可能使用多个地址。','Считаем адреса кошельков, а не людей. У одного человека может быть несколько адресов.'],
+ partialHelp:['Some data is missing, so this list may be incomplete.','部分数据缺失，列表可能不完整。','Часть данных не получена, поэтому список может быть неполным.'],
+ staleHelp:['This list belongs to the saved interval shown above.','此列表对应上方所示的已保存时段。','Этот список относится к сохранённому интервалу, указанному выше.'],
+ walletSub:['Pick an active wallet or paste an address to explore its saved activity.','选择活跃钱包或粘贴地址，查看其已保存活动。','Выбери активный кошелёк или вставь адрес, чтобы посмотреть его сохранённую активность.']
+ });
+ Object.assign(copy,{
+ heatTitle:['Activity over time','活动随时间的变化','Как менялась активность'],
+ heatHelp:['Six earlier 5-minute intervals and the latest one. Height shows the count; colour shows change from the previous interval. Select a bar to see its tokens.','此前六个五分钟时段与最新时段。柱高表示数量，颜色表示相较前一时段的变化。选择柱子查看代币。','Шесть предыдущих пятиминуток и последняя. Высота — количество, цвет — изменение к предыдущему интервалу. Нажми на столбец, чтобы посмотреть токены.'],
+ mobileMetric:['Show on the chart','图表指标','Что показать на графике'],
+ chartUp:['More than the previous 5 min','比前 5 分钟多','Больше, чем за прошлые 5 мин'],
+ chartDown:['Fewer than the previous 5 min','比前 5 分钟少','Меньше, чем за прошлые 5 мин'],
+ chartNeutral:['Unchanged / no comparison','不变 / 无法比较','Без изменений / нет сравнения'],
+ chartMean:['Earlier average: {value}','此前均值：{value}','Ранее в среднем: {value}'],
+ chartMeanLegend:['Dashed: average over the 30 min before the latest interval','虚线：最新时段之前 30 分钟的均值','Пунктир: среднее за 30 мин перед последним интервалом'],
+ introBody:['Follow new tokens on Pons: how often they’re bought, how many addresses buy them, and how activity changes. Start with the charts, then explore the tokens.','观察 Pons 新代币的买入次数、买家地址数量及活动变化。从图表开始，再查看具体代币。','Наблюдай за новыми токенами Pons: сколько их покупают, сколько адресов участвует и как меняется активность. Начни с графиков, потом загляни в токены.']
+ });
+ Object.assign(copy,{
+ buyers:['Unique buyer addresses','独立买家地址','Уникальные адреса покупателей'],
+ chosenInterval:['Selected interval','所选时段','Выбранный интервал'],
+ buyerMeaning:['Each address is counted once across the tracked tokens in these 5 minutes, even if it bought several times. Addresses are not people.','在这 5 分钟内，每个地址在所有跟踪代币中只计一次，即使买入多次。地址数不等于人数。','За эти 5 минут каждый адрес учитывается один раз среди отслеживаемых токенов, даже если покупал несколько раз. Число адресов не равно числу людей.'],
+ buysMeaning:['Number of recorded buys in these 5 minutes. One address can make several buys.','这 5 分钟内记录到的买入次数。一个地址可以多次买入。','Число зафиксированных покупок за эти 5 минут. Один адрес может совершить несколько покупок.'],
+ tokensMeaning:['Different tokens with at least one recorded buy in these 5 minutes. Each token is counted once.','这 5 分钟内至少有一次买入记录的不同代币数，每种代币只计一次。','Разные токены, у которых за эти 5 минут была хотя бы одна зафиксированная покупка. Каждый токен считается один раз.'],
+ launchesMeaning:['New tokens launched on Pons in these 5 minutes, including those with no buys.','这 5 分钟内在 Pons 新发行的代币数量，包括尚无买入的代币。','Число новых токенов, запущенных на Pons за эти 5 минут, в том числе без покупок.'],
+ scopeHelp:['We track buys through the Pons launch curve during each token’s first 60 minutes. Its creator’s buys are excluded.','统计每种代币发行后前 60 分钟内通过 Pons 发行曲线的买入，不含创建者自己的买入。','Учитываем покупки через механизм запуска Pons в первые 60 минут жизни каждого токена. Покупки его создателя не считаем.'],
+ meanExplanation:['Average count per 5 minutes over the 30 minutes before this selected interval.','所选时段之前 30 分钟内，每 5 分钟的平均数量。','Среднее количество за 5 минут в течение 30 минут перед выбранным интервалом.'],
+ tableGuide:['How to read this table','如何阅读此表','Как читать таблицу'],
+ tableGuideText:['Buyer addresses are unique within each token and the selected period. “First observed” means we had not seen that address buy this token earlier in the saved history. The top-3 share adds the buy volumes of the three largest buyer addresses. The median is the middle purchase amount when purchases are ordered by size. It is not the average.','买家地址在每种代币和所选时段内去重。“首次观察到”指此前保存的历史中未见该地址买入此代币。前三地址占比按买入金额汇总计算。买入中位数是将金额排序后的中间值，不是平均值。','В таблице адреса считаются отдельно для каждого токена за выбранный период. «Впервые замечены» — раньше в сохранённой истории мы не видели, чтобы этот адрес покупал этот токен. Доля трёх адресов считается по сумме их покупок. Медиана — середина ряда покупок, отсортированных по сумме, а не среднее значение.'],
+ firstHour:['Tokens under an hour old','发行不足一小时的代币','Токены младше часа'],
+ age:['Age at interval end: {value} min','时段结束时币龄：{value} 分钟','Возраст к концу интервала: {value} мин'],
+ newBuyer:['{value} first observed buying this token','{value} 个地址首次被观察到买入此币','{value} впервые замечены за покупкой этого токена'],
+ perAddress:['{value} buys per buyer address','每个买家地址 {value} 次买入','{value} покупки на адрес покупателя'],
+ top3:['Top 3 addresses’ volume share','前三地址的买入金额占比','Доля объёма трёх крупнейших адресов'],
+ median:['Median buy amount','买入金额中位数','Медиана суммы покупки'],
+ periodRecent:['Counts cover the selected 5 minutes. Tokens with zero recorded buy volume are hidden.','统计所选的 5 分钟，已记录买入金额为零的代币不显示。','Показатели за выбранные 5 минут. Токены с нулевым зафиксированным объёмом покупок скрыты.'],
+ periodLife:['Counts run from each token’s launch to the end of the selected interval, within its first hour. Tokens with zero recorded buy volume are hidden.','统计从代币发行至所选时段结束的数据，限首小时。已记录买入金额为零的代币不显示。','Показатели от запуска токена до конца выбранного интервала, в пределах первого часа. Токены с нулевым зафиксированным объёмом покупок скрыты.'],
+ volumeHelp:['Buy amounts are shown separately for each payment token. ETH and other currencies are not added together.','买入金额按支付币种分别显示，ETH 与其他币种不相加。','Суммы покупок показаны отдельно по валютам оплаты. ETH и другие валюты не складываем.'],
+ positions:['Token holdings reported by Pons','Pons 提供的代币持仓','Токены на кошельке по данным Pons'],
+ positionsHelp:['Pons may show only some token holdings. This is not the full wallet balance and does not include its ETH balance.','Pons 可能只显示部分代币持仓。这不是钱包总余额，也不包含 ETH 余额。','Pons может показать не все токены кошелька. Это не полный баланс, и остаток ETH сюда не входит.'],
+ usd:['Estimated value, USD','估算价值（美元）','Оценка стоимости, USD'],
+ grouped:['These counts use only saved history, not the wallet’s whole lifetime. Entries for the same token and action within one transaction are counted together as one operation.','计数仅基于已保存历史，并非钱包全部历史。同一交易内相同代币、相同行为的记录合并为一次操作。','Счётчики относятся только к сохранённой истории, а не ко всему времени жизни кошелька. Записи с одним токеном и действием внутри одной транзакции считаем одной операцией.'],
+ firstSeen:['First recorded by this monitor','本工具首次记录时间','Впервые записан нашим монитором'],
+ earliest:['Oldest operation in saved history','已保存历史中的最早操作','Самая ранняя операция в сохранённой истории'],
+ cached:['Showing saved wallet data. Requests within 5 minutes may return the same snapshot.','显示已保存的钱包数据。5 分钟内再次请求可能返回同一快照。','Показываем сохранённые данные кошелька. Повторный запрос в течение 5 минут может вернуть тот же снимок.'],
+ historyPartial:['This is saved history, not necessarily all operations. Some may be missing.','这是已保存的历史，不一定包含全部操作。','Это сохранённая история, а не обязательно все операции кошелька. Часть может отсутствовать.'],
+ gap:['Updates did not overlap, so some operations between them may be missing.','两次更新的记录没有重叠，中间可能缺少操作。','Записи двух обновлений не пересеклись. Между ними могли остаться незаписанные операции.'],
+ activeHelp:['Showing 10 addresses at first, up to 30 in total. Sorted by number of different tokens bought, then buy count in the shown 5-minute snapshot. Only first-hour token buys are included, excluding creator buys. This does not measure profit.','先显示 10 个地址，最多 30 个。按该五分钟快照内买入的不同代币数排序，再按买入次数排序。仅含代币首小时买入，不含创建者买入，不表示盈利能力。','Сначала показываем 10 адресов, всего до 30. Сортируем по числу разных купленных токенов, затем по числу покупок за указанные 5 минут. Учитываются покупки первого часа токенов, кроме покупок создателей. Это не рейтинг прибыли.'],
+ save:['Save in this browser','保存在此浏览器','Сохранить в этом браузере'],
+ localOnly:['Stored only in this browser. Not shared or synced to other devices.','仅保存在此浏览器，不会共享或同步到其他设备。','Хранится только в этом браузере. Другие пользователи этого не видят; между устройствами данные не синхронизируются.']
+ });
  let lang='en';try{lang=localStorage.getItem('pw-language')??(navigator.language.startsWith('zh')?'zh':navigator.language.startsWith('ru')?'ru':'en')}catch{}if(!['en','zh','ru'].includes(lang))lang='en';
  const t=(key,values={})=>(copy[key]?.[lang==='ru'?2:lang==='zh'?1:0]??key).replace(/\{(\w+)\}/g,(_,k)=>String(values[k]??'—'));
  const locale=()=>lang==='ru'?'ru-RU':lang==='zh'?'zh-CN':'en-US';
@@ -30,4 +138,9 @@ const U=(()=>{
  function set(value){lang=['en','zh','ru'].includes(value)?value:'en';try{localStorage.setItem('pw-language',lang)}catch{}apply();document.dispatchEvent(new Event('languagechange'))}
  return {t,num,amount,clock,node,apply,set,locale};
 })();
-document.addEventListener('DOMContentLoaded',()=>{U.apply();document.getElementById('language')?.addEventListener('change',e=>U.set(e.target.value))});
+function mountSiteFooter(){
+ const footer=document.createElement('footer');footer.className='site-footer';
+ footer.innerHTML=`<div class="footer-grid"><div class="footer-brand"><a class="brand" href="/"><span class="brand-eye" aria-hidden="true"><img src="/imgs/pw_eye.png" alt="" width="48" height="48"></span>Pattern Watcher</a><p data-i18n="footerAbout"></p></div><nav data-label="footerNav"><h2 data-i18n="footerExplore"></h2><a href="/" data-i18n="tokens"></a><a href="/wallets" data-i18n="wallets"></a><a href="https://qianqi.site" target="_blank" rel="noopener noreferrer" data-i18n="footerHub"></a></nav><div class="footer-contact"><h2 data-i18n="footerContact"></h2><a href="https://t.me/valentin_marapulets" target="_blank" rel="noopener noreferrer">Telegram</a><a href="https://x.com/ui_uallas" target="_blank" rel="noopener noreferrer">X</a><a href="mailto:marapulets1987@gmail.com">Email</a></div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} Pattern Watcher</span><p data-i18n="footerSource"></p></div>`;
+ document.body.append(footer);
+}
+document.addEventListener('DOMContentLoaded',()=>{mountSiteFooter();U.apply();document.getElementById('language')?.addEventListener('change',e=>U.set(e.target.value))});

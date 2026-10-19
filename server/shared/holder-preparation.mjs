@@ -86,14 +86,17 @@ export async function importHolderFunding(pool,input,{provider,txHash,logIndex})
   const program=decode(row);check(program.fundingPolicy,'Pinned funding policy required');return program.fundingPolicy;
  });
  const event=await observeHolderFunding({provider,policy,scope:instance,txHash,logIndex});
- return appendEvent(pool,instance,event,{},async previous=>{
+ try{return await appendEvent(pool,instance,event,{},async previous=>{
   check(identity(previous.fundingPolicy)===identity(policy),'Funding policy changed');
   // The first pass validated logs and immutable bindings at this block. Recheck
   // its canonical/finalized identity under the lock, without repeating every getter.
   const finalized=await provider.getBlock('finalized');
   check(finalized&&finalized.number>=event.evidence.blockNumber,'Funding finality regressed before commit');
   check((await provider.getBlock(event.evidence.blockNumber))?.hash===event.evidence.blockHash,'Funding receipt reorg before commit');
- });
+ });}catch(error){
+  if(['Missing or out-of-order revenue receipt','Missing or out-of-order holder deposit','Deposit exceeds holder allocation'].includes(error.message))throw Object.assign(Error('holder-funding-evidence-missing'),{code:'HOLDER_FUNDING_EVIDENCE_MISSING'});
+  throw error;
+ }
 }
 
 export async function reconcileHolderPreparation(pool,input,{provider,maxEvents}={}){

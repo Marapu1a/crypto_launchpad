@@ -79,7 +79,8 @@ try{
  const changesBeforeCommit=altered({getBlock:async tag=>{if(tag===received.blockNumber&&++blockReads===3)return {hash:'0x'+'1'.repeat(64)};return provider.getBlock(tag);}});
  await assert.rejects(importHolderFunding(db.pools.jobs,scope,{...feeArgs,provider:changesBeforeCommit}),/reorg/);
  assert.equal((await readHolderPreparation(db.pools.api,scope,{now:3000000})).revision,0);
- await assert.rejects(importHolderFunding(db.pools.jobs,scope,depositArgs),/exceeds holder allocation/);
+ await assert.rejects(importHolderFunding(db.pools.jobs,scope,depositArgs),{code:'HOLDER_FUNDING_EVIDENCE_MISSING'});
+ assert.equal((await readHolderPreparation(db.pools.api,scope,{now:3000000})).revision,0);
  await importHolderFunding(db.pools.jobs,scope,feeArgs);await importHolderFunding(db.pools.jobs,scope,depositArgs);
  assert.equal((await importHolderFunding(db.pools.jobs,scope,feeArgs)).replayed,true);
  const view=await readHolderPreparation(db.pools.api,scope,{now:3000000});

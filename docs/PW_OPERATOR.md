@@ -52,11 +52,12 @@ npm run pw:operator -- /absolute/private/operator.json launch-read
 ```
 
 Приватная конфигурация имеет `schema: "pw-operator-v1"`, `profile`, `holders`,
-`rpcFile`, `databaseFiles` (`executor`, `jobs`, `admin`) и
+`rpcFile`, `allowedRpcHosts`, `rpcBudget` (тот же файл и лимиты, что daemon),
+`databaseFiles` (`executor`, `jobs`, `admin`) и
 `allowPublicTransactions: false`. Пути к credentials абсолютные; в Linux файлы
 должны иметь приватные права. В конфигурации хранятся пути, не ключи или RPC URL.
 У executor должна быть роль `lp_executor`, у jobs — `lp_jobs`; admin используется
-только явной командой регистрации проекта. Нужны миграции по 020 включительно.
+только явной командой регистрации проекта. Нужны миграции по 021 включительно.
 
 `profile` содержит:
 
@@ -86,7 +87,9 @@ Runtime токена должен быть проверен, а не прост�
 проект со статусом `test`, holder-программу и execution policy; не запускает daemon.
 Для ежемесячного обслуживания есть `holder-funding`, `holder-snapshot`,
 `holder-admit`, `holder-plan`, `holder-quote`, `holder-record`, `holder-broadcast`,
-`holder-resolve`, `holder-advance`, `holder-scan`, `holder-reconcile`.
+`holder-resolve`, `holder-advance`, `holder-scan`, `holder-reconcile`, `holder-recover-funding`.
+Нужна миграция 021. Бюджет RPC и восстановление внешних поступлений:
+[правила и ограничения](PW_REVIEW_FIXES_20261019.md).
 Payload соответствует аргументам функций в `server/shared/holder-preparation.mjs`
 и `holder-execution.mjs`; `provider` и scope берутся из приватной конфигурации и
 проверенного launch-журнала. `rawFile` используется вместо приватного ключа.
@@ -100,7 +103,8 @@ Payload соответствует аргументам функций в `serve
 
 1. Выбрать тикер, реальные адреса, budget/reserve, snapshot limits и исключения;
    проверить доступный RPC на конкретном token runtime и finalized-блоке.
-2. Подключить owner UI/подпись. Сбор комиссий и draw теперь имеют отдельный
+2. [Owner UI/подпись](PW_OWNER_UI.md) реализованы локально; подключить выбранные
+   реальные настройки и существующий owner keystore. Сбор комиссий и draw имеют отдельный
    [PW service adapter](PW_SERVICE.md); регистрация службы выполняется после
    holder-handoff, отдельно от её активации.
 3. Проверить страницу PW, полный эксплуатационный цикл и провести финальное ревью.

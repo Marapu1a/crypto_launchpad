@@ -91,5 +91,13 @@ try{
  report.service={policyHash:service.policyHash,enabled:service.enabled};report.checks.push('PW draw/fee service policy verified against real fork graph; idempotent disabled registration; changed gas policy rejected');
  report.checks.push('Gas quote, reserved-byte broadcasting and duplicate send recovery; finalized graph hands off to holder preparation/execution idempotently, rejecting changed settings/profile');
  report.checks.push('Nine real-Pons graph steps with durable signed bytes, restart before/after each send, exact replay and unknown-operation exclusion','Independent owner/executor/publisher and RLS; wrong payload/profile/runtime rejected','40-day prelaunch interruption: first draw waits 30 days from actual token launch, not draw deployment','Full graph verified and finalized; project record marked complete without worker activation');
+ report.gas={source:'local fork receipts; gas price and funding are fixture values',steps:[]};
+ for(const entry of state.history){
+  const receipt=await provider.getTransactionReceipt(entry.hash),tx=await provider.getTransaction(entry.hash);
+  assert.equal(receipt.status,1);
+  report.gas.steps.push({kind:entry.kind,gasUsed:receipt.gasUsed.toString(),valueWei:tx.value.toString()});
+ }
+ report.gas.totalGas=report.gas.steps.reduce((n,s)=>n+BigInt(s.gasUsed),0n).toString();
+ report.gas.totalValueWei=report.gas.steps.reduce((n,s)=>n+BigInt(s.valueWei),0n).toString();
  report.graph={scope:state.scope,addresses:state.addresses,launchAt:state.launchAt,history:state.history,contracts:state.contracts};report.status='PASS';
 }finally{writeFileSync(root+'/report.json',JSON.stringify(report,null,2));await db?.close();provider?.destroy();await new Promise(r=>bridge.close(r));console.log(root+'/report.json',report.status,'remote reads',report.remoteReads);}
