@@ -6,6 +6,7 @@ import {createRequire} from 'node:module';
 import {ZeroHash,id,keccak256,HDNodeWallet,Transaction} from 'ethers';
 import {rpcMeter} from './rpc-meter.mjs';
 import {createMigration} from '../../server/adapters/qianqi/pons-migration.mjs';
+import {runPonsScheduler} from '../../server/adapters/qianqi/pons-scheduler.mjs';
 import {createPonsSchedulerService,createPonsSchedulerSupervisor} from '../../server/adapters/qianqi/pons-service.mjs';
 import {buildPonsPublicSnapshot,renderPonsPublic} from '../../server/adapters/qianqi/pons-projection.mjs';
 import {savePonsPublic,createPonsPublicReader} from '../../server/adapters/qianqi/pons-public-store.mjs';
@@ -32,12 +33,12 @@ test('Pons source drives both legacy controllers through freeze, settle, claim a
  const head=await f.provider.getBlock('latest'),wallet=f.owner.toLowerCase();
  const epochs=(kind)=>({currentEpoch:1,drainingEpoch:0,announced:null,epochs:[{epoch:1,firstBlock:Number(c.lifecycle[kind==='SHORT'?'shortRules':'monthlyRules'].firstBlock),rulesHash:kind==='SHORT'?c.lifecycle.shortRules.rulesHash:c.lifecycle.monthlyPolicy.rulesHash}],lastTerminalAt:Number(kind==='SHORT'?c.lifecycle.shortRules.startedAt:c.lifecycle.monthlyPolicy.startedAt)});
  const life={head:{number:head.number,hash:head.hash,timestamp:head.timestamp},pending:{SHORT:null,MONTHLY:null},draws:[],wallets:[],shortRules:epochs('SHORT'),monthlyRules:epochs('MONTHLY')};
- const policy={contracts:{token:{address:c.manifest.token},quote:{address:c.manifest.quote}},template:{config:{ticketPurchase:'100'}}};
+ const policy={contracts:{token:{address:c.manifest.token},quote:{address:c.manifest.quote}},template:{config:{asset:'USDG',ticketPurchase:'100'}}};
  const row=(n,raw)=>({id:id('Pons receipt '+n)+':0',txHash:id('Pons receipt '+n),trader:wallet,quoteRaw:raw,timestamp:head.timestamp,side:'buy',venue:'curve',decision:'purchase'});
  const report={schema:'pons-purchase-accounting-v1',source:'Pons API',status:'current',checkedAt:head.timestamp,error:null,reviewCount:0,profile:{token:c.manifest.token,quote:c.manifest.quote,threshold:'100',decimals:6,venues:['curve'],excludedWallets:[]},activity:[row(1,'400000000')],tradeCount:1};
  const bootstrap=createMigration({policy,report,legacyCredits:[],lifecycle:life,domain:domainFor(c.manifest,c.lifecycle),head:life.head,now:head.timestamp});
  const file=f.directory+'/pons-scheduler.json',state=()=>JSON.parse(readFileSync(file,'utf8'));
- let clock=head.timestamp,crash=false,crashed=false,crashSent=true,sourceDown=false,fundingDown=false,failRawOnce=true,failRngOnce=true,agedCheckpoint=false;
+ let clock=head.timestamp,crash=false,crashed=false,crashSent=true,sourceDown=false,fundingDown=false,failRawOnce=true,failRngOnce=true,agedCheckpoint=false,heldFinalized=null;
  const options={provider:f.provider,short:f.options.short,monthly:f.options.monthly,executor:HDNodeWallet.fromPhrase('test test test test test test test test test test test junk').connect(f.provider),config:c,rpcUrl:f.options.rpcUrl,statePath:file,bootstrap,funding,deliveryJob:f.options.deliveryJob,getBeacon:beacon,loadReport:async()=>{if(sourceDown)throw Error('Pons offline');return {...report,checkedAt:clock};},now:()=>clock,hook:async(phase,x)=>{
   if(phase==='beforeTransaction'&&['seal','sealMonth'].includes(x.action))await rpc('evm_setNextBlockTimestamp',[target-1801]);
   if(phase==='confirmed'&&crash&&['seal','sealMonth'].includes(x.action)){crash=false;crashed=true;throw Error('simulated process exit after receipt persistence');}
@@ -58,6 +59,7 @@ test('Pons source drives both legacy controllers through freeze, settle, claim a
   await runPonsRuntime({mode:'rehearsal',lockFile:resolve(root,'host.lock'),healthFile:resolve(root,'health.json'),rpcBudget:budgetOptions,once:true,failFast:true,prepare:async({provider:makeProvider})=>{
    const gated=makeProvider(options.rpcUrl);gated.pollingInterval=10;
    const transport=gated._send.bind(gated);gated._send=async payload=>{
+    if(heldFinalized&&payload.method==='eth_getBlockByNumber'&&payload.params[0]==='finalized')return transport({...payload,params:[heldFinalized,payload.params[1]]});
     if(payload.method==='eth_sendRawTransaction'&&failRawOnce){failRawOnce=false;throw Object.assign(Error('simulated RPC budget exhausted'),{code:'RPC_BUDGET_EXHAUSTED'});}
     if(payload.method==='eth_sendRawTransaction'&&sourceDown&&failRngOnce&&Transaction.from(payload.params[0]).to.toLowerCase()===options.deliveryJob.adapter.toLowerCase()){failRngOnce=false;throw Object.assign(Error('RNG RPC budget exhausted'),{code:'RPC_BUDGET_EXHAUSTED'});}
     if(fundingDown&&payload.method==='eth_getCode'&&payload.params[0].toLowerCase()===collector.target.toLowerCase())throw Error('Funding read unavailable');
@@ -133,6 +135,23 @@ test('Pons source drives both legacy controllers through freeze, settle, claim a
  const supervised=createPonsSchedulerSupervisor(options);
  const firstService=await meter.measure(()=>supervised());assert.equal(firstService.result.service.ran,true);
  const sleepingService=await meter.measure(()=>supervised());assert.equal(sleepingService.result.service.ran,false);assert.equal(sleepingService.total,0);
+ // A sale's fee collection can confirm before chain finality. After restart,
+ // wait on the saved receipt using only the chain/head, never rebuild a full
+ // public snapshot or start another payment while that receipt is unfinalized.
+ await sent(f.quote.mint(escrow.target,10_000000));await sent(escrow.fund(collector.target,f.quote.target,10_000000));
+ heldFinalized='0x'+(await f.provider.getBlock('latest')).number.toString(16);
+ const waiting=await pass();assert.equal(waiting.reason,'receiptFinality');
+ const waitingHash=state().lastResolved.transactionHash,waitingNonce=await f.provider.getTransactionCount(f.owner);
+ const finalityWaitCounts=[];
+ for(let n=0;n<3;n++){
+  const next=await pass();assert.equal(next.reason,'receiptFinality');assert.equal(next.waitingFor.transactionHash,waitingHash);
+  assert.equal(await f.provider.getTransactionCount(f.owner),waitingNonce);
+  const m=measurements.at(-1);finalityWaitCounts.push(m.total);
+  assert(m.total<=8,JSON.stringify(m));assert.equal(m.methods.eth_call??0,0);assert.equal(m.methods.eth_getCode??0,0);
+ }
+ heldFinalized=null;
+ for(let n=0;n<5;n++){await pass();if(await escrow.balanceOfToken(collector.target,f.quote.target)===0n&&await collector.accounted()===0n)break;}
+ assert(state().migration.controllerReceipts[waitingHash]);assert.equal(await collector.accounted(),0n);
  const announcement=await sent(f.short.announce(f.rules,f.weights,f.minimumUnit));
  await rpc('evm_setNextBlockTimestamp',[Number(await f.short.lastShortTerminalAt())+21601]);await rpc('evm_mine');
  const activation=await sent(f.short.activate()),afterActivation=await f.provider.getTransactionCount(f.owner);
@@ -147,6 +166,38 @@ test('Pons source drives both legacy controllers through freeze, settle, claim a
  reportOut.scenarios.push('Pons curve sweep and escrow 1200 USDG split 1080/60/60 and vault allocation','site snapshot after payment; 200 reads cause zero RPC; stale source and outside changes rejected');
  reportOut.rpc={scope:'Local node calls during completed scheduler passes, includes secondary reader and Hardhat guards; failed crash passes excluded',passes:measurements,quiet,projection:{methods:projection.methods,total:projection.total},publicReads:{requests:200,rpc:served.total},httpReads:{requests:3,rpc:httpRead.total}};
  reportOut.rpc.supervisor={initial:firstService.total,unchangedSource:sleepingService.total,nextCheckAt:sleepingService.result.service.nextCheckAt};
+ reportOut.rpc.finalityWait={restartPasses:finalityWaitCounts,noContractCalls:true,noDuplicatePayment:true};
  writeFileSync(root+'/public-snapshot.json',JSON.stringify(projection.result,null,2));
  writeFileSync(root+'/report.json',JSON.stringify(reportOut,null,2));console.log('PASS Both legacy draws consumed four tickets, paid rewards, retained one ticket; '+root+'/report.json');
+});
+
+test('saved mined receipt waits cheaply and resumes canonical accounting after finality',async t=>{
+ const f=await setup(t,compiled),c=f.options.schedulerConfig;
+ t.after(()=>f.provider.destroy());
+ const head=await f.provider.getBlock('latest');
+ const epochs=kind=>({currentEpoch:1,drainingEpoch:0,announced:null,epochs:[{epoch:1,firstBlock:Number(c.lifecycle[kind==='SHORT'?'shortRules':'monthlyRules'].firstBlock),rulesHash:kind==='SHORT'?c.lifecycle.shortRules.rulesHash:c.lifecycle.monthlyPolicy.rulesHash}],lastTerminalAt:Number(kind==='SHORT'?c.lifecycle.shortRules.startedAt:c.lifecycle.monthlyPolicy.startedAt)});
+ const life={head:{number:head.number,hash:head.hash,timestamp:head.timestamp},pending:{SHORT:null,MONTHLY:null},draws:[],wallets:[],shortRules:epochs('SHORT'),monthlyRules:epochs('MONTHLY')};
+ const policy={contracts:{token:{address:c.manifest.token},quote:{address:c.manifest.quote}},template:{config:{asset:'USDG',ticketPurchase:'100'}}};
+ const report={schema:'pons-purchase-accounting-v1',source:'Pons API',status:'current',checkedAt:head.timestamp,error:null,reviewCount:0,profile:{token:c.manifest.token,quote:c.manifest.quote,threshold:'100',decimals:6,venues:['curve'],excludedWallets:[]},activity:[],tradeCount:0};
+ const bootstrap=createMigration({policy,report,legacyCredits:[],lifecycle:life,domain:domainFor(c.manifest,c.lifecycle),head:life.head,now:head.timestamp});
+ const file=f.directory+'/receipt-wait.json';
+ const options={provider:f.provider,short:f.options.short,monthly:f.options.monthly,executor:f.admin,config:c,rpcUrl:f.options.rpcUrl,statePath:file,bootstrap,loadReport:async()=>report,now:()=>head.timestamp};
+ await runPonsScheduler(options);
+ const tx=await f.quote.transfer(f.owner,0),receipt=await tx.wait();
+ const state=JSON.parse(readFileSync(file,'utf8'));delete state.checksum;
+ state.lastResolved={transactionHash:receipt.hash,blockNumber:receipt.blockNumber,blockHash:receipt.blockHash,status:1};
+ const {hash}=require(base+'scripts/direct-buy.cjs');
+ writeFileSync(file,JSON.stringify({...state,checksum:hash(state)}));
+ const original=f.provider.getBlock.bind(f.provider),meter=rpcMeter(hre.network.provider);
+ t.after(()=>meter.restore());
+ f.provider.getBlock=tag=>original(tag==='finalized'?head.number:tag);
+ const beforeNonce=await f.provider.getTransactionCount(f.owner);
+ const waiting=await meter.measure(()=>runPonsScheduler(options));
+ assert.equal(waiting.result.reason,'receiptFinality');assert(waiting.total<=4,JSON.stringify(waiting));
+ assert.equal(waiting.methods.eth_call??0,0);assert.equal(waiting.methods.eth_getCode??0,0);
+ f.provider.getBlock=original;
+ await runPonsScheduler(options);
+ const after=JSON.parse(readFileSync(file,'utf8'));assert(after.migration.controllerReceipts[receipt.hash]);
+ assert.equal(await f.provider.getTransactionCount(f.owner),beforeNonce);
+ console.log('PASS cheap finality gate: '+JSON.stringify({total:waiting.total,methods:waiting.methods}));
 });

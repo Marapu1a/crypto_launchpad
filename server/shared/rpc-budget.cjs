@@ -27,6 +27,11 @@ function persistentRpcGate({file,maxRequests,windowMs,intervalMs=50,now=Date.now
   if(!owner)throw Object.assign(Error('RPC budget locked'),{code:'RPC_BUDGET_LOCKED'});
   let temporary;
   try{
+   // Atomic replacement must be performed by the service identity. A root-run
+   // diagnostic must not silently replace its private budget with a root-owned file.
+   const uid=process.geteuid?.()??process.getuid?.();
+   if(uid!==undefined&&(await fs.stat(file)).uid!==uid)
+    throw Object.assign(Error('RPC budget must be used by its owner'),{code:'RPC_BUDGET_OWNER'});
    const s=valid(JSON.parse(await fs.readFile(file,'utf8')));
    if(s.maxRequests!==maxRequests||s.windowMs!==windowMs)throw Error('RPC budget policy mismatch');
    const at=now();if(at>=s.startedAt+s.windowMs){s.startedAt=at;s.used=0;}

@@ -5,11 +5,43 @@ import {recordGasFunding} from './gas-funding.mjs';
 const check = (v, message) => { if (!v) throw Error(message); };
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 
+// This probe may only postpone work. It never admits, signs, broadcasts or accounts.
+// Missing receipts return to guarded recovery; contradictory branches stop work.
+export async function pendingProductionReceipt({provider,signer,policy,state,role='executor',request,action,lease}) {
+  if(!state.pending)return null;
+  await lease();
+  const sender=await signer.getAddress();
+  check(['executor','publisher'].includes(role)&&same(sender,policy[role]),'Wrong executor/publisher');
+  check(state.schema==='short-production-journal-v1'&&state.identity===policyIdentity(policy)+(role==='publisher'?':publisher':'')&&Array.isArray(state.history),'Journal identity mismatch');
+  check(!state.failure,'Reverted operation requires reconciliation');
+  validatePendingIntent({state,policy,sender,request,action});
+  check((await provider.getNetwork()).chainId===4663n,'Wrong production chain');
+  const receipt=await provider.getTransactionReceipt(state.pending.hash);
+  if(!receipt)return null;
+  check(receipt.hash===state.pending.hash&&[0,1].includes(receipt.status)&&Number.isSafeInteger(receipt.blockNumber)&&receipt.blockNumber>=0,'Invalid pending receipt');
+  check(same((await provider.getBlock(receipt.blockNumber))?.hash,receipt.blockHash),'Noncanonical receipt');
+  let finalized;
+  try{finalized=await provider.getBlock('finalized');}
+  catch(e){if(['RPC_BUDGET_EXHAUSTED','RPC_BUDGET_LOCKED'].includes(e.code))throw e;return {status:'waiting',reason:'finality-unavailable',hash:receipt.hash};}
+  if(!finalized)return {status:'waiting',reason:'finality-unavailable',hash:receipt.hash};
+  check(Number.isSafeInteger(finalized.number)&&finalized.number>=0,'Invalid receipt finality');
+  return receipt.blockNumber>finalized.number?{status:'waiting',reason:'receipt-finality',hash:receipt.hash,waitingFor:{transactionHash:receipt.hash,blockNumber:receipt.blockNumber}}:null;
+}
+
+function validatePendingIntent({state,policy,sender,request,action}) {
+  const p = state.pending, tx = Transaction.from(p.raw);
+  check(same(tx.from, sender) && tx.chainId === 4663n && tx.value === 0n && tx.type === 0 && tx.gasPrice > 0n && tx.gasPrice <= BigInt(policy.limits.maxGasPrice) && tx.gasLimit <= BigInt(policy.limits.maxGasLimit) && tx.nonce === p.nonce && tx.hash === p.hash && same(tx.to, p.to) && same(tx.data, p.data) && p.value === '0' && p.requestHash === policyIdentity({ to: p.to, data: p.data, value: p.value }) && Object.values(policy.contracts).some(c => same(c.address, p.to)), 'Pending intent mismatch');
+  if (request) check(action === p.action && policyIdentity({ to: String(request.to).toLowerCase(), data: request.data ?? '0x', value: String(request.value ?? 0) }) === p.requestHash, 'Changed pending intent');
+  return tx;
+}
+
 // Candidate sender primitive. No CLI/public route invokes it. Caller owns a durable
 // store and a database lease covering chain+sender (not just project), and admits calldata.
 // Signing keys are injected by a signer provider; they never enter config/state.
 export async function advanceProductionTransaction({ provider, signer, policy, state, save, lease, admit, request, action, role = 'executor', hook = async () => {} }) {
   check(typeof lease === 'function' && typeof admit === 'function' && typeof save === 'function', 'Execution guards required');
+  const waiting=await pendingProductionReceipt({provider,signer,policy,state,role,request,action,lease});
+  if(waiting)return waiting;
   const guard = async () => { await lease(); await verifyProductionBindings(provider, policy); };
   await guard();
   const sender = await signer.getAddress();
@@ -52,9 +84,7 @@ export async function advanceProductionTransaction({ provider, signer, policy, s
     state.pending = { action, requestHash, raw, hash: keccak256(raw), nonce: latest, ...intent };
     await save(state); await hook('prepared');
   }
-  const p = state.pending, tx = Transaction.from(p.raw);
-  check(same(tx.from, sender) && tx.chainId === 4663n && tx.value === 0n && tx.type === 0 && tx.gasPrice > 0n && tx.gasPrice <= BigInt(policy.limits.maxGasPrice) && tx.gasLimit <= BigInt(policy.limits.maxGasLimit) && tx.nonce === p.nonce && tx.hash === p.hash && same(tx.to, p.to) && same(tx.data, p.data) && p.value === '0' && p.requestHash === policyIdentity({ to: p.to, data: p.data, value: p.value }) && Object.values(policy.contracts).some(c => same(c.address, p.to)), 'Pending intent mismatch');
-  if (request) check(action === p.action && policyIdentity({ to: String(request.to).toLowerCase(), data: request.data ?? '0x', value: String(request.value ?? 0) }) === p.requestHash, 'Changed pending intent');
+  const p=state.pending,tx=validatePendingIntent({state,policy,sender,request,action});
   let receipt = await provider.getTransactionReceipt(p.hash);
   if (!receipt) {
     check(await provider.getTransactionCount(sender, 'latest') <= p.nonce, 'Nonce consumed by another transaction');
@@ -64,7 +94,7 @@ export async function advanceProductionTransaction({ provider, signer, policy, s
     if(await provider.getBalance(sender)<required)return funding(required);
     let sent;
     try{sent=await provider.broadcastTransaction(p.raw);}
-    catch(e){if(e.code==='INSUFFICIENT_FUNDS'||await provider.getBalance(sender)<required)return funding(required);throw e;}
+    catch(e){if(['RPC_BUDGET_EXHAUSTED','RPC_BUDGET_LOCKED'].includes(e.code))throw e;if(e.code==='INSUFFICIENT_FUNDS'||await provider.getBalance(sender)<required)return funding(required);throw e;}
     check(sent.hash === p.hash, 'Broadcast hash mismatch');
     if(state.gasFunding?.active)await funding(tx.gasLimit*tx.gasPrice+BigInt(policy.limits.nativeFloor),false);
     await hook('broadcast'); receipt = await provider.getTransactionReceipt(p.hash);

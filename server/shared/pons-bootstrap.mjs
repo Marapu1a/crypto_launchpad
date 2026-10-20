@@ -1,4 +1,5 @@
 import {readPwService} from './pw-service.mjs';
+import {shouldPublishContracts} from './pons-work-policy.mjs';
 import {verifyPwPolicy} from '../../src/worker/pw-policy.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
 import {publishPwService} from './pw-public.mjs';
@@ -53,6 +54,7 @@ export function configuredPonsBootstrap(config){
      await runtimeEnvironment(provider,c);
      const input=await loadRuntimeProject({pool,provider,config:c,entry:selected});input.ponsRehearsal={load:loadReport};input.ponsSourceMode=config.mode;
      projects.push({id:entry.id,adapter:entry.adapter,input,publish:async(result,serviceObservation)=>{
+      if(!shouldPublishContracts(result))return;
       const out=await publishShortView({...input,...result,serviceObservation});if(out?.failed)throw Error('Pons draw projection failed');
      },onSleep:proof=>refreshDrawHeartbeat(input,proof)});
     }else{
@@ -69,7 +71,7 @@ export function configuredPonsBootstrap(config){
       input.withLease=run=>withQianqiExecutor(pool,binding,run);
      }
      projects.push({id:entry.id,adapter:entry.adapter,input,publish:async(result,serviceObservation)=>{
-      if(result.status==='blocked'||['controllerReceiptsRequired','unknownControllerJob'].includes(result.reason))return;
+      if(!shouldPublishContracts(result))return;
       const state=await json(entry.stateFile);
       const snapshot=await buildPonsPublicSnapshot({provider,config:c.scheduler,migration:state.migration,mode:config.mode,serviceObservation});savePonsPublic(entry.publicFile,snapshot);
      },onSleep:proof=>refreshQianqiHeartbeat(entry.publicFile,proof)});

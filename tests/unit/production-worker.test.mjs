@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Wallet, Transaction, id, keccak256, sha256 } from 'ethers';
-import { validatePolicy, policyIdentity, admitFinalizedSnapshot } from '../../src/worker/production-policy.mjs';
+import { validatePolicy, policyIdentity, admitFinalizedSnapshot, finalizedObservation } from '../../src/worker/production-policy.mjs';
 import { advanceProductionTransaction } from '../../src/worker/production-journal.mjs';
 import { assessTiming, admitBeacon } from '../../src/worker/production-timing.mjs';
 import { GENESIS, PERIOD } from '../../src/randomness/drand.mjs';
@@ -137,4 +137,26 @@ test('Saved raw waits before broadcast on low balance; unclassified low-balance 
  assert.equal((await advanceProductionTransaction(g)).reason,'native-balance');
  assert.ok(g.state.pending);g.provider.getBalance=async()=>1000000n;g.provider.broadcastTransaction=send;g.finalized=10;
  assert.equal((await advanceProductionTransaction(g)).status,'confirmed');assert.equal(g.broadcasts.length,1);
+});
+
+
+test('pending receipt probes are bounded and cannot hide changed signed intents or budget denial', async()=>{
+ const f=fixture();await advanceProductionTransaction(f);
+ const raw=f.state.pending.raw,history=structuredClone(f.state.history);let calls=0;
+ const original=f.provider;
+ f.provider=new Proxy(original,{get(t,k){if(k==='getCode'||k==='call'||k==='broadcastTransaction')return()=>{throw Error('Expensive work while waiting');};const v=t[k];return typeof v==='function'?async(...args)=>{calls++;return v(...args);}:v;}});
+ for(let i=0;i<3;i++){calls=0;assert.equal((await advanceProductionTransaction(f)).reason,'receipt-finality');assert.ok(calls<=4);}
+ assert.equal(f.state.pending.raw,raw);assert.deepEqual(f.state.history,history);
+ f.state.pending.data='0xabcd';await assert.rejects(advanceProductionTransaction(f),/Pending intent mismatch/);f.state.pending.data='0x1234';
+ const exhausted=Object.assign(Error('budget'),{code:'RPC_BUDGET_EXHAUSTED',retryAt:123456});
+ original.getBlock=async()=>{throw exhausted;};await assert.rejects(advanceProductionTransaction(f),e=>e===exhausted);
+ await assert.rejects(finalizedObservation(original),e=>e===exhausted);
+});
+
+test('budget-denied broadcast preserves signed journal without an additional balance request',async()=>{
+ const f=fixture(),exhausted=Object.assign(Error('budget'),{code:'RPC_BUDGET_EXHAUSTED',retryAt:123456});let balances=0;
+ f.provider.getBalance=async()=>{balances++;return 1000000n;};
+ f.provider.broadcastTransaction=async()=>{throw exhausted;};
+ await assert.rejects(advanceProductionTransaction(f),e=>e===exhausted);
+ assert.ok(f.state.pending?.raw);assert.equal(balances,2);assert.equal(f.state.history.length,0);
 });

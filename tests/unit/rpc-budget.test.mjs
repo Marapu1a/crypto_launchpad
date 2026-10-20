@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,writeFile,readFile} from 'node:fs/promises';
+import {mkdtemp,rm,writeFile,readFile,stat} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {execFile} from 'node:child_process';
@@ -44,4 +44,19 @@ test('missing/corrupt/mismatched state and abandoned lock fail closed; window ex
   await writeFile(file+'.lock','');await assert.rejects(gate(),{code:'RPC_BUDGET_LOCKED'});await rm(file+'.lock');
   await writeFile(file,'broken');await assert.rejects(gate());
  }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+
+test('a diagnostic running as another identity cannot replace the service budget',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'rpc-owner-')),file=join(dir,'budget.json');
+ const effective=process.geteuid,real=process.getuid;
+ try{
+  const options={file,maxRequests:2,windowMs:3600000,intervalMs:0};await budget.initializeBudget(file,options);
+  const before=await readFile(file),owner=(await stat(file)).uid;
+  process.geteuid=()=>owner+1;
+  await assert.rejects(budget.persistentRpcGate(options)(),{code:'RPC_BUDGET_OWNER'});
+  assert.deepEqual(await readFile(file),before);assert.equal((await stat(file)).uid,owner);
+  await assert.rejects(stat(file+'.lock'),{code:'ENOENT'});
+  process.geteuid=()=>owner;await budget.persistentRpcGate(options)();assert.equal(JSON.parse(await readFile(file)).used,1);
+ }finally{if(effective===undefined)delete process.geteuid;else process.geteuid=effective;if(real===undefined)delete process.getuid;else process.getuid=real;await rm(dir,{recursive:true,force:true});}
 });

@@ -1,5 +1,6 @@
 import {setTimeout as delay} from 'node:timers/promises';
 import cadence from './service-cadence.cjs';
+const failureReason={RPC_BUDGET_EXHAUSTED:'rpc-budget-exhausted',RPC_BUDGET_OWNER:'rpc-budget-owner',RPC_BUDGET_LOCKED:'rpc-budget-locked',EACCES:'service-permission-denied',EPERM:'service-permission-denied'};
 
 // Each tick owns guards, execution and projection. Heartbeat must be local I/O only.
 // Deliberately accepts pre-built supervisors, never raw workers or signer credentials.
@@ -15,12 +16,13 @@ export async function runPonsServices({services,heartbeat,signal,pollMs=15000,on
    if(now()<due[index]){rows.push({id:service.id,result:previous[index],schedule:{skipped:true,nextCheckAt:due[index]}});continue;}
    let result;
    try{result=await service.tick();}
-   catch(error){if(failFast)throw error;result={status:'error',reason:error.code==='RPC_BUDGET_EXHAUSTED'?'rpc-budget-exhausted':'service-pass-failed'};}
+   catch(error){if(failFast)throw error;result={status:'error',reason:failureReason[error.code]??'service-pass-failed',
+    ...(error.code==='RPC_BUDGET_EXHAUSTED'&&Number.isSafeInteger(error.retryAt)?{retryAt:error.retryAt}:{})};}
    rows.push({id:service.id,result});
    previous[index]=result;
    const failed=['error','blocked','stopped','source-unavailable'].includes(result.status)||result.sourceStatus==='unavailable';
    const schedule=schedules[index]({status:failed?'unavailable':'active'});
-   due[index]=now()+schedule.delayMs;
+   due[index]=Math.max(now()+schedule.delayMs,Number.isSafeInteger(result.retryAt)?result.retryAt:0);
   }
   pause=Math.max(1,Math.min(...due)-now());
   if(rows.length)await heartbeat?.({checkedAt:new Date().toISOString(),services:rows});

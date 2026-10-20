@@ -6,6 +6,6 @@ export function drawServiceObservation(r){
 export function createPonsDrawService(input,options={}){
  if(!input.ponsRehearsal?.load)throw Error('Pons draw service requires its explicit rehearsal source');
  return createPonsService({...options,now:options.now??(input.now?()=>input.now()*1000:Date.now),loadReport:()=>input.ponsRehearsal.load(),
-  run:async({report,sourceError})=>{await input.guard?.();return runDrawWorker({...input,ponsRehearsal:{load:async()=>{if(sourceError)throw sourceError;return report;}}});},
+  run:async({report,sourceError})=>runDrawWorker({...input,ponsRehearsal:{load:async()=>{if(sourceError)throw sourceError;return report;}}}),
   observe:drawServiceObservation});
 }

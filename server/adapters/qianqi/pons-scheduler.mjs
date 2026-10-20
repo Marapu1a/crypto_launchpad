@@ -7,6 +7,7 @@ import {applyControllerReceipt} from './pons-controller-events.mjs';
 import {fundFromPons} from './pons-funding.mjs';
 import {rememberPublications,receiptPublicationSource} from './pons-publications.mjs';
 import {validatePonsExecutionBinding} from './pons-execution-binding.mjs';
+import {pendingFinality,receiptWait} from './pons-receipt-wait.mjs';
 const require=createRequire(import.meta.url),base='./runtime/scripts/';
 const network=require(base+'runtime-network.cjs'),{withState}=require(base+'local-scheduler-state.cjs');
 const {createBoundary,reconcilePending}=require(base+'pons-transaction-journal.cjs');
@@ -33,7 +34,11 @@ export async function runPonsScheduler({provider,short,monthly,executor,config,r
  if(deliveryJob)check(same(deliveryJob.short,short.target)&&same(deliveryJob.monthly,monthly.target),'RNG controller mismatch');
  if(funding)check(same(funding.quote,config.manifest.quote),'Funding quote mismatch');
  const sender=await executor.getAddress(),identity={schema:execution?'pons-scheduler-production-v1':'pons-scheduler-rehearsal-v1',...(execution?{executionHash:digest(execution)}:{instance:meta.instanceId}),sender:sender.toLowerCase(),config,...(deliveryJob?{deliveryJob}:{}),...(funding?{funding}:{}),legacyHash:bootstrap.legacyHash,boundary:bootstrap.boundary};
- return network.withRobinhoodNetwork({provider,rpcUrl,sharedReader:provider,mode:execution?'robinhood-public':'robinhood-rehearsal',publicGuard},()=>withState(statePath,identity,async(state,save)=>{
+ return withState(statePath,identity,async(state,save)=>{
+  if(state.migration)validateMigration(state.migration);
+  const waiting=await pendingFinality({provider,state,now:now()*1000});
+  if(waiting)return waiting;
+  return network.withRobinhoodNetwork({provider,rpcUrl,sharedReader:provider,mode:execution?'robinhood-public':'robinhood-rehearsal',publicGuard},async()=>{
   if(!state.migration){state.migration=structuredClone(bootstrap);save(state);}
   validateMigration(state.migration);
   check((await provider.getBlock(state.migration.boundary.number))?.hash===state.migration.boundary.hash,'Migration boundary changed');
@@ -47,10 +52,10 @@ export async function runPonsScheduler({provider,short,monthly,executor,config,r
    state.migration=applyControllerReceipt(state.migration,{receipt,block,manifest:config.manifest,lifecycle:config.lifecycle});rememberPublications(state,receipt,[short,monthly]);save(state);return true;
   };
   // Last resolved is persisted before accounting, so a crash between them is recoverable.
-  if(state.lastResolved&&!await sync(state.lastResolved.transactionHash))return {status:'waiting',reason:'receiptFinality'};
+  if(state.lastResolved&&!await sync(state.lastResolved.transactionHash))return receiptWait(state.lastResolved,now()*1000);
   const external=[];for(const hash of receiptHashes){const receipt=await provider.getTransactionReceipt(hash);check(receipt,'Missing external receipt');external.push(receipt);}
   external.sort((a,b)=>a.blockNumber-b.blockNumber||a.index-b.index);
-  for(const receipt of external)if(!await sync(receipt.hash))return {status:'waiting',reason:'receiptFinality'};
+  for(const receipt of external)if(!await sync(receipt.hash))return receiptWait({transactionHash:receipt.hash,blockNumber:receipt.blockNumber},now()*1000);
   const steps=[],notifications=[],gas=execution?require(base+'pons-gas-budget.cjs').createGasBudget({provider,sender,maxGasLimit:execution.config.gasLimit,state,save,notifications}):null;
   const guard=async(request,action)=>{
    check(!state.pending,'Unresolved transaction');
@@ -63,16 +68,23 @@ export async function runPonsScheduler({provider,short,monthly,executor,config,r
    check(await provider.getTransactionCount(sender,'pending')===await provider.getTransactionCount(sender,'latest'),'Pending signer transaction');
    await hook('beforeTransaction',{action,request});
   };
-  const boundary=createBoundary({state,save,provider,sender,guard,signer:executor,onConfirmed:async resolved=>{steps.push(resolved);await hook('confirmed',resolved);if(!await sync(resolved.transactionHash))throw Error('Await finalized controller receipt');}});
+  const boundary=createBoundary({state,save,provider,sender,guard,signer:executor,onConfirmed:async resolved=>{steps.push(resolved);await hook('confirmed',resolved);if(!await sync(resolved.transactionHash))throw Object.assign(Error('Await finalized controller receipt'),{code:'QIANQI_RECEIPT_FINALITY'});}});
   const before=boundary.before;boundary.before=async(...args)=>{await before(...args);startedTransactions++;};
   if(execution)Object.assign(boundary,{maxGasPrice:execution.config.maxGasPrice,gasLimit:gas.gasLimit,estimateFailed:gas.estimateFailed});
   const sent=boundary.sent;boundary.sent=async tx=>{await sent(tx);await hook('sent',{transactionHash:tx.hash});};
   return withTransactionBoundary(boundary,async()=>{
    const send=async(method,args)=>sendLocalTransaction(method,args,{type:2,maxFeePerGas:(await provider.getFeeData()).gasPrice,maxPriorityFeePerGas:0});
    // Do not run the old coordinator: its independent purchase indexer is not needed here.
-   let fundingResults=null,fundingError=false;
+   let fundingResults=null,fundingError=false,fundingFailure;
    try{fundingResults=funding?await fundFromPons({provider,executor,config:funding,domain:state.migration.domain,send}):null;}
-   catch(error){if(state.pending||error.code==='SCHEDULER_STORAGE_ERROR')throw error;fundingError=true;}
+   catch(error){
+    if(error.code==='QIANQI_RECEIPT_FINALITY')return {...receiptWait(state.lastResolved,now()*1000),steps};
+    if(state.pending||['SCHEDULER_STORAGE_ERROR','RPC_BUDGET_EXHAUSTED','RPC_BUDGET_LOCKED'].includes(error.code))throw error;
+    fundingError=true;
+    fundingFailure={reason:error.code==='PONS_PUBLIC_ADMISSION'?'admission':error.code==='LOCAL_BUDGET_WAIT'?'budget':'unavailable',
+     ...(Array.isArray(error.admissionReasons)?{admissionReasons:error.admissionReasons.filter(x=>typeof x==='string'&&/^[a-zA-Z0-9:._-]{1,100}$/.test(x))}:{}),
+     ...(error.budget?.reason?{budgetReason:error.budget.reason}:{})};
+   }
    const head=await provider.getBlock('latest'),finalized=await provider.getBlock('finalized');check(head&&finalized,'Missing chain head');
    const controllers={SHORT:receiptPublicationSource(short,provider,()=>state.publications),MONTHLY:receiptPublicationSource(monthly,provider,()=>state.publications)},at={blockTag:head.number};
    // Unexpected outside state never turns into duplicate jobs or guessed consumption.
@@ -152,7 +164,12 @@ export async function runPonsScheduler({provider,short,monthly,executor,config,r
     if(result.status==='progress'){state.lastKind=kind;save(state);return {...result,kind,steps};}
     waits.push({kind,...result});
    }
-   return {status:'waiting',results:waits,steps,funding:fundingResults,sourceStatus:sourceError?'unavailable':'current'};
+   return {status:'waiting',results:waits,steps,funding:fundingResults,sourceStatus:sourceError?'unavailable':'current',
+    ...(fundingFailure?{reason:'funding-unavailable',fundingFailure,retryAt:now()*1000+300000}:{})};
+  }).catch(error=>{
+   if(error.code==='QIANQI_RECEIPT_FINALITY')return {...receiptWait(state.lastResolved,now()*1000),steps};
+   throw error;
   });
- }));
+  });
+ });
 }

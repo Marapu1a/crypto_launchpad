@@ -86,3 +86,10 @@ test('public diagnostics retain safe action/stage/revert categories without prov
  const bad=diagnostics({results:{scheduler:{results:{SHORT:{status:'error',stage:'secret',action:'secret',revertSelector:'secret',rpcReason:'secret'}}}}});
  assert(!JSON.stringify(bad).includes('secret'));
 });
+
+test('transaction wrapper retains the RPC budget retry deadline and never broadcasts',async()=>{
+ const {sendLocalTransaction}=require('../scripts/local-receipt.cjs');
+ const method=async()=>assert.fail('must not broadcast');method.fragment={name:'pay'};
+ method.estimateGas=async()=>{throw Object.assign(Error('cap'),{code:'RPC_BUDGET_EXHAUSTED',retryAt:9000});};
+ await assert.rejects(sendLocalTransaction(method,[],{}),{code:'RPC_BUDGET_EXHAUSTED',retryAt:9000,stage:'estimate'});
+});

@@ -12,7 +12,7 @@ import {computeMonthly} from '../../src/draws/monthly-outcome.mjs';
 import {compute as computeShort,QIANQI_RULES} from '../../src/draws/short-outcome.mjs';
 import {previewBasket} from '../../src/draws/config.mjs';
 import { finalizedObservation, admitFinalizedSnapshot, policyIdentity } from '../../src/worker/production-policy.mjs';
-import { advanceProductionTransaction } from '../../src/worker/production-journal.mjs';
+import { advanceProductionTransaction, pendingProductionReceipt } from '../../src/worker/production-journal.mjs';
 import { admitBeacon } from '../../src/worker/production-timing.mjs';
 import { fetchBeacon, fetchLatest, validateBeacon, GENESIS, PERIOD } from '../../src/randomness/drand.mjs';
 import { runDrawSender } from './draw-sender.mjs';
@@ -27,16 +27,28 @@ const json = v => JSON.parse(JSON.stringify(v,(_,x) => typeof x === 'bigint' ? S
 export async function runDrawWorker({ pool, provider, signer, publisher, projectId, moduleId,
   getBeacon = fetchBeacon, getLatestBeacon = fetchLatest, now = () => Math.floor(Date.now()/1000), hook, recognitionAdapters, ponsRehearsal,ponsSourceMode='rehearsal',guard:sourceGuard,pw=false,allowPublicTransactions=false }) {
   try {
-    // Pons accounting requires an explicit production guard or an isolated local chain.
-    if(ponsRehearsal){
-      check(['rehearsal','production'].includes(ponsSourceMode),'Invalid Pons source mode');
-      if(ponsSourceMode==='production'){check(typeof sourceGuard==='function','Production source guard required');await sourceGuard();}
-      else{const local=await provider.send('hardhat_metadata',[]);check(/^(Hardhat|edr\/)/.test(local?.clientVersion??'')&&local.chainId===4663&&/^0x[0-9a-f]{64}$/i.test(local.instanceId),'Pons source is rehearsal-only');}
-    }
     return await runDrawSender({ pool, provider, signer, projectId, moduleId, operate: async ({ policy, state, save, lease }) => {
       check(same(await publisher.getAddress(),policy.publisher), 'Wrong recognition publisher');
       check(pw===(policy.schema==='pw-service-policy-v1'),'Worker/policy adapter mismatch');
       if(pw){check(ponsRehearsal,'PW requires Pons accounting');if(policy.mode==='production'&&allowPublicTransactions!==true)return {status:'paused',reason:'execution-disabled'};}
+      // Lease and local intent checks precede the cheap receipt probe. Full policy,
+      // source and canonical checks still run before any state completion or send.
+      const runtime=state.runtime;
+      if(state.failure||runtime?.publisher?.failure)return {status:'blocked',reason:'reverted-transaction'};
+      if(state.pending||runtime?.publisher?.pending){
+        const op=runtime?.operation;
+        check(runtime?.schema==='draw-runtime-v2'&&op&&['executor','publisher'].includes(op.role),'Journal missing planner intent');
+        const journal=op.role==='publisher'?runtime.publisher:state;
+        check(journal?.pending&&!(op.role==='publisher'?state.pending:runtime.publisher?.pending),'Pending planner role mismatch');
+        const waiting=await pendingProductionReceipt({provider,signer:op.role==='publisher'?publisher:signer,policy,state:journal,role:op.role,request:op.request,action:op.action,lease});
+        if(waiting)return {...waiting,operation:op.kind+'.'+op.method,role:op.role};
+      }
+      // Pons accounting requires an explicit production guard or an isolated local chain.
+      if(ponsRehearsal){
+        check(['rehearsal','production'].includes(ponsSourceMode),'Invalid Pons source mode');
+        if(ponsSourceMode==='production'){check(typeof sourceGuard==='function','Production source guard required');await sourceGuard();}
+        else{const local=await provider.send('hardhat_metadata',[]);check(/^(Hardhat|edr\/)/.test(local?.clientVersion??'')&&local.chainId===4663&&/^0x[0-9a-f]{64}$/i.test(local.instanceId),'Pons source is rehearsal-only');}
+      }
       const verify=pw?verifyPwPolicy:verifyDrawPolicy,bind=pw?pwContracts:contracts;
       await verify(provider,policy);const latestContracts=bind(provider,policy),t=policy.template.config;
       check(t.asset!=='ETH'||ponsRehearsal,'Native draws require Pons source');
@@ -227,7 +239,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
       return {status:'waiting',reason:waiting,serviceIdle,...(deferredNativePayments.length?{deferredNativePayments}:{}),...(Number.isFinite(nextCheckAt)?{nextCheckAt}:{})};
     } });
   } catch(e) {
-    if (['PRODUCTION_WAIT','FINALITY_WAIT'].includes(e.code)) return {status:'waiting',reason:e.message};
+    if (['PRODUCTION_WAIT','FINALITY_WAIT'].includes(e.code)) return {status:'waiting',reason:e.code==='FINALITY_WAIT'?'finality-unavailable':e.message};
     throw e;
   }
 }

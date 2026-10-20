@@ -1,4 +1,5 @@
 import {digest} from '../../src/tickets/digest.mjs';
+import {schedulePonsResult} from './pons-work-policy.mjs';
 // One instance per token. Restart deliberately discards sleep and rechecks durable obligations.
 // loadReport reads Pons/local storage only. run retains all transaction guards and leases.
 export function createPonsService({loadReport,run,observe,publish,now=Date.now,maxSourceAgeMs=660000}){
@@ -23,7 +24,7 @@ export function createPonsService({loadReport,run,observe,publish,now=Date.now,m
     return {status:'waiting',reason:'service-sleep',service:{ran:false,nextCheckAt:Number.isFinite(sleeping.until)?sleeping.until:null,lastContractCheckAt:sleeping.startedAt,sourceFingerprint:fingerprint,sourceCheckedAt:report.checkedAt}};
    const reason=!sleeping?'initial-or-pending':!fresh?'source-unavailable':sleeping.fingerprint!==fingerprint?'pons-changed':'scheduled-check';
    sleeping=null; // A crash, failed projection or unclassified result must never inherit idle permission.
-   const result=await run({report,sourceError}),observation=observe(result);
+   const result=schedulePonsResult(await run({report,sourceError}),now()),observation=observe(result);
    const deadline=observation.nextCheckAt;
    const eventIdle=fresh&&observation.status==='idle'&&(deadline===undefined||Number.isSafeInteger(deadline)&&deadline>at);
    if(publish)await publish(result,{sourceFingerprint:fingerprint,sourceCheckedAt:fresh?report.checkedAt:null,eventIdle,nextCheckAt:eventIdle?(deadline??null):null});

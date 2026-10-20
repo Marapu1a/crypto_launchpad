@@ -35,6 +35,7 @@ process.env.HARDHAT_CONFIG=resolve('tests/contracts/production-worker-hardhat.co
 const {default:hre}=await import('hardhat');
 const base=new BrowserProvider(hre.network.provider,undefined,{cacheTimeout:-1});base.pollingInterval=10;
 const provider=new Proxy(base,{get(t,k){
+ if(k==='getBlock')return n=>t.getBlock(n==='finalized'?(finality??'latest'):n);
  if(k==='broadcastTransaction')return async raw=>{await hre.network.provider.send('evm_setNextBlockTimestamp',[clock]);return t.broadcastTransaction(raw);};
  if(k==='getLogs')return()=>{throw Error('PW must not scan purchase logs');};
  const v=Reflect.get(t,k);return typeof v==='function'?v.bind(t):v;
@@ -42,7 +43,7 @@ const provider=new Proxy(base,{get(t,k){
 enableVerificationCache(provider);
 const meter=rpcMeter(hre.network.provider),root='.local/test-results/pw-service-'+new Date().toISOString().replace(/[:.]/g,'-');mkdirSync(root,{recursive:true});
 const report={status:'FAIL',checks:[],limits:['Local EVM and modeled Pons API; no public transactions','Historical BLS verification; no future seed override','Test gas caps only; not production budget approval']};
-let db,clock;
+let db,clock,finality;
 const tx=async p=>(await p).wait();
 try{
  const wallet=i=>HDNodeWallet.fromPhrase('test test test test test test test test test test test junk',undefined,"m/44'/60'/0'/0/"+i).connect(provider);
@@ -90,7 +91,16 @@ try{
  clock=(await provider.getBlock('latest')).timestamp;
  let service=createPwService(input);await service();
  const sleeping=await meter.measure(()=>service());assert.equal(sleeping.total,0);assert.equal(sleeping.result.service.ran,false);
- await buy(buyers[0]);await buy(buyers[1]);assert.equal((await service()).service.ran,true);
+ await buy(buyers[0]);await buy(buyers[1]);finality=(await provider.getBlock('latest')).number;
+ assert.equal((await service()).reason,'receipt-finality');
+ const heldPending=(await state()).pending,heldNonce=await provider.getTransactionCount(signer.address);report.receiptWait=[];
+ for(let i=0;i<3;i++){
+  const restarted=createPwService({...input,ponsSourceMode:'production',guard:async()=>{throw Error('Expensive PW guard during receipt wait');}});
+  const m=await meter.measure(()=>restarted());assert.equal(m.result.reason,'receipt-finality');assert.equal(m.result.retryAt,clock*1000+60000);
+  assert.equal(m.methods.eth_call??0,0);assert.equal(m.methods.eth_getCode??0,0);assert.ok(m.total<=8,JSON.stringify(m.methods));
+  assert.equal((await state()).pending.hash,heldPending.hash);report.receiptWait.push({total:m.total,methods:m.methods});
+ }
+ assert.equal(await provider.getTransactionCount(signer.address),heldNonce);finality=undefined;
  await until(async()=>await vault.totalReceived()===parseEther('0.018')&&await short.freeFund()===parseEther('0.006')&&await splitter.credit(2)===0n);
  assert.equal(await collector.quarantined(),17n);assert.equal(await splitter.totalReceived(),parseEther('0.03'));
  const imported=await readHolderPreparation(db.pools.jobs,scope,{now:clock});report.holderFunding=imported;

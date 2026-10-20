@@ -54,7 +54,8 @@ export async function runPonsRuntime({mode,allowPublicTransactions=false,allowed
    for(const row of r.services)if(!row.schedule?.skipped&&row.result.reason==='service-sleep')await projects.find(p=>p.id===row.id)?.onSleep?.(row.result.service);
    await writeHealthFile(healthFile,{
    schema:'pons-runtime-health-v1',mode,checkedAt:r.checkedAt,rpcBudget:gate.snapshot(),
-   projects:r.services.map(({id,result:r})=>({id,status:r.status,reason:r.reason,service:r.service}))
+   projects:r.services.map(({id,result:r})=>({id,status:r.status,reason:r.reason,service:r.service,
+    ...(r.retryAt?{retryAt:r.retryAt}:{}),...(r.waitingFor?{waitingFor:r.waitingFor}:{}),...(r.fundingFailure?{fundingFailure:r.fundingFailure}:{})}))
   });}});
  }finally{
   try{await cleanup?.();}finally{for(const p of providers)p.destroy();await lock.close();await unlink(lockFile);}

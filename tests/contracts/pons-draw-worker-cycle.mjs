@@ -105,6 +105,18 @@ try{
  };
  await scenario('Pons source: '+(native?'ETH dual draw':'USDG configured modes')+', no event scan, no traces, no recognition transaction',async()=>{
   for(const p of projects)await apiBuy(p,400000000n);await move(time-timing.lead-61);
+  // Hold one mined fee receipt behind finalized, including host/service restarts.
+  const held=projects[0];finality=(await base.getBlock('latest')).number;
+  assert.equal((await pass(held)).reason,'receipt-finality');
+  const pending=(await state(held)).pending,nonce=await provider.getTransactionCount(held.signer.address);
+  report.receiptWait=[];
+  for(let i=0;i<3;i++){
+   const m=await meter.measure(()=>hostPass({...held,ponsSourceMode:'production',guard:async()=>{throw Error('Expensive source guard during receipt wait');}}));
+   assert.equal(m.result.reason,'receipt-finality');assert.equal(m.result.retryAt,clock*1000+60000);
+   assert.equal(m.methods.eth_call??0,0);assert.equal(m.methods.eth_getCode??0,0);assert.ok(m.total<=9,JSON.stringify(m.methods));
+   assert.equal((await state(held)).pending.hash,pending.hash);report.receiptWait.push({total:m.total,methods:m.methods});
+  }
+  assert.equal(await provider.getTransactionCount(held.signer.address),nonce);finality=undefined;
   for(const p of projects)await until(p,async()=>{const s=await state(p);return s.runtime?.ponsAccounting&&await p.c.fundingRouter.totalReceived()===6400000n*scale&&await p.c.fundingRouter.credit(0)===0n&&await p.c.fundingRouter.credit(1)===0n&&await p.c.splitter.credit(1)===0n&&await p.c.splitter.credit(2)===0n;});
   for(const p of projects){const s=await state(p);assert.equal(s.runtime.publisher.history.length,0);assert.equal(s.runtime.ledger.events.length,0);}
  });

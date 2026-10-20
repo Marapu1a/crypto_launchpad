@@ -12,6 +12,22 @@ test('profile is bound to config and does not accept changed product or policy',
  const f=fixture();validate(f.p,f.c);f.c.executor=ethers.ZeroAddress;assert.throws(()=>validate(f.p,f.c),/mismatch/);
  const g=fixture();g.p.timing.monthlyInterval='1';assert.throws(()=>validate(g.p,g.c),/interval/);
 });
+
+test('clock or finality lag stops before any contract reads',async()=>{
+ for(const mode of ['clock','finality']){
+  const f=fixture();let reads=0;
+  f.provider.getCode=async()=>{reads++;throw Error('must not inspect contracts');};
+  f.provider.call=async()=>{reads++;throw Error('must not inspect contracts');};
+  if(mode==='clock')f.head.timestamp=1;
+  else {const original=f.provider.getBlock;f.provider.getBlock=async n=>n==='finalized'?{...f.head,number:f.head.number-1,timestamp:1}:original(n);}
+  const r=await f.run();assert.equal(r.status,'blocked');assert(r.reasons.includes(mode==='clock'?'clock':'finalityLag'));assert.equal(reads,0);
+ }
+});
+
+test('RPC budget deadline survives admission instead of becoming an ordinary funding failure',async()=>{
+ const f=fixture();f.provider.getCode=async()=>{throw Object.assign(Error('budget'),{code:'RPC_BUDGET_EXHAUSTED',retryAt:99999});};
+ await assert.rejects(f.run(),{code:'RPC_BUDGET_EXHAUSTED',retryAt:99999});
+});
 test('missing finality, orphaned anchors and changing observed head refuse a match',async()=>{
  for(const mode of ['missing','anchor','head']){
   const f=fixture(),original=f.provider.getBlock;

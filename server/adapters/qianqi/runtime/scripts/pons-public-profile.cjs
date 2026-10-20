@@ -50,7 +50,9 @@ async function inspect(provider,profile,c,{now=Math.floor(Date.now()/1000)}={}){
   const t=profile.timing;
   record(now-head.timestamp<=Number(t.maxClockLag)&&head.timestamp-now<=Number(t.maxClockAhead),'clock');
   record(final.number<=head.number&&head.timestamp-final.timestamp>=0&&head.timestamp-final.timestamp<=Number(t.maxFinalizedLag),'finalityLag');
+  if(reasons.length)return result();
   record(same((await provider.getBlock(final.number))?.hash,final.hash),'finalityBranch');
+  if(reasons.length)return result();
   const at={blockTag:head.number},map=pins(c),address=k=>map[k][0];
   for(const [k,[a,h]] of Object.entries(map)){const code=await provider.getCode(a,head.number);record(code!=='0x'&&same(ethers.keccak256(code),h),'runtime:'+k);}
   if(reasons.length)return result();
@@ -79,6 +81,9 @@ async function inspect(provider,profile,c,{now=Math.floor(Date.now()/1000)}={}){
   for(const anchor of [c.manifest.anchor,c.deliveryJob.anchor])record(anchor.number<=final.number&&same((await provider.getBlock(anchor.number))?.hash,anchor.hash),'anchor');
   record(same((await provider.getBlock(head.number))?.hash,head.hash),'stableObservation');
   return {...result(),observedBlock:{number:head.number,hash:head.hash}};
- }catch(e){return {...result(),status:'blocked',reasons:[...reasons,'observationUnavailable'],retryable:require('./local-rpc-watch.cjs').retryableRead(e)};}
+ }catch(e){
+  if(['RPC_BUDGET_EXHAUSTED','RPC_BUDGET_LOCKED'].includes(e.code))throw e;
+  return {...result(),status:'blocked',reasons:[...reasons,'observationUnavailable'],retryable:require('./local-rpc-watch.cjs').retryableRead(e)};
+ }
 }
 module.exports={validate,inspect,pins,inspectQuote,IMPLEMENTATION_SLOT};

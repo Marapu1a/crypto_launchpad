@@ -66,6 +66,7 @@ async function sendLocalTransaction(method,args,overrides,options={}){
   }catch(cause){
     const error=new Error(cause.shortMessage||cause.message,{cause});
     error.code=cause.code;error.stage=stage;
+    if(cause.code==='RPC_BUDGET_EXHAUSTED'&&Number.isSafeInteger(cause.retryAt))error.retryAt=cause.retryAt;
     error.action=method.fragment?.name;
     if(typeof cause.data==='string'&&/^0x[0-9a-f]{8}/i.test(cause.data))error.revertSelector=cause.data.slice(0,10);
     const rpcMessage=cause.info?.error?.message;

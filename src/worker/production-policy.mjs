@@ -38,7 +38,7 @@ export async function finalizedObservation(provider, now = Math.floor(Date.now()
   check(uint(now), 'Invalid observation time');
   let latest, finalized;
   try { [latest, finalized] = await Promise.all([provider.getBlock('latest'), provider.getBlock('finalized')]); }
-  catch { throw Object.assign(Error('Finality observation unavailable'), { code: 'FINALITY_WAIT' }); }
+  catch (e) { if(['RPC_BUDGET_EXHAUSTED','RPC_BUDGET_LOCKED'].includes(e.code))throw e;throw Object.assign(Error('Finality observation unavailable'), { code: 'FINALITY_WAIT' }); }
   if (!latest || !finalized) throw Object.assign(Error('Finality observation unavailable'), { code: 'FINALITY_WAIT' });
   const observation = { now, latest: blockRef(latest), finalized: blockRef(finalized) };
   check(finalized.number <= latest.number && finalized.timestamp <= latest.timestamp, 'Contradictory finality');
