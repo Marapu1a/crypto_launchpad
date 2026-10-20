@@ -4,13 +4,13 @@
 
 The token accompanies the Pattern Watcher monitor. The service reports observed
 Pons activity and relationships, without predicting returns or labelling wallets
-as bots. Token launch and service payment remain part of the agreed product.
+as bots. The monitor, wallet views and notifications are free. PW is optional support for the author and project; buying PW is not required to use the service. The project share of actually received fees is intended for infrastructure, development and other tools. See [current scope](../../docs/MONITOR_SCOPE_20261021.md).
 
 ## Identity
 
 - Name: Pattern Watcher.
 - Symbol: PW (approved 19.10.2026).
-- Website: https://pw.qianqi.site (selected, not yet published).
+- Website: https://pw.qianqi.site (published; free monitor update deployed 21.10.2026).
 - Primary artwork: [eye](../../apps/monitor/imgs/pw_eye.png).
 - Mascot: [watcher](../../apps/monitor/imgs/pw_mascot.png).
 - Original artwork is shared with the monitor; hashes are recorded in the passport.
