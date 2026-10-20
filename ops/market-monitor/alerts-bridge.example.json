@@ -1,0 +1,4 @@
+{
+  "url": "https://pw.qianqi.site/api/alerts/telegram-update",
+  "secret": "REPLACE_WITH_RANDOM_SHARED_SECRET_AT_LEAST_32_CHARACTERS"
+}

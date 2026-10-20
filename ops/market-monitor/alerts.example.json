@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "botUsername": "qianqi_hub_bot",
+  "telegramTokenFile": null,
+  "telegramIngressSecret": null,
+  "vapid": null
+}

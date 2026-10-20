@@ -10,10 +10,12 @@ snapshot['preview']=True
 class Handler(http.server.BaseHTTPRequestHandler):
  def do_GET(self):
   route=urllib.parse.urlsplit(self.path).path
-  if route=='/api/status':
+  if route=='/api/access':
+   data=json.dumps({'active':False,'wallet':None,'paymentsEnabled':False,'preview':True}).encode();mime='application/json'
+  elif route=='/api/status':
    data=json.dumps(snapshot).encode();mime='application/json'
   else:
-   file={'/':'index.html','/wallets':'wallets.html','/ui.js':'ui.js','/ui.css':'ui.css','/tokens.js':'tokens.js','/wallet-ui.js':'wallet-ui.js','/imgs/pw_eye.png':'imgs/pw_eye.png','/imgs/pw_mascot.png':'imgs/pw_mascot.png'}.get(route)
+   file={'/':'index.html','/wallets':'wallets.html','/ui.js':'ui.js','/ui.css':'ui.css','/tokens.js':'tokens.js','/wallet-ui.js':'wallet-ui.js','/access.js':'access.js','/alerts.js':'alerts.js','/signals':'signals.html','/signals.js':'signals.js','/notifications.js':'notifications.js','/sw.js':'sw.js','/imgs/pw_eye.png':'imgs/pw_eye.png','/imgs/pw_mascot.png':'imgs/pw_mascot.png'}.get(route)
    if not file:self.send_error(404);return
    data=(ROOT/file).read_bytes();mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png'}[pathlib.Path(file).suffix]
   self.send_response(200);self.send_header('Content-Type',mime);self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(data)

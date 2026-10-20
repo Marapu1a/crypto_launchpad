@@ -1,0 +1,18 @@
+{
+  "schema": "pw-monitor-billing-v1",
+  "origin": "https://pw.qianqi.site",
+  "port": 4198,
+  "paymentsEnabled": false,
+  "alertsFile": null,
+  "recipient": "0x098afA6731239a00CE0aff669aaefD16b7C72114",
+  "operatorWallet": "0x098afA6731239a00CE0aff669aaefD16b7C72114",
+  "databaseFile": "/etc/pw-billing/database-url",
+  "rpcFile": "/etc/pw-billing/rpc-url",
+  "allowedRpcHosts": ["robinhood-mainnet.g.alchemy.com"],
+  "rpcBudget": {
+    "file": "/var/lib/pw-billing/rpc-budget.json",
+    "maxRequests": 10000,
+    "windowMs": 86400000,
+    "intervalMs": 100
+  }
+}

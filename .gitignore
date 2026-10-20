@@ -16,5 +16,13 @@ hub_key
 hub_key.*
 __pycache__/
 *.py[cod]
+# Runtime databases, dumps and credential containers never belong in source control.
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.dump
+*.p12
+*.pfx
+.pgpass
 # Temporary local compatibility assets for a monitor process started before relocation.
 scripts/pons-monitor/

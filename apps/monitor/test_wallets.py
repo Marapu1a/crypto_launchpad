@@ -46,3 +46,24 @@ class WalletTests(unittest.TestCase):
             with urllib.request.urlopen(f'http://127.0.0.1:{server.server_port}/wallets?address={self.a}') as response:
                 self.assertIn(b'id="load"',response.read())
         finally:server.shutdown();server.server_close();thread.join()
+
+    def test_cached_wallet_is_not_blocked_by_other_network_request(self):
+        first=wallets.snapshot(self.path,self.a,self.loader,1000)
+        wallets.GATE.acquire()
+        try:
+            self.assertEqual(wallets.snapshot(self.path,self.a,self.loader,1100),first)
+            busy=wallets.snapshot(self.path,'0x'+'6'*40,self.loader,1100)
+            self.assertTrue(busy['busy']);self.assertEqual(busy['retryAfter'],3)
+        finally:wallets.GATE.release()
+
+    def test_new_activity_api_units_and_unknown_decimals(self):
+        raw=dict(token=self.row['token'],tx=self.row['txHash'],kind='buy',time=100,amount='1234567890123456789',decimals=18,usd=None)
+        self.assertEqual(wallets.activity_row(raw)['amountTokens'],'1.234567890123456789')
+        self.assertIsNone(wallets.activity_row(dict(raw,decimals=None))['amountTokens'])
+
+    def test_failed_history_is_unknown_not_zero_and_retries_after_one_minute(self):
+        def broken(*args):raise wallets.ActivityAccessUnavailable()
+        d=wallets.snapshot(self.path,self.a,broken,1000)
+        self.assertIsNone(d['stats']['buys'])
+        fixed=wallets.snapshot(self.path,self.a,self.loader,1061)
+        self.assertEqual(fixed['stats']['buys'],1)

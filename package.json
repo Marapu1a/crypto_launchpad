@@ -89,7 +89,12 @@
     "benchmark:holder-gas": "node tests/holders/gas-benchmark.mjs",
     "test:holder-governance": "node tests/holders/payout.mjs --managed",
     "test:holder-execution": "node tests/holders/execution.mjs",
-    "test:pw-rehearsal": "node tests/holders/execution.mjs --pw"
+    "test:pw-rehearsal": "node tests/holders/execution.mjs --pw",
+    "test:monitor-billing": "node tests/monitor-billing.mjs",
+    "test:monitor-billing-ui": "node tests/studio/monitor-billing.mjs",
+    "start:monitor-web": "node scripts/run-monitor-web.mjs",
+    "test:monitor-free": "node tests/monitor-free.mjs",
+    "test:monitor-alerts": "node tests/monitor-alerts.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -99,7 +104,8 @@
     "multiformats": "14.0.5",
     "pg": "8.23.1",
     "playwright": "1.63.0",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "web-push": "3.6.7"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "5.6.1",

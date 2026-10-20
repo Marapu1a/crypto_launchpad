@@ -1,0 +1,19 @@
+[Unit]
+Description=Pattern Watcher free web and notifications
+After=network.target postgresql.service
+
+[Service]
+User=pons-market-monitor
+WorkingDirectory=/opt/pons-monitor/current
+ExecStart=/usr/bin/node scripts/run-monitor-web.mjs /etc/pons-monitor/web.json
+Restart=on-failure
+RestartSec=10
+UMask=0077
+LoadCredential=bot-token:/etc/pons-monitor/bot-token
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

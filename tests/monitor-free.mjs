@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {createTestPostgres} from './contracts/production-postgres.mjs';
+import {createPool} from '../server/shared/store.mjs';
+import {createAlerts} from '../server/monitor-alerts/service.mjs';
+import {monitorHttp} from '../server/monitor-alerts/http.mjs';
+import {ingestMarket,message} from '../server/monitor-alerts/market.mjs';
+import {deliver} from '../server/monitor-alerts/worker.mjs';
+const db=await createTestPostgres('.local/test-results/free-monitor-'+Date.now()),pool=createPool(db.url('postgres'));
+let server;try{
+ await pool.query(await readFile('server/monitor-alerts/schema.sql','utf8'));
+ const now=Math.floor(Date.now()/1000),end=Math.floor(now/300)*300;
+ const alerts=Object.assign(createAlerts({pool,pushEnabled:true,telegramEnabled:true,botUsername:'example_bot'}),{pushEnabled:true,telegramEnabled:true});
+ const origin='http://127.0.0.1:4446';let upstream='';
+ server=monitorHttp({pool,alerts,origin,secure:false,fetcher:async url=>{upstream=url;return {ok:true,json:async()=>({windowEnd:end,walletActivity:[],intervals:[]})}}});
+ await new Promise(r=>server.listen(4446,'127.0.0.1',r));
+ const get=path=>fetch(origin+path);
+ assert.equal((await get('/api/active-wallets?minutes=30')).status,200);assert.match(upstream,/minutes=30/);
+ assert.equal((await get('/api/wallet?address=0x'+'1'.repeat(40))).status,200);
+ assert.equal((await get('/api/billing/quote')).status,404);
+ assert.equal((await get('/api/interval?end=oops')).status,400);
+ const post=(path,body={},cookie='',from=origin)=>fetch(origin+path,{method:'POST',headers:{origin:from,'content-type':'application/json',cookie},body:JSON.stringify(body)});
+ assert.equal((await post('/api/alerts/session',{},'','https://evil.test')).status,403);
+ const response=await post('/api/alerts/session');assert.equal(response.status,200);const cookie=response.headers.get('set-cookie').split(';')[0];assert.ok(cookie.startsWith('pw_notify='));
+ const {rows:[session]}=await pool.query('SELECT owner FROM monitor_alerts.sessions');
+ assert.equal((await post('/api/alerts/preferences',{push:true,telegram:false},cookie)).status,400);
+ await pool.query('INSERT INTO monitor_alerts.chats VALUES($1,$2)',[session.owner,'55']);
+ assert.equal((await post('/api/alerts/preferences',{push:false,telegram:true},cookie)).status,200);
+ await pool.query('UPDATE monitor_alerts.rules SET created_at=$1',[end-600]);
+ const event={windowEnd:end,current:{buyers:152,buys:268,tokens:19},baseline:{buyers:34,buys:54},snapshot:{board:[{symbol:'Example',recent:{buyers:93}}]}};
+ assert.equal(message(event).url,'/?interval='+end);
+ await ingestMarket(pool,async()=>({events:[event]}),{now});await ingestMarket(pool,async()=>({events:[event]}),{now});
+ assert.equal((await pool.query('SELECT * FROM monitor_alerts.outbox')).rowCount,1);
+ let sent=0;await deliver(pool,{now,access:async()=>true,sendTelegram:async()=>{sent++},sendPush:async()=>{throw Error()}});assert.equal(sent,1);
+ await deliver(pool,{now,access:async()=>true,sendTelegram:async()=>{sent++}});assert.equal(sent,1);
+ // Turning the channel off cancels queued market notifications.
+ await pool.query("INSERT INTO monitor_alerts.outbox(event_key,owner,target,channel,destination,payload,created_at) VALUES('cancel',$1,'market','telegram','55',$2,$3)",[session.owner,message(event),now]);
+ assert.equal((await post('/api/alerts/preferences',{push:false,telegram:false},cookie)).status,200);
+ assert.equal((await pool.query("SELECT state FROM monitor_alerts.outbox WHERE event_key='cancel'")).rows[0].state,'cancelled');
+ console.log('PASS free access, no billing routes, anonymous session, CSRF, preferences, market dedup, delivery and cancellation');
+}finally{if(server){server.closeAllConnections();await new Promise(r=>server.close(r))}await pool.end();await db.close()}

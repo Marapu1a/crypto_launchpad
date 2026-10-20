@@ -1,0 +1,7 @@
+{
+  "schema": "pw-monitor-web-v1",
+  "port": 4198,
+  "origin": "https://pw.qianqi.site",
+  "databaseFile": "/etc/pons-monitor/web-database-url",
+  "alertsFile": "/etc/pons-monitor/alerts.json"
+}

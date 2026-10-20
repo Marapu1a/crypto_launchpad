@@ -5,7 +5,7 @@ import {chromium} from 'playwright';
 
 const root='.local/monitor-v2';await mkdir(root,{recursive:true});
 const html=await readFile('apps/monitor/index.html');
-const server=createServer(async(req,res)=>{if(['/imgs/pw_eye.png','/imgs/pw_mascot.png'].includes(req.url)){res.setHeader('Content-Type','image/png');res.end(await readFile('apps/monitor'+req.url));return;}if(/^\/(ui\.css|ui\.js|tokens\.js|wallet-ui\.js)$/.test(req.url)){res.setHeader("Content-Type",req.url.endsWith(".css")?"text/css":"text/javascript");res.end(await readFile("apps/monitor"+req.url));return;}res.setHeader('Content-Type','text/html; charset=utf-8');res.end(html);});
+const server=createServer(async(req,res)=>{if(['/imgs/pw_eye.png','/imgs/pw_mascot.png'].includes(req.url)){res.setHeader('Content-Type','image/png');res.end(await readFile('apps/monitor'+req.url));return;}if(/^\/(ui\.css|ui\.js|tokens\.js|wallet-ui\.js|notifications\.js)$/.test(req.url)){res.setHeader("Content-Type",req.url.endsWith(".css")?"text/css":"text/javascript");res.end(await readFile("apps/monitor"+req.url));return;}res.setHeader('Content-Type','text/html; charset=utf-8');res.end(html);});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch();
 const metric={buys:250,buyers:2,volume:'50',median:'0.2',maximum:'0.2',maximumTx:'0x'+'a'.repeat(64),top3Pct:100,missingAmounts:0};
@@ -46,7 +46,7 @@ try{
  await page.locator('#heat-metric').selectOption('buyers');assert.match(await page.locator('#heat-detail').innerText(),/Earlier: 10 on average/);
  assert.match(await page.evaluate(()=>comparisonLabel(54,10)),/440% more/);
  assert.equal(await page.locator('.trend-bar').count(),28);
- assert.equal(await page.locator('.mean-line').count(),4);
+ assert.equal(await page.locator('.mean-line').count(),0);
  assert.equal(await page.locator('.trend-bar[data-selected=true]').count(),4);
  assert.equal(await page.locator('.trend-bar[data-metric-key=buyers]').last().getAttribute('class'),'trend-bar up');
  assert.equal(await page.locator('.trend-bar[data-metric-key=buyers]').first().getAttribute('class'),'trend-bar unknown');

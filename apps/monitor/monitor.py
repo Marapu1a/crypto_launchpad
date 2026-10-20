@@ -2,6 +2,10 @@
 import concurrent.futures, datetime, http.server, json, pathlib, threading, time, urllib.request, urllib.parse
 import argparse, signal
 import wallets
+import trade_archive
+import market_signals
+import activity_alerts
+from wallet_activity import summarize_wallets, enrich_names
 from decimal import Decimal, InvalidOperation
 import re
 from market_history import samples, comparison
@@ -96,7 +100,7 @@ def measure(tokens, histories, end):
             if (row['side'] == 'buy' and row.get('venue') == 'curve'
                 and token['createdAt'] <= row['timestamp'] < token['createdAt'] + 3600
                 and row['trader'].lower() != token['deployer'].lower()):
-                events[(token['address'].lower(), row['id'])] = {**row, 'token': token['address'].lower(), 'symbol': token['symbol'], 'quote': token['quote']['symbol'], 'asset': token['quote'].get('address', token['quote']['symbol']).lower()}
+                events[(token['address'].lower(), row['id'])] = {**row, 'token': token['address'].lower(), 'symbol': token['symbol'], 'quote': token['quote']['symbol'], 'asset': token['quote'].get('address', token['quote']['symbol']).lower(), 'quoteUsd': token.get('quoteUsd')}
     events = list(events.values())
     def window(a, b):
         rows = [x for x in events if a <= x['timestamp'] < b]
@@ -136,13 +140,7 @@ def measure(tokens, histories, end):
         if end-300 <= row['timestamp'] < end:
             wallets.setdefault(row['token'],set()).add(row['trader'].lower())
     breadth=dict(qualifiedTokens=sum(len(v)>=3 for v in wallets.values()), leaderPct=round(100*max((len(v) for v in wallets.values()),default=0)/current['buyers'],2) if current['buyers'] else 0, buysPerWallet=current['buys']/current['buyers'] if current['buyers'] else 0)
-    activity={}
-    for row in events:
-        if end-300<=row['timestamp']<end:
-            wallet=row['trader'].lower()
-            entry=activity.setdefault(wallet,dict(address=wallet,buys=0,tokens=set()))
-            entry['buys']+=1;entry['tokens'].add(row['token'])
-    active_wallets=sorted([dict(address=x['address'],buys=x['buys'],tokens=len(x['tokens'])) for x in activity.values()],key=lambda x:(-x['tokens'],-x['buys'],x['address']))[:30]
+    active_wallets=summarize_wallets(events,end)
     return dict(walletActivity=active_wallets,breadth=breadth,current=current, baseline=baseline, ratios=ratios, candidate=False,
                 schema='pons-monitor-v2', volumes=volume_totals,
                 board=sorted(board, key=lambda x:(-x['recent']['buyers'],-x['lifetime']['buyers'],x['address'])),
@@ -213,7 +211,9 @@ def collect(end=None):
     complete = list_complete and all(x[2] for x in histories)
     CURRENT_TOKENS=list(tokens.values())
     CURRENT_HISTORIES=histories
+    trade_archive.append(LOG/'trades.sqlite3',histories,end,complete)
     result = measure(list(tokens.values()), histories, end)
+    enrich_names(result['walletActivity'])
     result.update(updated=time.time(), windowEnd=end, complete=complete, observedTokens=len(tokens),
                   coverage=dict(launches=list_complete,launchIssue=list_issue,tradeIssues=dict(HISTORY_ISSUES),incompleteTokens=[t['address'] for t,_,ok in histories if not ok]),
                   loading=False, error=None, signal=False)
@@ -256,6 +256,12 @@ def run_once(database, cachefile, collector=collect):
                      pageLimits=dict(launches=LAUNCH_PAGES,tradesPerToken=TRADE_PAGES))
         finish_attempt(database,attempt,time.time(),'complete' if result['complete'] else 'partial',details,observations,result)
         result['collection']=quality(database,end)
+        # Signal failures never discard a successful market collection.
+        try:
+            history=market_signals.read_windows(database,end)
+            activity_alerts.record(database.with_name('activity-alerts.sqlite3'),history,end,time.time())
+        except Exception:
+            result['marketSignals']=dict(mode='shadow',delivery=False,status='unavailable')
         # Cache is an optimisation only: a failed cache write does not invalidate DB history.
         try:
             temp=cachefile.with_suffix('.tmp')
@@ -320,7 +326,38 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed=urllib.parse.urlsplit(self.path)
-        if parsed.path == '/api/wallet':
+        if parsed.path in ('/api/activity-events','/api/interval'):
+            if parsed.path=='/api/activity-events':
+                data=activity_alerts.feed(LOG/'activity-alerts.sqlite3');data['events']=[e for e in data['events'] if 0<=time.time()-e['windowEnd']<=900]
+            else:
+                try:
+                    end=int(urllib.parse.parse_qs(parsed.query).get('end',[''])[0])
+                    if end<=0 or end%300:raise ValueError()
+                except ValueError:self.send_error(400);return
+                data=activity_alerts.snapshot(LOG/'activity-alerts.sqlite3',end)
+                if data is None:self.send_error(404);return
+            body=json.dumps(data).encode();kind='application/json'
+        elif parsed.path in ('/api/market-signals','/api/market-signal'):
+            ident=urllib.parse.parse_qs(parsed.query).get('id',[None])[0]
+            if parsed.path=='/api/market-signal' and not re.fullmatch(r'[0-9a-f]{24}',ident or ''):
+                self.send_error(400);return
+            data=market_signals.report(LOG/'market-signals.sqlite3',ident if parsed.path=='/api/market-signal' else None)
+            if data is None:self.send_error(404);return
+            body=json.dumps(data).encode();kind='application/json'
+        elif parsed.path in ('/api/active-wallets','/api/observed-trades'):
+            try:
+                query=urllib.parse.parse_qs(parsed.query)
+                if parsed.path=='/api/observed-trades':
+                    after=int(query['after'][0]) if 'after' in query else None
+                    data=trade_archive.feed(LOG/'trades.sqlite3',after)
+                else:
+                    with LOCK:end=STATE.get('windowEnd')
+                    if not end:raise ValueError('No snapshot')
+                    data=trade_archive.ranking(LOG/'trades.sqlite3',int(end),int(query.get('minutes',['5'])[0]))
+                    enrich_names(data['walletActivity'])
+                body=json.dumps(data).encode();kind='application/json'
+            except ValueError:self.send_error(400);return
+        elif parsed.path == '/api/wallet':
             try:
                 wallet=wallets.address(urllib.parse.parse_qs(parsed.query).get('address',[''])[0])
                 data=wallets.snapshot(LOG/'wallets.sqlite3',wallet)
@@ -332,9 +369,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif parsed.path in ('/imgs/pw_eye.png','/imgs/pw_mascot.png'):
             body=(pathlib.Path(__file__).parent / parsed.path.lstrip('/')).read_bytes()
             kind='image/png'
-        elif parsed.path in ('/ui.css','/ui.js','/tokens.js','/wallet-ui.js'):
+        elif parsed.path in ('/ui.css','/ui.js','/tokens.js','/wallet-ui.js','/access.js','/alerts.js','/sw.js','/signals.js','/notifications.js'):
             body=pathlib.Path(__file__).with_name(parsed.path[1:]).read_bytes()
             kind='text/css; charset=utf-8' if parsed.path.endswith('.css') else 'text/javascript; charset=utf-8'
+        elif parsed.path == '/signals':
+            body=pathlib.Path(__file__).with_name('signals.html').read_bytes();kind='text/html; charset=utf-8'
         elif parsed.path == '/wallets':
             body=pathlib.Path(__file__).with_name('wallets.html').read_bytes();kind='text/html; charset=utf-8'
         elif self.path == '/api/status':
@@ -344,7 +383,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if data['stale'] or data.get('error'):
                 data['signal']=False
             body=json.dumps(data).encode();kind='application/json'
-        elif self.path == '/':
+        elif parsed.path == '/':
             body=pathlib.Path(__file__).with_name('index.html').read_bytes();kind='text/html; charset=utf-8'
         else:
             self.send_error(404);return

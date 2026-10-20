@@ -1,6 +1,7 @@
 """Manual, bounded Pons wallet snapshots. No RPC, signing or background polling."""
-import json,re,sqlite3,time,threading,urllib.request
+import json,re,sqlite3,time,threading,urllib.request,urllib.error,os
 from decimal import Decimal,InvalidOperation
+from contextlib import closing
 
 TTL=300
 GATE=threading.Lock()
@@ -11,15 +12,34 @@ def address(value):
         raise ValueError('Invalid wallet address')
     return value.lower()
 
+class ActivityAccessUnavailable(Exception):pass
+
 def fetch(wallet,view):
-    req=urllib.request.Request(f'https://ponsfamily.com/api/profile/{wallet}?view={view}',headers={'Accept':'application/json'})
+    # Pons retired view=trades. The replacement currently blocks server clients.
+    # Enable only after Pons authorizes server access; do not spoof browser headers.
+    if view=='trades' and os.environ.get('PONS_ACTIVITY_SERVER_ACCESS')!='approved':
+        raise ActivityAccessUnavailable('Pons server access is not available')
+    url=f'https://balancesapi.ponsfamily.com/v1/wallets/{wallet}/activity' if view=='trades' else f'https://ponsfamily.com/api/profile/{wallet}?view=positions'
+    req=urllib.request.Request(url,headers={'Accept':'application/json'})
     with urllib.request.urlopen(req,timeout=15) as response:
         raw=response.read(2_000_001)
     if len(raw)>2_000_000:raise ValueError('Response too large')
     data=json.loads(raw)
     if not isinstance(data,dict) or not isinstance(data.get('items'),list):raise ValueError('Invalid response')
     if len(data['items'])>1000:raise ValueError('Too many rows')
+    if data.get('pending') or data.get('available') is False:raise ValueError('Source not ready')
+    if view=='trades':
+        data['items']=[activity_row(x) for x in data['items']]
     return data
+
+def activity_row(row):
+    if not isinstance(row,dict):raise ValueError('Invalid activity')
+    raw=row.get('amount');decimals=row.get('decimals');amount=None
+    if isinstance(raw,str) and re.fullmatch(r'\d{1,100}',raw) and type(decimals) is int and 0<=decimals<=36:
+        digits=raw.zfill(decimals+1)
+        amount=(digits[:-decimals]+'.'+digits[-decimals:]) if decimals else digits
+    return dict(token=row.get('token'),txHash=row.get('tx'),kind=row.get('kind'),timestamp=row.get('time'),
+                amountTokens=amount,valueUsd=row.get('usd'),symbol=row.get('symbol'),name=row.get('name'),counterparty=row.get('counterparty'))
 
 def connect(path):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -41,13 +61,19 @@ def event(row):
 def snapshot(path,wallet,loader=fetch,now=None):
     global LAST_REQUEST
     wallet=address(wallet);now=time.time() if now is None else now
-    if not GATE.acquire(blocking=False):return {'address':wallet,'busy':True,'error':'Another wallet is loading. Try again shortly.'}
+    # Cached reads must never wait behind an unrelated network request.
+    with closing(connect(path)) as cached_db:
+        cached=cached_db.execute('SELECT attempted,payload FROM wallets WHERE address=?',(wallet,)).fetchone()
+    saved=json.loads(cached[1]) if cached else {'address':wallet}
+    cooldown=60 if saved.get('errors') else TTL
+    if cached and now-cached[0]<cooldown:return saved
+    if not GATE.acquire(blocking=False):return dict(saved,busy=True,retryAfter=3,error='Another wallet is loading. Try again shortly.')
     try:
         db=connect(path)
         try:
             old=db.execute('SELECT first_seen,attempted,payload FROM wallets WHERE address=?',(wallet,)).fetchone()
-            if old and now-old[1]<TTL:return json.loads(old[2])
-            if now-LAST_REQUEST<10:return dict(json.loads(old[2]) if old else {'address':wallet},busy=True,error='Please wait before loading another wallet.')
+            if old and now-old[1]<(60 if json.loads(old[2]).get('errors') else TTL):return json.loads(old[2])
+            if now-LAST_REQUEST<10:return dict(json.loads(old[2]) if old else {'address':wallet},busy=True,retryAfter=max(1,int(10-(now-LAST_REQUEST))+1),error='Please wait before loading another wallet.')
             if not old and db.execute('SELECT count(*) FROM wallets').fetchone()[0]>=200:
                 return {'address':wallet,'error':'Local wallet limit reached (200).'}
             LAST_REQUEST=now
@@ -82,10 +108,12 @@ def snapshot(path,wallet,loader=fetch,now=None):
                         result['positions']=[{k:x.get(k) for k in ('token','symbol','name','amountTokens','valueUsd','state','reliable')} for x in data['items'] if isinstance(x,dict)]
                         result['positionsUpdatedAt']=now
                 except Exception as exc:
-                    result['errors'][key]=type(exc).__name__
+                    result['errors'][key]=('HTTP_'+str(exc.code)) if isinstance(exc,urllib.error.HTTPError) else type(exc).__name__
             rows=[json.loads(x[0]) for x in db.execute('SELECT payload FROM wallet_events WHERE wallet=? ORDER BY timestamp DESC,identity',(wallet,))]
             result.update(events=rows,earliestAvailableAt=min((x['timestamp'] for x in rows),default=None),historyComplete=False,nativeBalance=None,
                           stats=dict(buys=sum(x['kind']=='buy' for x in rows),sells=sum(x['kind']=='sell' for x in rows),tokens=len({x['token'] for x in rows if x['kind'] in ('buy','sell')}),operations=len(rows)))
+            if not result.get('historyUpdatedAt'):
+                result['stats']={k:None for k in ('buys','sells','tokens','operations')}
             db.execute('INSERT OR REPLACE INTO wallets VALUES (?,?,?,?)',(wallet,first,now,json.dumps(result)));db.commit()
             return result
         finally:db.close()

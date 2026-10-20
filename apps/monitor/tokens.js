@@ -28,7 +28,7 @@ function dataMessage(d){
 function render(d){lastData=d;dataMessage(d);const {bad,stale}=quality(d);el('status').textContent=t(unavailable?'sourceError':d.preview?'preview':d.loading?'loading':d.error?'error':stale?'stale':!d.complete?'partial':d.refreshing?'collecting':'ready');el('timezone').textContent=t('local',{zone:Intl.DateTimeFormat().resolvedOptions().timeZone});
  const c=d.collection;el('coverage-text').textContent=c?t('coverageText',{complete:fmt(c.complete),expected:fmt(c.expected),partial:fmt(c.incomplete),missing:fmt(c.missing)}):t('unknown');el('gaps').replaceChildren();if(c?.gaps?.length){for(const g of c.gaps){const item=node('li','');item.append(node('span',clock(g.fromEnd-300)+' – '+clock(g.to)),node('small',t('gapCount',{value:fmt(g.intervals)})));el('gaps').append(item)}}else el('gaps').append(node('li',t(c?'noGaps':'unknown')));el('attempts').replaceChildren();for(const a of c?.recentAttempts??[])el('attempts').append(node('p',clock(a.started)+' · '+t(['complete','partial','error','interrupted','running'].includes(a.status)?a.status:'unknown')));
  el('market-label').textContent=t('comparison');el('market-time').textContent=t('comparisonTime',{time:clock(d.windowEnd,false,'Europe/Moscow')+' MSK'});const m=d.market;el('market-description').textContent=[!bad&&m?.today?t('todayRank',{value:fmt(m.today.buyers),count:fmt(m.todaySamples)}):t('insufficient'),!bad&&m?.seasonal?t('seasonRank',{value:fmt(m.seasonal.buyers),count:fmt(m.seasonalQualifiedDays)}):''].filter(Boolean).join(' ');
- el('time').textContent=t('saved',{time:clock(d.updated)});if(d.current)drawSelection();else{
+ el('time').textContent=d.updated?t('saved',{time:clock(d.updated)}):'';if(d.current)drawSelection();else{
   for(const id of ['chart','rows','volumes'])el(id).replaceChildren();
   el('selected-time').textContent='';el('heat-detail').textContent='';el('latest').hidden=true;el('heat-metric').disabled=true;
   const row=node('tr',''),cell=node('td',t(d.loading?'noteLoading':'noteUnavailable'),'empty');cell.colSpan=5;row.append(cell);el('rows').append(row);el('count').textContent='';
@@ -67,7 +67,7 @@ function comparisonLabel(value,mean){
 function drawSelection(){const d=selected();if(!d?.current)return;el('heat-metric').disabled=false;const intervals=windows(); document.querySelector('[data-i18n="overviewTitle"]').textContent=t(d.windowEnd!==lastData.windowEnd?'historic':lastData.preview||lastData.stale||Date.now()/1000-lastData.windowEnd>660?'savedWindow':'overviewTitle'); el('heat-metric').value=metric;el('chart').dataset.selectedMetric=metric;el('chart-title').textContent=t(metrics[metric]);el('chart').replaceChildren();el('chart').style.setProperty('--windows',Math.max(1,intervals.length));
  const latest=intervals.find(x=>x.windowEnd===lastData.windowEnd)??lastData;
  for(const [k,key] of Object.entries(metrics)){
-  const row=node('div','','trend-row');row.dataset.metricKey=k;
+  const row=node('div','','trend-row');row.dataset.metricKey=k;row.dataset.active=String(k===metric);
   const heading=node('div','','trend-heading'),label=node('button',t(key),'trend-label');
   label.setAttribute('aria-pressed',String(k===metric));label.onclick=()=>{metric=k;drawSelection()};heading.append(label);
   const baseline=comparisonFor(latest,k,intervals);
@@ -75,7 +75,6 @@ function drawSelection(){const d=selected();if(!d?.current)return;el('heat-metri
   const maximum=Math.max(1,...intervals.map(x=>Number(x.current?.[k])||0)),scale=maximum*1.2;
   const plot=node('div','','trend-plot');plot.style.setProperty('--windows',intervals.length||1);
   plot.append(node('span',shortCount(maximum),'axis-max'),node('span','0','axis-zero'));
-  if(baseline){const line=node('div','','mean-line');line.style.bottom=(baseline.mean/scale*100)+'%';line.title=t('chartMean',{value:fmt(baseline.mean)});line.setAttribute('aria-label',line.title);plot.append(line);}
   for(const x of intervals){
    const value=x.current?.[k],valid=x.complete===true&&!x.error&&Number.isFinite(value);
    const previous=intervals.find(y=>y.windowEnd===x.windowEnd-300);
@@ -93,13 +92,13 @@ function drawSelection(){const d=selected();if(!d?.current)return;el('heat-metri
    plot.append(bar);
   }
   const times=node('div','','trend-times');times.style.setProperty('--windows',intervals.length||1);
-  for(const x of intervals)times.append(node('span',clock(x.windowEnd-300,true)));
+  for(const x of intervals){const tick=node('span',clock(x.windowEnd-300,true));tick.dataset.selected=String(x.windowEnd===d.windowEnd);times.append(tick);}
   const graph=node('div','','trend-graph');graph.append(plot,times);row.append(heading,graph);el('chart').append(row);
  }
  heatDetail(d,metric,intervals);
- el('selected-time').textContent=clock(d.windowEnd-300)+' – '+clock(d.windowEnd,true)+' · '+t(d.windowEnd===lastData.windowEnd?'latest':'historic')+(d.complete===false?' · '+t('partial'):'');el('latest').hidden=d.windowEnd===lastData.windowEnd;el('volumes').replaceChildren();for(const v of d.volumes??[])el('volumes').append(node('div',amount(v.volume)+' '+v.symbol+(v.missingAmounts?' · '+t('partial'):''),'volume'));if(!d.volumes?.length)el('volumes').append(node('small','—'));board();quality(lastData)
+ el('selected-time').textContent=clock(d.windowEnd-300)+' – '+clock(d.windowEnd,true)+' · '+t(d.windowEnd===lastData.windowEnd?'latest':'historic')+(d.complete===false?' · '+t('partial'):'');el('latest').hidden=!new URLSearchParams(location.search).has('interval')&&d.windowEnd===lastData.windowEnd;el('volumes').replaceChildren();for(const v of d.volumes??[])el('volumes').append(node('div',amount(v.volume)+' '+v.symbol+(v.missingAmounts?' · '+t('partial'):''),'volume'));if(!d.volumes?.length)el('volumes').append(node('small','—'));board();quality(lastData)
 }
 el('heat-metric').onchange=e=>{metric=e.target.value;drawSelection()};
-el('latest').onclick=()=>{selectedEnd=null;drawSelection()};
-async function tick(){if(fetching)return;fetching=true;if(!lastData)dataMessage(null);el('refresh').disabled=true;el('refresh').textContent=t('loading');try{const r=await fetch('/api/status',{signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error();unavailable=false;const d=await r.json();render(d);if(d.loading)setTimeout(tick,5000)}catch{unavailable=true;if(lastData)render(lastData);else {el('status').textContent=t('sourceError');fetching=false;dataMessage(null)}}finally{fetching=false;el('refresh').disabled=false;el('refresh').textContent=t('refresh')}}
+el('latest').onclick=()=>{if(new URLSearchParams(location.search).has('interval')){location.href='/';return}selectedEnd=null;drawSelection()};
+async function tick(){if(fetching)return;fetching=true;if(!lastData)dataMessage(null);el('refresh').disabled=true;el('refresh').textContent=t('loading');try{const r=await fetch(new URLSearchParams(location.search).has('interval')?'/api/interval?end='+encodeURIComponent(new URLSearchParams(location.search).get('interval')):'/api/status',{signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error();unavailable=false;const d=await r.json();render(d);if(d.loading)setTimeout(tick,5000)}catch{unavailable=true;if(lastData)render(lastData);else {el('status').textContent=t('sourceError');fetching=false;dataMessage(null)}}finally{fetching=false;el('refresh').disabled=false;el('refresh').textContent=t('refresh')}}
 el('refresh').onclick=tick;document.addEventListener('languagechange',()=>{if(lastData)render(lastData);else dataMessage(null);if(fetching)el('refresh').textContent=t('loading')});tick();setInterval(()=>{if(lastData&&Date.now()/1000-lastData.windowEnd>660)render({...lastData,stale:true})},30000);

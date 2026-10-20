@@ -1,0 +1,26 @@
+[Unit]
+Description=QIANQI project catalog bot and Pattern Watcher bridge
+After=network-online.target pw-web.service
+Wants=network-online.target
+
+[Service]
+User=qianqi-project-bot
+Group=qianqi-project-bot
+WorkingDirectory=/opt/pons-monitor/current
+ExecStart=/usr/bin/node /opt/pons-monitor/current/server/project-bot/start.mjs /run/credentials/qianqi-project-bot.service/bot-token /var/lib/qianqi-project-bot/state.json
+Environment=PW_ALERTS_BRIDGE_FILE=/run/credentials/qianqi-project-bot.service/bot-bridge
+Environment=PROJECT_BOT_LOCK_FILE=/run/qianqi-project-bot/poller.lock
+LoadCredential=bot-token:/etc/pons-monitor/bot-token
+LoadCredential=bot-bridge:/etc/pons-monitor/bot-bridge.json
+StateDirectory=qianqi-project-bot
+RuntimeDirectory=qianqi-project-bot
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target
