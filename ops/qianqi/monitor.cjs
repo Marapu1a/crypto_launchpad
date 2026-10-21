@@ -21,7 +21,7 @@ function evaluate({backup,backupRunning,services,api,now=Date.now()/1000}){
  return {planned,alarms};
 }
 function service(unit){try{return execFileSync('systemctl',['show',unit,'-p','ActiveState','--value'],{encoding:'utf8',timeout:3000}).trim();}catch{return 'unknown';}}
-function evaluatePons({health,services,api,drawApi,backupAt,backupRunning,now=Date.now()}){
+function evaluatePons({health,services,api,drawApi,backupAt,backupRunning,expectedProjectIds,now=Date.now()}){
  const alarms=[],age=now-Date.parse(health?.checkedAt),planned=backupRunning&&Number.isFinite(age)&&age>=0&&age<900000;
  if(backupRunning&&!planned)alarms.push('Pons backup stop overdue or health unavailable');
  for(const unit of ['pons-runtime.service','pons-collector.service','crypto-launchpad-api.service','crypto-launchpad-draw-api.service'])
@@ -29,8 +29,12 @@ function evaluatePons({health,services,api,drawApi,backupAt,backupRunning,now=Da
  if(!Number.isFinite(backupAt)||now-backupAt>30*3600000||backupAt>now)alarms.push('Pons verified backup older than 30h or missing');
  if(!planned){
   const age=now-Date.parse(health?.checkedAt);
-  if(!Number.isFinite(age)||age<0||age>300000||health?.projects?.length!==2)alarms.push('Pons runtime health stale or unavailable');
-  else for(const p of health.projects)if(!['waiting','idle','complete','completed'].includes(p.status))alarms.push('Pons project requires attention');
+  const matching=expectedProjectIds?Array.isArray(expectedProjectIds)&&expectedProjectIds.length>0&&new Set(expectedProjectIds).size===expectedProjectIds.length&&health?.projects?.length===expectedProjectIds.length&&expectedProjectIds.every(id=>health.projects.filter(p=>p.id===id).length===1):health?.projects?.length===2;
+  if(!Number.isFinite(age)||age<0||age>300000||!matching)alarms.push('Pons runtime health stale or unavailable');
+  else for(const p of health.projects){
+   if(!['waiting','idle','complete','completed'].includes(p.status))alarms.push('Pons project requires attention');
+   if(p.reason==='service-gas-budget'||p.gasBudget?.blocked)alarms.push('PW: service gas budget exhausted; new transactions paused');
+  }
   if(api?.status!=='observed')alarms.push('QIANQI public API stale or unavailable');
   if(!drawApi?.modules?.length||drawApi.modules.some(m=>m.stale||m.service?.projectionFailed))alarms.push('IGW public API stale or unavailable');
  }
@@ -56,7 +60,8 @@ async function main(){
   const get=async url=>{try{const r=await fetch(url,{signal:AbortSignal.timeout(5000)});return r.ok?await r.json():null;}catch{return null;}};
   const [api,drawApi]=await Promise.all([get('https://qianqi.site/v1/overview?limit=1'),get('https://igw.qianqi.site/api/draws')]);
   const services=Object.fromEntries(['pons-runtime.service','pons-collector.service','crypto-launchpad-api.service','crypto-launchpad-draw-api.service'].map(u=>[u,service(u)]));
-  const result=evaluatePons({health:read('/var/lib/crypto-launchpad/pons-runtime/health.json'),services,api,drawApi,backupAt:read('/var/lib/crypto-launchpad/pons-public/backup-status.json')?.at,backupRunning:['active','activating'].includes(service('pons-runtime-backup.service'))});
+  const expectedProjectIds=read('/etc/crypto-launchpad/pons/host.json')?.projects?.map(p=>p.id);
+  const result=evaluatePons({expectedProjectIds,health:read('/var/lib/crypto-launchpad/pons-runtime/health.json'),services,api,drawApi,backupAt:read('/var/lib/crypto-launchpad/pons-public/backup-status.json')?.at,backupRunning:['active','activating'].includes(service('pons-runtime-backup.service'))});
   if(result.planned&&!result.alarms.length){console.log('PLANNED_PONS_BACKUP');return;}
   const summary=[...new Set(result.alarms)].sort().join(', ')||'ok';
   await old.deliver({file:'/var/lib/qianqi-monitor/telegram.json',summary,send});

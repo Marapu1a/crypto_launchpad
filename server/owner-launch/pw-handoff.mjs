@@ -5,10 +5,11 @@ import {validateExecutionPolicy} from '../../src/holders/execution.mjs';
 import {registerHolderPreparation} from '../shared/holder-preparation.mjs';
 import {registerHolderExecution} from '../shared/holder-execution.mjs';
 import {ownerFinality} from './confirmation.mjs';
+import {pwGasBudget} from '../../src/worker/service-gas-budget.mjs';
 
 // The caller supplies a trusted coordinator, not a public JSON launch manifest.
 // Exclusions, snapshot budgets and the reviewed token runtime remain explicit.
-export async function preparePwHolderHandoff({coordinator,projectId,provider,profile,preparation,settings}){
+export async function preparePwHolderHandoff({coordinator,projectId,provider,profile,preparation,settings,monthlyGasBudgetWei}){
  const s=await coordinator.read(projectId);
  const info=coordinator.info();
  check(info.profileHash===identity(profile)&&info.preparationHash===identity(preparation),'Handoff profile differs from launch');
@@ -22,7 +23,8 @@ export async function preparePwHolderHandoff({coordinator,projectId,provider,pro
  for(const role of ['vault','splitter','collector','draw'])fundingPolicy[role]=s.contracts[role];
  const snapshotPolicy={schema:'holder-snapshot-policy-v1',scopeId,semantics:'reviewed-nonproxy-erc20-supply-sum',tokenCodeHash:settings.tokenCodeHash,maxHolders:settings.maxHolders,maxRpcCalls:settings.maxRpcCalls,maxAgeSeconds:settings.maxAgeSeconds};
  const program=createHolderProgram({scope,launchAt:s.launchAt,minimumPayment:preparation.holders.minimumPaymentRaw,exclusions:settings.exclusions,preset:'pw-v1-60-20-20',schedulePolicy:'first-accepted-carry-v1',fundingPolicy,snapshotPolicy});
- const execution=validateExecutionPolicy({schema:production?'holder-execution-production-v1':'holder-execution-local-v2',executionEnabled:false,scopeId,instance:s.instance,vault:s.addresses.vault,source:s.addresses.splitter,initialOwner:profile.owner,publisher:profile.publisher,minimumPayment:program.minimumPayment,codeHash:s.contracts.vault.codeHash,maxGasLimit:settings.maxGasLimit,maxFeePerGas:settings.maxFeePerGas,...(production?{nativeFloor:settings.nativeFloor,anchor:profile.anchor,timing:profile.timing}:{})},scope);
+ const gasBudget=production||monthlyGasBudgetWei?pwGasBudget({...profile,id:projectId},s.launchAt,monthlyGasBudgetWei):undefined;
+ const execution=validateExecutionPolicy({schema:production?'holder-execution-production-v1':'holder-execution-local-v2',executionEnabled:false,scopeId,...(gasBudget?{gasBudget}:{}),instance:s.instance,vault:s.addresses.vault,source:s.addresses.splitter,initialOwner:profile.owner,publisher:profile.publisher,minimumPayment:program.minimumPayment,codeHash:s.contracts.vault.codeHash,maxGasLimit:settings.maxGasLimit,maxFeePerGas:settings.maxFeePerGas,...(production?{nativeFloor:settings.nativeFloor,anchor:profile.anchor,timing:profile.timing}:{})},scope);
  const draw=new Contract(s.addresses.draw,['function randomness() view returns(address)'],provider);
  return {schema:'pw-holder-handoff-v1',scope,project:{slug:s.input.slug,name:s.input.draft.name},launchIdentity:s.identity,launchAt:s.launchAt,program,execution,draw:{address:s.addresses.draw,randomness:await draw.randomness(),ticketPurchase:preparation.draw.ticketPurchase,workerRegistered:false},executionEnabled:false};
 }

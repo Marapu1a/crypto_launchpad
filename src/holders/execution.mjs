@@ -2,6 +2,7 @@ import {Contract,Interface,Transaction,keccak256} from 'ethers';
 import {address,check,hash,identity,scope,uint} from './values.mjs';
 import {validatePolicy,finalizedObservation} from '../worker/production-policy.mjs';
 import {holderFundingInstance} from './funding-receipt.mjs';
+import {validateServiceGasBudget} from '../worker/service-gas-budget.mjs';
 export const payoutAbi=new Interface([
  'function initialOwner() view returns(address)','function initialPublisher() view returns(address)',
  'function owner() view returns(address)','function pendingOwner() view returns(address)','function publicationsPaused() view returns(bool)',
@@ -27,6 +28,10 @@ export function validateExecutionPolicy(policy,input){
  for(const field of ['vault','publisher','source'])check(address(policy[field])!=='0x'+'0'.repeat(40),'Missing execution role');
  if(policy.schema!=='holder-execution-local-v1')check(address(policy.initialOwner)!=='0x'+'0'.repeat(40)&&address(policy.initialOwner)!==address(policy.publisher),'Separate initial owner required');
  hash(policy.codeHash);check(uint(policy.minimumPayment)>0n&&uint(policy.maxGasLimit)>0n&&uint(policy.maxFeePerGas)>0n,'Explicit positive execution limits required');
+ if(policy.schema==='holder-execution-production-v1'||policy.gasBudget){
+  const b=validateServiceGasBudget(policy.gasBudget);
+  check(b.projectId===s.projectId&&b.senders.includes(address(policy.publisher)),'Holder gas budget binding mismatch');
+ }
  if(policy.schema==='holder-execution-production-v1'){
   check(uint(policy.nativeFloor)>0n,'Explicit execution gas reserve required');
   validatePolicy({schema:'short-production-policy-v1',chainId:s.chainId,projectId:s.projectId,executor:policy.initialOwner,publisher:policy.publisher,buildHash:policy.codeHash,anchor:policy.anchor,contracts:{vault:{address:policy.vault,codeHash:policy.codeHash}},timing:policy.timing,limits:{maxGasLimit:policy.maxGasLimit,maxGasPrice:policy.maxFeePerGas,nativeFloor:policy.nativeFloor}});
@@ -95,6 +100,7 @@ export async function observeExecution(provider,policy,input,body){
  check(receipt.status===0||receipt.status===1,'Invalid execution receipt status');
  const events=receipt.logs.filter(l=>address(l.address)===address(policy.vault)).map(l=>{try{return payoutAbi.parseLog(l);}catch{return null;}}).filter(Boolean);
  const observation={status:receipt.status===1?'succeeded':'reverted',txHash:body.txHash,block:{number:block.number,hash:block.hash},paid:'0',allocated:'0'};
+ if(policy.gasBudget)observation.gas={gasUsed:String(receipt.gasUsed),gasPrice:String(receipt.gasPrice),blockTimestamp:block.timestamp};
  if(policy.schema!=='holder-execution-local-v1'){check(Number.isSafeInteger(receipt.index)&&receipt.index>=0,'Missing receipt transaction index');observation.transactionIndex=receipt.index;}
  if(receipt.status===1&&body.operation.kind==='pay'){
   const paid=events.filter(e=>e.name==='Paid');check(paid.length===1&&address(paid[0].args.wallet)===address(body.operation.wallet),'Missing payout evidence');

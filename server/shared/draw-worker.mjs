@@ -27,7 +27,7 @@ const json = v => JSON.parse(JSON.stringify(v,(_,x) => typeof x === 'bigint' ? S
 export async function runDrawWorker({ pool, provider, signer, publisher, projectId, moduleId,
   getBeacon = fetchBeacon, getLatestBeacon = fetchLatest, now = () => Math.floor(Date.now()/1000), hook, recognitionAdapters, ponsRehearsal,ponsSourceMode='rehearsal',guard:sourceGuard,pw=false,allowPublicTransactions=false }) {
   try {
-    return await runDrawSender({ pool, provider, signer, projectId, moduleId, operate: async ({ policy, state, save, lease }) => {
+    return await runDrawSender({ pool, provider, signer, projectId, moduleId, operate: async ({ policy, state, save, lease, gasBudget }) => {
       check(same(await publisher.getAddress(),policy.publisher), 'Wrong recognition publisher');
       check(pw===(policy.schema==='pw-service-policy-v1'),'Worker/policy adapter mismatch');
       if(pw){check(ponsRehearsal,'PW requires Pons accounting');if(policy.mode==='production'&&allowPublicTransactions!==true)return {status:'paused',reason:'execution-disabled'};}
@@ -144,7 +144,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
         const op = r.operation; check(op, 'Missing durable operation');draw=op.draw;check(kinds.includes(draw),'Invalid operation draw');
         const journal = op.role === 'publisher' ? r.publisher : state;
         const result = await advanceProductionTransaction({ provider, signer: op.role === 'publisher' ? publisher : signer, policy, state: journal,
-          role: op.role, save: persist, lease, admit, request:op.request, action:op.action, hook });
+          role: op.role, save: persist, lease, admit, request:op.request, action:op.action, hook, gasBudget });
         if (['confirmed','already-confirmed'].includes(result.status)) { delete r.operation; await persist(); }
         return { ...result, operation:op.kind+'.'+op.method, role:op.role };
       };
@@ -239,6 +239,7 @@ export async function runDrawWorker({ pool, provider, signer, publisher, project
       return {status:'waiting',reason:waiting,serviceIdle,...(deferredNativePayments.length?{deferredNativePayments}:{}),...(Number.isFinite(nextCheckAt)?{nextCheckAt}:{})};
     } });
   } catch(e) {
+    if(e.code==='SERVICE_GAS_BUDGET_EXHAUSTED')return {status:'waiting',reason:'service-gas-budget',gasBudget:e.budget,retryAt:e.budget.retryAt};
     if (['PRODUCTION_WAIT','FINALITY_WAIT'].includes(e.code)) return {status:'waiting',reason:e.code==='FINALITY_WAIT'?'finality-unavailable':e.message};
     throw e;
   }

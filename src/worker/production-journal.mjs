@@ -38,8 +38,9 @@ function validatePendingIntent({state,policy,sender,request,action}) {
 // Candidate sender primitive. No CLI/public route invokes it. Caller owns a durable
 // store and a database lease covering chain+sender (not just project), and admits calldata.
 // Signing keys are injected by a signer provider; they never enter config/state.
-export async function advanceProductionTransaction({ provider, signer, policy, state, save, lease, admit, request, action, role = 'executor', hook = async () => {} }) {
+export async function advanceProductionTransaction({ provider, signer, policy, state, save, lease, admit, request, action, role = 'executor', hook = async () => {}, gasBudget }) {
   check(typeof lease === 'function' && typeof admit === 'function' && typeof save === 'function', 'Execution guards required');
+  check(!policy.gasBudget||gasBudget,'Durable service gas budget required');
   const waiting=await pendingProductionReceipt({provider,signer,policy,state,role,request,action,lease});
   if(waiting)return waiting;
   const guard = async () => { await lease(); await verifyProductionBindings(provider, policy); };
@@ -68,23 +69,28 @@ export async function advanceProductionTransaction({ provider, signer, policy, s
     await admit({ action, request: intent, phase: 'prepare' });
     const [latest, pending] = await Promise.all([provider.getTransactionCount(sender, 'latest'), provider.getTransactionCount(sender, 'pending')]);
     if (latest !== pending) return { status: 'waiting', reason: 'external-pending-nonce' };
-    const price = (await provider.getFeeData()).gasPrice;
+    const reserved=await gasBudget?.prepared?.(sender,latest);
+    if(reserved)check(reserved.type===0&&same(reserved.to,intent.to)&&reserved.data===intent.data.toLowerCase()&&reserved.value==='0','Reserved gas operation differs from planner');
+    const price = reserved?BigInt(reserved.gasPrice):(await provider.getFeeData()).gasPrice;
     if (price === null || price <= 0n || price > BigInt(policy.limits.maxGasPrice)) return { status: 'waiting', reason: 'gas-price' };
     let estimate;
-    try{estimate=await provider.estimateGas({ ...intent, from: sender });}
+    try{if(!reserved)estimate=await provider.estimateGas({ ...intent, from: sender });}
     catch(e){if(e.code==='INSUFFICIENT_FUNDS')return funding(null);throw e;}
-    const gas = (estimate * 120n + 99n) / 100n;
+    const gas = reserved?BigInt(reserved.gasLimit):(estimate * 120n + 99n) / 100n;
     if (gas > BigInt(policy.limits.maxGasLimit)) return { status: 'waiting', reason: 'gas-limit' };
     const required=gas*price+BigInt(policy.limits.nativeFloor);
     if (await provider.getBalance(sender) < required) return funding(required);
     await guard(); await admit({ action, request: intent, phase: 'sign' });
-    const raw = await signer.signTransaction({ ...intent, chainId: 4663, nonce: latest, type: 0, gasPrice: price, gasLimit: gas });
+    const unsigned={ ...intent, chainId: 4663, nonce: latest, type: 0, gasPrice: price, gasLimit: gas };
+    await gasBudget?.reserve(unsigned,sender);
+    const raw = await signer.signTransaction(unsigned);
     const tx = Transaction.from(raw);
     check(same(tx.from, sender) && same(tx.to, intent.to) && same(tx.data, intent.data) && tx.value === 0n && tx.chainId === 4663n && tx.nonce === latest && tx.type === 0 && tx.gasPrice === price && tx.gasLimit === gas, 'Signer changed intent');
     state.pending = { action, requestHash, raw, hash: keccak256(raw), nonce: latest, ...intent };
     await save(state); await hook('prepared');
   }
   const p=state.pending,tx=validatePendingIntent({state,policy,sender,request,action});
+  await gasBudget?.assertReserved(tx,sender);
   let receipt = await provider.getTransactionReceipt(p.hash);
   if (!receipt) {
     check(await provider.getTransactionCount(sender, 'latest') <= p.nonce, 'Nonce consumed by another transaction');
@@ -106,7 +112,9 @@ export async function advanceProductionTransaction({ provider, signer, policy, s
   catch (e) { if (e.code === 'FINALITY_WAIT') return { status: 'waiting', reason: 'finality-unavailable', hash: p.hash }; throw e; }
   if (receipt.blockNumber > observation.finalized.number) return { status: 'waiting', reason: 'receipt-finality', hash: p.hash };
   await guard();
-  check(same((await provider.getBlock(receipt.blockNumber))?.hash, receipt.blockHash), 'Receipt branch changed');
+  const receiptBlock=await provider.getBlock(receipt.blockNumber);
+  check(same(receiptBlock?.hash, receipt.blockHash), 'Receipt branch changed');
+  await gasBudget?.settle(p.raw,receipt,receiptBlock);
   const resolved = { action: p.action, requestHash: p.requestHash, hash: p.hash, nonce: p.nonce, blockNumber: receipt.blockNumber, blockHash: receipt.blockHash, receiptStatus: receipt.status };
   state.history.push(resolved); delete state.pending;
   if(receipt.status===1&&state.gasFunding?.active)await recordGasFunding({state,save,role,wallet:sender,action:p.action,balance:await provider.getBalance(sender),required:null,active:false});

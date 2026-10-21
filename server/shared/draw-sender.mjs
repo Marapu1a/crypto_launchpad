@@ -3,6 +3,7 @@ import { digest } from '../../src/tickets/digest.mjs';
 import { verifyProductionBindings, policyIdentity } from '../../src/worker/production-policy.mjs';
 import { advanceProductionTransaction } from '../../src/worker/production-journal.mjs';
 import { inProject, verifyRole } from './store.mjs';
+import {registerServiceGasBudget,serviceGasBudget} from './service-gas-budget.mjs';
 
 const check = (v, m) => { if (!v) throw Error(m); };
 const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
@@ -17,6 +18,7 @@ async function binding(c, p, m, policy) {
 export async function registerDrawSender({ pool, provider, projectId, moduleId, policy }) {
   await verifyRole(pool, 'lp_executor'); await verifyProductionBindings(provider, policy);
   check(['draw-production-policy-v2','pw-service-policy-v1'].includes(policy.schema),'Supported draw policy required');
+  if(policy.gasBudget)await registerServiceGasBudget(pool,policy.gasBudget);
   for(const kind of ['short','monthly'])if(policy.template.config[kind].enabled){
     const program=new Contract(policy.contracts[kind].address,['function cycle() view returns(uint256)','function pending() view returns(bool)','function operator() view returns(address)'],provider);
     check(await program.cycle()===0n&&!await program.pending()&&same(await program.operator(),policy.executor),'New program/executor required');
@@ -57,8 +59,9 @@ export async function runDrawSender({ pool, provider, signer, projectId, moduleI
       const { rows } = await c.query('UPDATE launchpad.production_senders SET state_text=$4,state_hash=$5,revision=revision+1 WHERE project_id=$1 AND module_id=$2 AND revision=$3 RETURNING revision', [projectId, moduleId, revision, JSON.stringify(value), digest(value)]);
       check(rows.length === 1, 'Production state transition lost'); revision = rows[0].revision;
     };
-    if (operate) return await operate({ policy, state, save, lease });
-    return await advanceProductionTransaction({ provider, signer, policy, state, save, lease, admit, request, action, hook });
+    const gasBudget=policy.gasBudget?serviceGasBudget(pool,policy.gasBudget):undefined;
+    if (operate) return await operate({ policy, state, save, lease, gasBudget });
+    return await advanceProductionTransaction({ provider, signer, policy, state, save, lease, admit, request, action, hook, gasBudget });
   } finally {
     try { if (held) await c.query('SELECT pg_advisory_unlock(hashtextextended($1,49177))', [lock]); await c.query('RESET launchpad.project_id'); } catch { broken = true; }
     c.removeListener('error', onError); c.release(broken);

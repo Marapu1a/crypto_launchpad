@@ -5,11 +5,12 @@ import {validatePwPolicy,verifyPwPolicy} from '../../src/worker/pw-policy.mjs';
 import {registerDrawSender} from '../shared/draw-sender.mjs';
 import {inProject} from '../shared/store.mjs';
 import {ownerFinality} from './confirmation.mjs';
+import {pwGasBudget} from '../../src/worker/service-gas-budget.mjs';
 
 export function pwServiceTemplate(preparation,instance){
  return {instanceId:instance,config:{asset:'ETH',ticketPurchase:preparation.draw.ticketPurchase,short:{enabled:true,intervalSeconds:preparation.draw.intervalSeconds,minimumFund:preparation.draw.minimumFund,basket:{weights:preparation.draw.prizeWeights,minimumUnit:preparation.draw.minimumUnit}},monthly:{enabled:false}}};
 }
-export async function preparePwServiceHandoff({coordinator,projectId,provider,profile,preparation,limits}){
+export async function preparePwServiceHandoff({coordinator,projectId,provider,profile,preparation,limits,monthlyGasBudgetWei}){
  const s=await coordinator.read(projectId),info=coordinator.info();
  check(info.profileHash===identity(profile)&&info.preparationHash===identity(preparation),'Service handoff differs from launch');
  check(s.stage==='deployed'&&(await ownerFinality(provider,s.history)).ready,'Finalized PW graph required');
@@ -17,7 +18,8 @@ export async function preparePwServiceHandoff({coordinator,projectId,provider,pr
  const last=s.history.at(-1),contracts={...profile.externals,...s.contracts,short:s.contracts.draw,shortAdapter:{address:adapter,codeHash:keccak256(await provider.getCode(adapter))}};
  delete contracts.draw;
  const production=profile.mode==='production';
- const policy=validatePwPolicy({schema:'pw-service-policy-v1',mode:production?'production':'rehearsal',...(production?{environment:profile}:{instanceId:profile.instanceId}),chainId:4663,projectId,owner:profile.owner,executor:profile.executor,publisher:profile.publisher,project:profile.project,buildHash:info.buildHash,anchor:{number:last.blockNumber,hash:last.blockHash},launchAt:s.launchAt,limits,timing:profile.timing,contracts,template:pwServiceTemplate(preparation,s.instance)});
+ const gasBudget=production||monthlyGasBudgetWei?pwGasBudget({...profile,id:projectId},s.launchAt,monthlyGasBudgetWei):undefined;
+ const policy=validatePwPolicy({schema:'pw-service-policy-v1',mode:production?'production':'rehearsal',...(production?{environment:profile}:{instanceId:profile.instanceId}),...(gasBudget?{gasBudget}:{}),chainId:4663,projectId,owner:profile.owner,executor:profile.executor,publisher:profile.publisher,project:profile.project,buildHash:info.buildHash,anchor:{number:last.blockNumber,hash:last.blockHash},launchAt:s.launchAt,limits,timing:profile.timing,contracts,template:pwServiceTemplate(preparation,s.instance)});
  await verifyPwPolicy(provider,policy);return {policy,policyHash:digest(policy),enabled:false};
 }
 

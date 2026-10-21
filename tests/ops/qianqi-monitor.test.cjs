@@ -41,6 +41,15 @@ test('existing channel deduplicates incident, reminds, recovers and retries deli
 });
 
 const {evaluatePons}=require('../../ops/qianqi/monitor.cjs');
+
+test('PW budget stop is actionable while waiting; expected project IDs cover PW without hiding missing tokens',()=>{
+ const now=2000000,ids=['qianqi','igw','pw'];
+ const input={now,expectedProjectIds:ids,health:{checkedAt:new Date(now).toISOString(),projects:ids.map(id=>({id,status:'waiting',reason:'service-sleep'}))},services:Object.fromEntries(['pons-runtime.service','pons-collector.service','crypto-launchpad-api.service','crypto-launchpad-draw-api.service'].map(u=>[u,'active'])),api:{status:'observed'},drawApi:{modules:[{stale:false}]},backupAt:now,backupRunning:false};
+ assert.equal(evaluatePons(input).alarms.length,0);
+ input.health.projects[2].gasBudget={blocked:true};
+ assert.deepEqual(evaluatePons(input).alarms,['PW: service gas budget exhausted; new transactions paused']);
+ input.health.projects.pop();assert.ok(evaluatePons(input).alarms.includes('Pons runtime health stale or unavailable'));
+});
 test('Pons monitor accepts sleeping services but catches stale source and failed worker',()=>{
  const now=2000000,base={now,health:{checkedAt:new Date(now).toISOString(),projects:[{status:'waiting'},{status:'waiting'}]},services:Object.fromEntries(['pons-runtime.service','pons-collector.service','crypto-launchpad-api.service','crypto-launchpad-draw-api.service'].map(u=>[u,'active'])),api:{status:'observed'},drawApi:{modules:[{stale:false,service:{projectionFailed:false}}]},backupAt:now-1000,backupRunning:false};
  assert.deepEqual(evaluatePons(base),{planned:false,alarms:[]});

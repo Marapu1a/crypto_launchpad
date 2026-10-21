@@ -1,4 +1,5 @@
 import {Transaction} from 'ethers';
+import {registerServiceGasBudget,serviceGasBudget} from './service-gas-budget.mjs';
 import {checkFundingCounters} from '../../src/holders/funding-counters.mjs';
 import {inProject} from './store.mjs';
 import {address,check,hash,identity,scope,uint} from '../../src/holders/values.mjs';
@@ -30,6 +31,7 @@ function bindPreparation(program,policy){
 }
 export async function registerHolderExecution(pool,input,policy,{provider}){
  const s=scope(input);validateExecutionPolicy(policy,s);
+ if(policy.gasBudget)await registerServiceGasBudget(pool,policy.gasBudget);
  return inProject(pool,s.projectId,async c=>{
   const {program}=await preparation(c,s);bindPreparation(program,policy);
   const {block}=await checkpointExecution(provider,policy,s);
@@ -70,6 +72,7 @@ export async function recordHolderTransaction(pool,input,{provider,period,operat
   const {vault,block,authority}=await checkpointExecution(provider,policy,s),opts={blockTag:block.number};
   // Decode historical sender for idempotent replay; authorize NEW records below.
   const body=validateSignedExecution(raw,policy,s,plan,operation,Transaction.from(raw).from);
+  if(policy.gasBudget)await serviceGasBudget(pool,policy.gasBudget).assertReserved(Transaction.from(raw),body.sender);
   const {rows:external}=await c.query('SELECT 1 FROM launchpad.holder_external_payments WHERE project_id=$1 AND scope_id=$2 AND tx_hash=$3',[s.projectId,identity(s),body.txHash]);
   check(external.length===0,'Transaction already imported as external');
   const {rows:[old]}=await c.query('SELECT * FROM launchpad.holder_transactions WHERE project_id=$1 AND scope_id=$2 AND tx_hash=$3',[s.projectId,identity(s),body.txHash]);
@@ -126,6 +129,7 @@ export async function resolveHolderTransaction(pool,input,{provider,txHash}){
   if(observation.status==='unknown')return {observation,replayed:false};
   if(body.operation.kind==='seal'&&observation.status==='succeeded')check(observation.allocated===plan.allocated,'Allocated sum differs from plan');
   await recheckExecutionBlock(provider,observation.block);
+  if(policy.gasBudget)await serviceGasBudget(pool,policy.gasBudget).settle(body.raw,{hash:body.txHash,status:observation.status==='succeeded'?1:0,blockNumber:observation.block.number,blockHash:observation.block.hash,gasUsed:observation.gas.gasUsed,gasPrice:observation.gas.gasPrice},{...observation.block,timestamp:observation.gas.blockTimestamp});
   await c.query('UPDATE launchpad.holder_transactions SET status=$4,observation=$5 WHERE project_id=$1 AND scope_id=$2 AND tx_hash=$3',[s.projectId,identity(s),txHash,observation.status,JSON.stringify(observation)]);
   return {observation,replayed:false};
  },{readOnly:false});

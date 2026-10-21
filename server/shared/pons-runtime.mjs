@@ -65,7 +65,7 @@ export async function runPonsRuntime({mode,allowPublicTransactions=false,allowed
    await writeHealthFile(healthFile,{
    schema:'pons-runtime-health-v1',mode,checkedAt:r.checkedAt,rpcBudget:gate.snapshot(),
    projects:r.services.map(({id,result:r})=>({id,status:r.status,reason:r.reason,service:r.service,
-    ...(r.retryAt?{retryAt:r.retryAt}:{}),...(r.waitingFor?{waitingFor:r.waitingFor}:{}),...(r.fundingFailure?{fundingFailure:r.fundingFailure}:{})}))
+    ...(r.retryAt?{retryAt:r.retryAt}:{}),...(r.gasBudget?{gasBudget:r.gasBudget}:{}),...(r.waitingFor?{waitingFor:r.waitingFor}:{}),...(r.fundingFailure?{fundingFailure:r.fundingFailure}:{})}))
   });}});
   return;
   }catch(error){

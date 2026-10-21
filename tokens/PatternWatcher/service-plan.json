@@ -33,15 +33,34 @@
     "executor": "1000000000000000",
     "publisher": "500000000000000"
   },
-  "serviceLimits": null,
-  "holderExecutionLimits": null,
-  "monthlyGasBudgetWei": null,
+  "serviceLimits": {
+    "maxGasPrice": "42000000",
+    "maxGasLimit": "6500000",
+    "nativeFloor": "100000000000000"
+  },
+  "holderExecutionLimits": {
+    "maxFeePerGas": "42000000",
+    "maxGasLimit": "4000000",
+    "nativeFloor": "100000000000000"
+  },
+  "monthlyGasBudgetWei": "1000000000000000",
+  "budgetApproval": {
+    "date": "2026-10-21",
+    "source": "explicit-owner-acceptance-of-cost-proposal",
+    "periodSeconds": 2592000,
+    "periodAnchor": "token-launch",
+    "scope": "combined-service-and-holder-gas",
+    "enforcementImplemented": true,
+    "automaticTopUpAllowed": false,
+    "financialActivationAuthorized": false,
+    "enforcementStatus": "locally-verified-not-deployed",
+    "requiredMigration": 23
+  },
   "automaticPaymentsEnabled": false,
   "blockers": [
-    "deploy-and-verify-rpc-package-and-migration-022",
+    "deploy-gas-budget-migration-023-and-final-preflight",
     "finalized-token-launch-and-runtime-review",
     "resolve-actual-exclusion-addresses",
-    "approve-service-and-holder-execution-gas-limits",
     "register-and-verify-production-handoffs",
     "explicit-financial-activation"
   ]

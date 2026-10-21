@@ -8,6 +8,7 @@ import {check,same} from '../../server/owner-launch/store.mjs';
 import {validatePwProductionProfile,verifyPwProductionEnvironment} from '../../server/owner-launch/pw-profile.mjs';
 import {cachedVerification,rememberVerification} from './verification-cache.mjs';
 import {digest} from '../tickets/digest.mjs';
+import {validateServiceGasBudget} from './service-gas-budget.mjs';
 let built,native;
 const own={short:'PwNativeShortProgram',vault:'ManagedNativeHolderPayoutVault',splitter:'NativeHolderFeeSplitter',collector:'NativeHolderCollector'};
 const build=()=>built??=compilePwLaunch();
@@ -21,6 +22,10 @@ export function validatePwPolicy(p){
  check(t.config.ticketPurchase==='0.001'&&t.config.short?.enabled===true&&t.config.monthly?.enabled===false,'PW ticket/draw mode changed');
  check(t.config.short.intervalSeconds===2592000&&t.config.short.minimumFund==='0.005'&&digest(t.config.short.basket)===digest({weights:[1],minimumUnit:'0.005'}),'PW monthly rules changed');
  check(Number.isSafeInteger(p.launchAt)&&p.launchAt>0&&p.project&&p.owner,'PW launch/roles required');
+ if(p.mode==='production'||p.gasBudget){
+  const b=validateServiceGasBudget(p.gasBudget);
+  check(b.projectId===p.projectId&&b.launchAt===p.launchAt&&b.senders.includes(p.executor.toLowerCase())&&b.senders.includes(p.publisher.toLowerCase()),'PW gas budget binding mismatch');
+ }
  const required=['token','curve','factory','escrow','short','shortAdapter','vault','splitter','collector'];
  check(required.every(k=>p.contracts[k]),'Incomplete PW graph');
  if(p.mode==='production'){

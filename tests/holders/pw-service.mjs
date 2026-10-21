@@ -27,6 +27,8 @@ import {publishPwService} from '../../server/shared/pw-public.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
 import {recoverHolderFunding} from '../../server/shared/holder-funding-recovery.mjs';
 import {checkFundingCounters} from '../../src/holders/funding-counters.mjs';
+import {pwGasBudget} from '../../src/worker/service-gas-budget.mjs';
+import {serviceGasBudget} from '../../server/shared/service-gas-budget.mjs';
 const vector=JSON.parse(readFileSync('vendor/qianqi/research/drand-feasibility/vector.json'));
 const preceding=JSON.parse(readFileSync('tests/fixtures/production-pre-freeze-beacon.json'));
 const time=GENESIS+(vector.beacon.round-1)*PERIOD;
@@ -35,6 +37,7 @@ process.env.HARDHAT_CONFIG=resolve('tests/contracts/production-worker-hardhat.co
 const {default:hre}=await import('hardhat');
 const base=new BrowserProvider(hre.network.provider,undefined,{cacheTimeout:-1});base.pollingInterval=10;
 const provider=new Proxy(base,{get(t,k){
+ if(k==='getFeeData')return async()=>({gasPrice:20000000n,maxFeePerGas:40000000n,maxPriorityFeePerGas:0n});
  if(k==='getBlock')return n=>t.getBlock(n==='finalized'?(finality??'latest'):n);
  if(k==='broadcastTransaction')return async raw=>{await hre.network.provider.send('evm_setNextBlockTimestamp',[clock]);return t.broadcastTransaction(raw);};
  if(k==='getLogs')return()=>{throw Error('PW must not scan purchase logs');};
@@ -67,9 +70,11 @@ try{
  await tx(vault.bindSource(splitter.target));await tx(splitter.bindSource(collector.target));await tx(collector.bind(token.target));await tx(short.bindLaunch());
  const shortAdapter=new Contract(await short.randomness(),compileNativePrograms().artifacts.ShortDrandAdapter.abi,provider);
  const contracts={};for(const [k,c] of Object.entries({vault,short,splitter,collector,token,curve,factory,escrow,shortAdapter}))contracts[k]={address:c.target,codeHash:keccak256(await provider.getCode(c.target))};
+ await hre.network.provider.send('hardhat_setNextBlockBaseFeePerGas',['0x0']);await hre.network.provider.send('evm_mine',[]);
  const anchor=await provider.getBlock('latest'),launchAt=Number(await short.launchAt());clock=anchor.timestamp;
  const preparation=JSON.parse(readFileSync('tokens/PatternWatcher/preparation.json'));
- const policy={schema:'pw-service-policy-v1',mode:'rehearsal',instanceId:(await provider.send('hardhat_metadata',[])).instanceId,chainId:4663,projectId,owner,executor:signer.address,publisher:publisher.address,project,buildHash:build.manifest.buildHash,anchor:{number:anchor.number,hash:anchor.hash},launchAt,limits:{maxGasPrice:'100000000000',maxGasLimit:'15000000',nativeFloor:'100000'},timing,contracts,template:pwServiceTemplate(preparation,instance)};
+ const gasBudget=pwGasBudget({id:projectId,executor:signer.address,publisher:publisher.address},launchAt,'1000000000000000');
+ const policy={schema:'pw-service-policy-v1',mode:'rehearsal',instanceId:(await provider.send('hardhat_metadata',[])).instanceId,chainId:4663,projectId,owner,executor:signer.address,publisher:publisher.address,project,buildHash:build.manifest.buildHash,anchor:{number:anchor.number,hash:anchor.hash},launchAt,limits:{maxGasPrice:'42000000',maxGasLimit:'6500000',nativeFloor:'100000000000000'},gasBudget,timing,contracts,template:pwServiceTemplate(preparation,instance)};
  await verifyPwPolicy(provider,policy);await assert.rejects(verifyPwPolicy(provider,{...policy,launchAt:launchAt-1}),/binding/);
  db=await createTestPostgres(root+'/postgres');
  await db.admin.query("INSERT INTO launchpad.projects VALUES($1,'pw-service','PW Service',4663,$2,'test')",[projectId,tokenAddress]);
@@ -77,7 +82,7 @@ try{
  const fundingPolicy={schema:'holder-funding-observer-v1',scopeId:identity(scope),instance,fromBlock:0,project:project.toLowerCase(),...Object.fromEntries(['vault','splitter','collector'].map(k=>[k,contracts[k]])),draw:contracts.short};
  const snapshotPolicy={schema:'holder-snapshot-policy-v1',scopeId:identity(scope),semantics:'reviewed-nonproxy-erc20-supply-sum',tokenCodeHash:contracts.token.codeHash,maxHolders:5,maxRpcCalls:13,maxAgeSeconds:600};
  await registerHolderPreparation(db.pools.jobs,createHolderProgram({scope,launchAt,minimumPayment:String(parseEther('0.0005')),exclusions:[curve.target],preset:'pw-v1-60-20-20',schedulePolicy:'first-accepted-carry-v1',fundingPolicy,snapshotPolicy}));
- await registerHolderExecution(db.pools.executor,scope,{schema:'holder-execution-local-v2',executionEnabled:false,scopeId:identity(scope),instance,vault:vault.target,source:splitter.target,initialOwner:owner,publisher:publisher.address,codeHash:contracts.vault.codeHash,minimumPayment:String(parseEther('0.0005')),maxGasLimit:'2000000',maxFeePerGas:'3000000000'},{provider});
+ await registerHolderExecution(db.pools.executor,scope,{schema:'holder-execution-local-v2',executionEnabled:false,scopeId:identity(scope),instance,vault:vault.target,source:splitter.target,initialOwner:owner,publisher:publisher.address,codeHash:contracts.vault.codeHash,minimumPayment:String(parseEther('0.0005')),maxGasLimit:'4000000',maxFeePerGas:'42000000',nativeFloor:'100000000000000',gasBudget},{provider});
  await registerDrawSender({pool:db.pools.executor,provider,projectId,moduleId:projectId,policy});
  const rows=[],buyers=[wallet(8).address.toLowerCase(),wallet(9).address.toLowerCase()];
  let offline=false;
@@ -152,7 +157,9 @@ try{
  const operator=createPwHolderOperator({pool:db.pools.executor,provider,scope});
  for(const operation of [{kind:'open'},{kind:'append',offset:0,count:2},{kind:'seal'},...buyers.map(wallet=>({kind:'pay',wallet,periods:[1]}))]){
   const before=operation.kind==='pay'?await provider.getBalance(operation.wallet):null;
-  const quote=await operator.quote(1,operation),saved=await operator.record({period:1,operation,raw:await publisher.signTransaction(quote.request)});
+  const preview=await operator.quote(1,operation);
+  await assert.rejects(operator.record({period:1,operation,raw:await publisher.signTransaction(preview.request)}),/reserved before signing/);
+  const quote=await operator.reserve(1,operation),saved=await operator.record({period:1,operation,raw:await publisher.signTransaction(quote.request)});
   await operator.broadcast(saved.txHash);assert.equal((await operator.resolve(saved.txHash)).observation.status,'succeeded');
   assert.equal((await operator.broadcast(saved.txHash)).replayed,true);
   if(before!==null)assert.equal(await provider.getBalance(operation.wallet)-before,parseEther('0.009'));
@@ -199,6 +206,13 @@ try{
  await assert.rejects(recoverHolderFunding(db.pools.jobs,scope,{provider:changed}),/checkpoint changed/);
  assert.equal((await db.admin.query('SELECT body_hash FROM launchpad.holder_funding_scans')).rows[0].body_hash,scanRow.body_hash);
  report.checks.push('External revenue/deposit recovered on demand after actual holder payouts; receipt cap and omitted logs fail closed; crash leaves imports durable but cursor untouched; bounded first page resumes in a new keyless process and deduplicates; changed checkpoint stops recovery');
- report.fundingRecovery=recovered;report.status='PASS';
+ report.fundingRecovery=recovered;
+ report.gasBudget=await serviceGasBudget(db.pools.executor,gasBudget).snapshot();
+ assert.equal(report.gasBudget.reservedWei,'0');assert.ok(BigInt(report.gasBudget.spentWei)>0n&&BigInt(report.gasBudget.spentWei)<=BigInt(gasBudget.limitWei));
+ const reservations=(await db.admin.query('SELECT sender,intent,maximum::text,actual::text,observation FROM launchpad.service_gas_reservations ORDER BY sender,nonce')).rows;
+ assert.equal(new Set(reservations.map(r=>r.sender)).size,2);assert.ok(reservations.every(r=>r.actual!==null));
+ report.gasOperations=reservations.map(r=>({sender:r.sender,gasLimit:r.intent.gasLimit,gasUsed:r.observation.gasUsed,actualWei:r.actual,hash:r.observation.hash}));
+ report.checks.push('Approved service/holder fee and gas caps complete modeled service/BLS/payout cycle; both senders share durable budget, no unknown reserve remains');
+ report.status='PASS';
 }catch(e){report.error=e.shortMessage||e.message;console.error(e);process.exitCode=1;}
 finally{writeFileSync(root+'/report.json',JSON.stringify(report,null,2));await db?.close();provider.destroy();meter.restore();console.log(root+'/report.json',report.status);}

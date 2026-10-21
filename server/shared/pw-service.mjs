@@ -8,6 +8,7 @@ import {inProject} from './store.mjs';
 import {digest} from '../../src/tickets/digest.mjs';
 import {check} from '../../src/holders/values.mjs';
 import {importHolderFunding} from './holder-preparation.mjs';
+import {serviceGasBudget} from './service-gas-budget.mjs';
 
 export async function readPwService(pool,projectId){
  return inProject(pool,projectId,async c=>{
@@ -52,6 +53,12 @@ export async function runPwWorker(input){
 }
 export function createPwService(input,options={}){
  check(typeof input.ponsRehearsal?.load==='function','PW Pons source required');
- return createPonsService({...options,now:options.now??(input.now?()=>input.now()*1000:Date.now),loadReport:()=>input.ponsRehearsal.load(),observe:drawServiceObservation,
+ const tick=createPonsService({...options,now:options.now??(input.now?()=>input.now()*1000:Date.now),loadReport:()=>input.ponsRehearsal.load(),observe:drawServiceObservation,
   run:({report,sourceError})=>runPwWorker({...input,ponsRehearsal:{load:async()=>{if(sourceError)throw sourceError;return report;}}})});
+ return async()=>{
+  const result=await tick(),{policy}=await readPwService(input.pool,input.projectId);
+  if(!policy.gasBudget)return result;
+  const {pending,...gasBudget}=await serviceGasBudget(input.pool,policy.gasBudget).snapshot();
+  return {...result,gasBudget};
+ };
 }

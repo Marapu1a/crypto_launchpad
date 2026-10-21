@@ -20,6 +20,25 @@ function fixture() {
   return f;
 }
 
+test('Shared gas reservation precedes signature; final receipt accounting precedes journal completion',async()=>{
+ const f=fixture();let signed=0,reserved=0,settled=0;const signer=f.signer;
+ f.signer={getAddress:()=>signer.getAddress(),signTransaction:async tx=>{signed++;return signer.signTransaction(tx);}};
+ f.gasBudget={reserve:async()=>{throw Object.assign(Error('monthly budget'),{code:'SERVICE_GAS_BUDGET_EXHAUSTED'});}};
+ await assert.rejects(advanceProductionTransaction(f),e=>e.code==='SERVICE_GAS_BUDGET_EXHAUSTED');assert.equal(signed,0);assert.equal(f.broadcasts.length,0);
+ f.gasBudget={reserve:async()=>{reserved++;},assertReserved:async()=>assert.equal(reserved,1),settle:async(raw,r,b)=>{assert.equal(f.state.history.length,0);assert.ok(f.state.pending);assert.equal(r.status,0);assert.equal(b.number,10);settled++;}};
+ await advanceProductionTransaction(f);assert.equal(signed,1);assert.equal(settled,0);
+ f.finalized=10;f.receipt.status=0;await advanceProductionTransaction(f);assert.equal(settled,1);assert.equal(signed,1);assert.ok(f.state.failure);
+});
+
+test('Crash before signature resumes the reserved fee and gas rather than replacing intent',async()=>{
+ const f=fixture(),signer=f.signer;let reserved,fail=true;
+ f.gasBudget={prepared:async()=>reserved,reserve:async tx=>{if(reserved)assert.deepEqual(tx,reserved);else reserved=structuredClone(tx);},assertReserved:async()=>{},settle:async()=>{}};
+ f.signer={getAddress:()=>signer.getAddress(),signTransaction:async tx=>{if(fail)throw Error('signing interrupted');return signer.signTransaction(tx);}};
+ await assert.rejects(advanceProductionTransaction(f),/signing interrupted/);assert.equal(f.state.pending,undefined);
+ f.provider.getFeeData=async()=>{throw Error('must retain reserved fee');};f.provider.estimateGas=async()=>{throw Error('must retain reserved gas');};
+ fail=false;await advanceProductionTransaction(f);assert.equal(Transaction.from(f.state.pending.raw).gasPrice,1n);
+});
+
 test('Publisher journal uses its own identity and cannot resume as executor', async () => {
   const f = fixture(), publisher = Wallet.createRandom();
   f.policy.publisher = publisher.address;

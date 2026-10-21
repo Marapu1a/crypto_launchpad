@@ -49,9 +49,13 @@
     "approved": true,
     "executorReserve": "1000000000000000",
     "publisherReserve": "500000000000000",
-    "maxGasPrice": null,
-    "maxGasLimit": null,
-    "nativeFloor": null
+    "maxGasPrice": "42000000",
+    "maxGasLimit": "6500000",
+    "nativeFloor": "100000000000000",
+    "monthlyGasBudgetWei": "1000000000000000",
+    "approvalDate": "2026-10-21",
+    "enforcementImplemented": true,
+    "enforcementStatus": "locally-verified-not-deployed"
   },
   "rpcPolicy": {
     "paidProviderAllowed": false,
@@ -157,7 +161,7 @@
   },
   "operationalPreparation": {
     "source": "tokens/PatternWatcher/service-plan.json",
-    "status": "code-deployed-financial-config-pending",
+    "status": "gas-budget-locally-verified-not-deployed",
     "snapshotPageItems": 100,
     "financialExecutionApproved": false
   },
