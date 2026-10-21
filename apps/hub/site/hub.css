@@ -17,3 +17,5 @@
 
 /* Shared card geometry and bottom-aligned website links. */
 .project{display:flex;flex-direction:column}.project-content{display:flex;flex-direction:column;flex:1}.project-content .project-link{margin-top:auto;color:inherit}.project-monitor{grid-column:auto;display:flex}.project-monitor .pw-art{height:auto;min-height:0;aspect-ratio:3/1;border-right:0;border-bottom:1px solid #3c3b34}.project-monitor .pw-art img{height:100%;width:auto;max-width:100%;aspect-ratio:1}.project-title{align-items:center}.project-title h3{font-size:28px}.project-content>p{min-height:0}@media(max-width:760px){.project-title h3{font-size:24px}.project-monitor .pw-art img{height:100%;width:auto}}
+
+.project-placeholder{background:#141412;border-color:#33352c;border-style:dashed}.project-placeholder .next-art{display:flex;align-items:center;justify-content:center;background:#151811;border-color:#33352c;color:#80765b;font:normal clamp(64px,8vw,112px)/1 Georgia,serif}.project-placeholder h3{color:#b2afa1}.project-placeholder .project-content>p{color:#939284}
