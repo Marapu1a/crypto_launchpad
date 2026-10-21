@@ -79,6 +79,27 @@ try{
   await page.locator('.trend-bar[data-metric-key=buys]').first().click();assert.match(await page.locator('#selected-time').innerText(),/Earlier window/);
   await page.locator('#latest').click();
  }
+ // Automatic polling, failures and a pinned interval surviving the rolling window.
+ await page.setViewportSize({width:1440,height:1000});
+ await page.clock.install();
+ let response={...data,intervals:timeline,current:timeline[6].current},fail=false;
+ await page.unroute('**/api/status');
+ await page.route('**/api/status',r=>{reads++;return fail?r.fulfill({status:503,json:{}}):r.fulfill({json:response});});
+ await page.evaluate(()=>tick());
+ await page.locator('.trend-bar[data-metric-key=buys]').first().click();
+ const pinned=await page.locator('#selected-time').innerText();
+ const fill=await page.locator('.trend-bar[aria-pressed=true] .trend-fill').evaluate(e=>getComputedStyle(e).backgroundColor);
+ assert.equal(fill,await page.locator('.trend-row[data-active=true] .trend-label').evaluate(e=>getComputedStyle(e).color));
+ assert.equal(fill,await page.locator('.summary-stat strong').evaluate(e=>getComputedStyle(e).color));
+ response={...data,windowEnd:data.windowEnd+300,current:{...data.current,buys:999},intervals:[]};
+ const beforePoll=reads;await page.clock.fastForward(30001);await page.waitForFunction(()=>!fetching);
+ assert.equal(reads,beforePoll+1);assert.equal(await page.locator('#selected-time').innerText(),pinned);
+ fail=true;await page.clock.fastForward(30001);await page.waitForFunction(()=>!fetching);
+ assert.equal(await page.evaluate(()=>unavailable),true);assert.equal(await page.locator('#auto-refresh').count(),0);assert.equal(await page.locator('#selected-time').innerText(),pinned);
+ fail=false;await page.clock.fastForward(30001);await page.waitForFunction(()=>!fetching);
+ await page.locator('#latest').click();assert.equal(await page.locator('.summary-stat strong').innerText(),'999');
+ const beforeReturn=reads;await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));await page.waitForFunction(()=>!fetching);assert.equal(reads,beforeReturn+1);
+ await page.evaluate(({data,timeline})=>render({...data,current:timeline[6].current,intervals:timeline}),{data,timeline});
  assert.equal(await page.locator('.selection-link').getAttribute('href'),'#token-section');
  assert.equal(await page.locator('.wallet-bridge a').getAttribute('href'),'/wallets');
  assert.equal(await page.locator('#refresh').isDisabled(),false);const langReads=reads;await page.locator('#language').selectOption('zh');assert.equal(await page.locator('html').getAttribute('lang'),'zh-CN');assert.equal(await page.locator('#sort').inputValue(),'age');assert.equal(reads,langReads);for(const width of [1440,390,320]){await page.setViewportSize({width,height:900});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:root+'/zh-'+width+'.png',fullPage:true})}await page.locator('#language').selectOption('en');await page.locator('#language').selectOption('ru');assert.equal(await page.locator('html').getAttribute('lang'),'ru-RU');for(const width of [1440,390,320]){await page.setViewportSize({width,height:900});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)}assert.deepEqual(errors,[]);console.log('PASS: cached refresh, preserved filters, coverage, neutral comparisons, wallet counts, links/XSS, partial/stale, 1440/390/320px');

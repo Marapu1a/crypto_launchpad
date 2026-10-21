@@ -1,3 +1,4 @@
+import {localized,recipientLanguage} from './language.mjs';
 // Internal observed-trade feed only. This worker never reads blockchain RPC.
 export async function ingest(pool,feed,{now=Math.floor(Date.now()/1000)}={}){
  const c=await pool.connect();try{await c.query('BEGIN');await c.query("SELECT pg_advisory_xact_lock(hashtext('pw-alert-ingest'))");
@@ -13,12 +14,14 @@ export async function ingest(pool,feed,{now=Math.floor(Date.now()/1000)}={}){
    const amount=Number(e.quoteAmount),rate=Number(e.quoteUsd),usd=e.quoteAmount!=null&&e.quoteUsd!=null&&Number.isFinite(amount)&&amount>=0&&Number.isFinite(rate)&&rate>0?amount*rate:null;
    const large=usd!==null&&Number.isFinite(usd)&&usd>=Number(r.minimum),newToken=r.new_token&&!!fresh;if(!large&&!newToken)continue;
    const {rowCount:recent}=await c.query('SELECT 1 FROM monitor_alerts.outbox WHERE owner=$1 AND target=$2 AND created_at>$3 LIMIT 1',[r.owner,r.target,now-60]);if(recent)continue;
-   const token=String(e.symbol||e.token).slice(0,50),reason=newToken?'РџРµСЂРІС‹Р№ Р·Р°РјРµС‡РµРЅРЅС‹Р№ С‚РѕРєРµРЅ':'РџРѕРєСѓРїРєР°';
-   const payload={title:'Pattern Watcher',body:`${r.target.slice(0,8)}вЂ¦${r.target.slice(-6)} В· ${reason}: ${token}${usd===null||!Number.isFinite(usd)?'':` В· в‰€ $${usd.toFixed(2)}`}`,url:'/wallets?address='+r.target,tag:'pw-'+e.seq};
+   const token=String(e.symbol||e.token).slice(0,50);
    const destinations=[];
    if(r.push){const {rows}=await c.query('SELECT id FROM monitor_alerts.devices WHERE owner=$1',[r.owner]);for(const x of rows)destinations.push(['push',x.id])}
    if(r.telegram){const {rows}=await c.query('SELECT chat FROM monitor_alerts.chats WHERE owner=$1',[r.owner]);for(const x of rows)destinations.push(['telegram',x.chat])}
-   for(const [channel,destination] of destinations)await c.query('INSERT INTO monitor_alerts.outbox(event_key,owner,target,channel,destination,payload,created_at) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING',[String(e.seq),r.owner,r.target,channel,destination,payload,now]);
+   for(const [channel,destination] of destinations){
+    const lang=await recipientLanguage(c,r.owner,channel),reason=newToken?localized(lang,'First observed token','Первый замеченный токен','首次观察到的代币'):localized(lang,'Purchase','Покупка','买入');
+    const payload={title:'Pattern Watcher',language:lang,body:`${r.target.slice(0,8)}…${r.target.slice(-6)} · ${reason}: ${token}${usd===null||!Number.isFinite(usd)?'':` · ≈ $${usd.toFixed(2)}`}`,url:'/wallets?address='+r.target,tag:'pw-'+e.seq};
+    await c.query('INSERT INTO monitor_alerts.outbox(event_key,owner,target,channel,destination,payload,created_at) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING',[String(e.seq),r.owner,r.target,channel,destination,payload,now]);}
   }
  }
  await c.query("UPDATE monitor_alerts.cursor SET value=$1 WHERE name='trades'",[next]);await c.query('COMMIT');

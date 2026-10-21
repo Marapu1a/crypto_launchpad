@@ -36,8 +36,8 @@ test('Search accepts ticker, full name and exact case-insensitive contract; neve
  for(const query of ['IGW','  $igw  ','IT   GETS WORSE','worse'])assert.equal(search(c,query).text,card(c,'igw').text);
  assert.equal(search(c,c.projects[0].contract.toLowerCase()).text,card(c,'qianqi').text);
  for(const query of [c.projects[0].contract.slice(0,-1),'0x'+'1'.repeat(40),'<script>','unlisted token'])assert.match(search(c,query).text,/No match/);
- assert.match(menu(c).text,/Send a token name, ticker or contract address/);
- assert.ok(!menu(c).reply_markup.inline_keyboard.flat().some(b=>b.callback_data?.startsWith('project:')));
+ assert.match(menu(c).text,/Choose a project/);
+ assert.ok(menu(c).reply_markup.inline_keyboard.flat().some(b=>b.callback_data?.startsWith('project:')));
  assert.equal(actions(c,update(7,'It Gets Worse'),username)[0].body.text,card(c,'igw').text);
 });
 test('Ambiguous names show bounded choices and each card uses its own creator and extra links',()=>{
@@ -67,4 +67,23 @@ test('Telegram client restricts methods, honours retry_after and never exposes t
  await assert.rejects(a('deleteWebhook'),/Unsupported/);
  const b=telegram(token,{fetcher:async()=>({ok:false,status:429,json:async()=>({ok:false,error_code:429,parameters:{retry_after:17}})})});
  await assert.rejects(b('getUpdates'),e=>e.code===429&&e.retryAfter===17);
+});
+
+test('Three languages, project menu and launched PW are available without typing a ticker',async()=>{
+ for(const [lang,heading] of [['ru','Выбери проект'],['en','Choose a project'],['zh','请选择项目']]){
+  const m=actions(liveCatalog,update(1,'/start',{from:{id:123,language_code:lang}}),username)[0].body;
+  assert.ok(m.text.includes(heading));assert.equal(m.reply_markup.inline_keyboard.flat().filter(b=>b.callback_data?.startsWith('project:')).length,3);
+  const pw=card(liveCatalog,'pw',lang);assert.ok(JSON.stringify(pw).includes('https://pw.qianqi.site/'));assert.ok(JSON.stringify(pw).includes('ponsfamily.com'));assert.ok(pw.text.includes('<code>0xe0c6b2040624dde42c3ce55cfbf818d8b79035b7</code>'));assert.ok(pw.text.includes('60%'));
+ }
+ let state={offset:0},stored;const sent=[];
+ let updates=[{update_id:1,callback_query:{id:'l',from:{id:123,language_code:'en'},message:{chat:{id:123,type:'private'}},data:'lang:zh'}}];
+ const api=async(method,body)=>method==='getUpdates'?updates:sent.push(body);
+ await pollOnce({catalog:liveCatalog,username,api,state,save:async s=>{stored=structuredClone(s)}});
+ state=stored;updates=[update(2,'/projects',{from:{id:123,language_code:'en'}})];
+ await pollOnce({catalog:liveCatalog,username,api,state,save:async()=>{}});assert.match(sent.at(-1).text,/请选择项目/);
+ assert.match(actions(liveCatalog,update(3,'/start',{from:{id:123,language_code:'de'}}),username)[0].body.text,/Choose a project/);
+});
+test('Hub gives PW monitor links instead of an unrelated USDG draw iframe',()=>{
+ const html=hubCards(liveCatalog),pw=html.slice(html.indexOf('<article class="project project-monitor"'));
+ assert.ok(pw.includes('PW on Pons'));assert.ok(pw.includes('qianqi_hub_bot'));assert.ok(!pw.includes('<iframe'));assert.ok(!pw.includes('USDG draws'));
 });

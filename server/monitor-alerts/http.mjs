@@ -19,7 +19,7 @@ export function monitorHttp({pool,alerts,origin,monitor='http://127.0.0.1:4196',
     }else if(req.headers.origin!==origin||!String(req.headers['content-type']).startsWith('application/json'))fail('INVALID_ORIGIN',403);
     let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>8192)fail('BODY_TOO_LARGE',413)}try{body=JSON.parse(raw)}catch{fail('INVALID_JSON',400)}
    }
-   if(path==='/api/alerts/telegram-update'&&req.method==='POST'){await alerts.telegramUpdate(body);return reply(200,{ok:true})}
+   if(path==='/api/alerts/telegram-update'&&req.method==='POST'){const result=await alerts.telegramUpdate(body);return reply(200,{ok:true,...result})}
    if(req.method==='GET'&&['/api/status','/api/wallet','/api/active-wallets','/api/interval'].includes(path)){
     let query='';if(path==='/api/wallet'){const a=u.searchParams.get('address');if(!/^0x[0-9a-f]{40}$/i.test(a??''))fail('INVALID_WALLET',400);query='?address='+a}
     if(path==='/api/active-wallets'){const m=Number(u.searchParams.get('minutes')??5);if(![5,30,60].includes(m))fail('INVALID_PERIOD',400);query='?minutes='+m}
@@ -41,7 +41,7 @@ export function monitorHttp({pool,alerts,origin,monitor='http://127.0.0.1:4196',
     await pool.query("INSERT INTO monitor_alerts.rules VALUES($1,'market',0,false,$2,$3,$4) ON CONFLICT(owner,target) DO UPDATE SET push=$2,telegram=$3,created_at=$4",[owner,body.push,body.telegram,now]);
     await pool.query("UPDATE monitor_alerts.outbox SET state='cancelled' WHERE owner=$1 AND target='market' AND state='pending' AND ((channel='push' AND NOT $2) OR (channel='telegram' AND NOT $3))",[owner,body.push,body.telegram]);return reply(200,{ok:true});
    }
-   const action={'/api/alerts/device':'device','/api/alerts/telegram-link':'link','/api/alerts/telegram-unlink':'unlink','/api/alerts/test':'test'}[path];
+   const action={'/api/alerts/language':'setLanguage','/api/alerts/device':'device','/api/alerts/telegram-link':'link','/api/alerts/telegram-unlink':'unlink','/api/alerts/test':'test'}[path];
    if(action&&req.method==='POST')return reply(200,await alerts[action](owner,body));fail('NOT_FOUND',404);
   }catch(e){reply(e.status??503,{error:e.status?e.code:'SERVICE_UNAVAILABLE'})}
  });

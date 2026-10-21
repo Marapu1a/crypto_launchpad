@@ -4,7 +4,8 @@
  const root=n('details','','notification-panel'),summary=n('summary',''),body=n('div','','notification-body');root.append(summary,body);document.querySelector('.page-head').after(root);
  let state=null,busy=false,message='',sub=null,link=null;
  async function api(path='',payload){const r=await fetch('/api/alerts'+path,{method:payload===undefined?'GET':'POST',headers:payload===undefined?{}:{'content-type':'application/json'},body:payload===undefined?undefined:JSON.stringify(payload),signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error();return r.json()}
- async function session(){await api('/session',{})}
+ const language=()=>U.locale().slice(0,2);
+ async function session(){await api('/session',{});await api('/language',{language:language()})}
  async function prefs(push,telegram){await api('/preferences',{push,telegram})}
  async function refresh(){state=await api();sub=null;if('serviceWorker' in navigator){const registration=await navigator.serviceWorker.getRegistration('/');sub=await registration?.pushManager.getSubscription()??null}}
  async function run(fn){if(busy)return;busy=true;message='';draw();try{await fn();await refresh()}catch{message='failed'}finally{busy=false;draw()}}
@@ -18,12 +19,12 @@
    const key=Uint8Array.from(atob(state.publicKey.replace(/-/g,'+').replace(/_/g,'/')),x=>x.charCodeAt(0));
    const created=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});try{await api('/device',{subscription:created.toJSON()});await prefs(true,!!rule?.telegram)}catch(e){await created.unsubscribe();throw e}
   },!!state?.pushEnabled||!!sub));
-  controls.append(button(t(state?.telegramLinked?'stopTg':'tg'),async()=>{await session();if(state?.telegramLinked){await api('/telegram-unlink',{});await prefs(!!rule?.push,false);link=null}else{link=(await api('/telegram-link',{})).url;message='continue'}},!!state?.telegramEnabled||!!state?.telegramLinked));
+  controls.append(button(t(state?.telegramLinked?'stopTg':'tg'),async()=>{await session();if(state?.telegramLinked){await api('/telegram-unlink',{});await prefs(!!rule?.push,false);link=null}else{link=(await api('/telegram-link',{language:language()})).url;message='continue'}},!!state?.telegramEnabled||!!state?.telegramLinked));
   controls.append(button(t('refresh'),async()=>{await refresh();if(state.telegramLinked&&!state.rules.some(x=>x.target==='market'&&x.telegram))await prefs(!!state.rules.find(x=>x.target==='market')?.push,true)}));body.append(controls);
   if(state?.telegramLinked)body.append(n('p','Telegram: '+t('on')));
   if(link){const a=n('a','Telegram →');a.href=link;a.target='_blank';a.rel='noopener noreferrer';body.append(a)}
   const tests=n('div','','alert-controls');for(const channel of ['push','telegram']){if(channel==='push'?sub:state?.telegramLinked)tests.append(button(t('test')+' · '+channel,async()=>{await session();await api('/test',{channel});message='queued'}))}body.append(tests);
   const status=n('p',message?t(message):'');status.setAttribute('role','status');body.append(status,n('small',t('identity')));
  }
- root.addEventListener('toggle',()=>{if(root.open&&!state&&!busy)void run(refresh)});document.addEventListener('languagechange',draw);draw();
+ root.addEventListener('toggle',()=>{if(root.open&&!state&&!busy)void run(refresh)});document.addEventListener('languagechange',()=>{draw();if(state?.devices?.length)void api('/language',{language:language()}).catch(()=>{});});draw();
 })();

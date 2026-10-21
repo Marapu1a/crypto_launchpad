@@ -25,7 +25,11 @@
           "label": "Chart on GeckoTerminal",
           "url": "https://www.geckoterminal.com/robinhood/pools/0x12ba58b5455fdbc15165e0e8b2096498d2c684f1"
         }
-      ]
+      ],
+      "descriptions": {
+        "ru": "Мем-токен с короткими и месячными розыгрышами призов в USDG.",
+        "zh": "设有短期及月度 USDG 奖金抽奖的 Meme 代币。"
+      }
     },
     {
       "id": "igw",
@@ -42,7 +46,39 @@
       "art": {
         "class": "igw-art"
       },
-      "creatorTelegram": "https://t.me/valentin_marapulets"
+      "creatorTelegram": "https://t.me/valentin_marapulets",
+      "descriptions": {
+        "ru": "Мем-токен с розыгрышами по билетам. Подходящие покупки дают билеты на шанс выиграть USDG. Небольшие покупки суммируются, неиспользованные билеты переносятся.",
+        "zh": "采用奖券抽奖的 Meme 代币。符合条件的买入可获得奖券，有机会赢取 USDG。小额买入可累计，未使用的奖券可结转。"
+      }
+    },
+    {
+      "id": "pw",
+      "name": "Pattern Watcher",
+      "symbol": "PW",
+      "status": "launched",
+      "description": "Free Pons activity monitor: fresh tokens, wallets and activity alerts. PW supports the project. Custom contracts split collected creator fees: 60% to holders, 20% to a monthly raffle, 20% to development. The token is launched; payout and raffle services are being activated.",
+      "descriptions": {
+        "ru": "Бесплатный монитор Pons: новые токены, кошельки и оповещения об активности. PW поддерживает проект. Собственные контракты распределяют полученные комиссии создателя: 60% холдерам, 20% в месячный розыгрыш, 20% на развитие. Токен выпущен; обслуживание выплат и розыгрыша подключается.",
+        "zh": "免费的 Pons 活跃度监测工具：新代币、钱包及活跃通知。PW 支持项目发展。自定义合约分配收到的创建者手续费：60% 给持币者，20% 用于月度抽奖，20% 用于开发。代币已发行，派发和抽奖服务正在启用。"
+      },
+      "website": "https://pw.qianqi.site/",
+      "chainId": 4663,
+      "contract": "0xe0c6b2040624dde42c3ce55cfbf818d8b79035b7",
+      "buy": "https://www.ponsfamily.com/launchpad/0xe0c6b2040624dde42c3ce55cfbf818d8b79035b7",
+      "creatorTelegram": "https://t.me/valentin_marapulets",
+      "art": {
+        "class": "pw-art",
+        "image": "/hub-assets/pw-eye.png",
+        "alt": "Pattern Watcher eye emblem"
+      },
+      "kind": "monitor",
+      "links": [
+        {
+          "label": "Telegram bot",
+          "url": "https://t.me/qianqi_hub_bot?start=pw"
+        }
+      ]
     }
   ]
 }

@@ -1,13 +1,22 @@
 function shortCount(n){return n==null?'-':n<1000?U.num(n):new Intl.NumberFormat(U.locale(),{notation:'compact',maximumSignificantDigits:2}).format(n)}
-let lastData=null,mode='recent',unavailable=false,fetching=false,metric='buyers',selectedEnd=null;
+let lastData=null,mode='recent',unavailable=false,fetching=false,metric='buyers',selectedEnd=null,selectedSnapshot=null;
 const el=id=>document.getElementById(id),fmt=U.num,amount=U.amount,clock=U.clock,node=U.node,t=U.t;
 const metrics={buyers:'buyers',buys:'buys',tokens:'activeTokens',launches:'launches'};
-function selected(){return lastData?.intervals?.find(x=>x.windowEnd===selectedEnd)??lastData;}
+function selected(){return lastData?.intervals?.find(x=>x.windowEnd===selectedEnd)??(selectedEnd?selectedSnapshot:null)??lastData;}
+function launchAge(at){
+ if(!Number.isFinite(at))return t('unknown');
+ const seconds=Math.max(0,Date.now()/1000-at);
+ if(seconds<60)return t('launchedNow');
+ const unit=seconds<3600?'minute':seconds<86400?'hour':'day';
+ const value=Math.floor(seconds/({minute:60,hour:3600,day:86400}[unit]));
+ return t('launchedAgo',{time:new Intl.RelativeTimeFormat(U.locale(),{numeric:'always'}).format(-value,unit)});
+}
+function updateLaunchAges(){document.querySelectorAll('[data-launched-at]').forEach(n=>{n.textContent=launchAge(Number(n.dataset.launchedAt));});}
 function link(text,url){const n=node('a',text);n.href=url;n.target='_blank';n.rel='noopener noreferrer';return n;}
 function safeX(value){try{const u=new URL(value);return u.protocol==='https:'&&['x.com','www.x.com','twitter.com','www.twitter.com'].includes(u.hostname)&&!u.username&&!u.password&&(!u.port||u.port==='443')?u.href:null}catch{return null}}
 function board(){if(!lastData)return;const d=selected();el('recent').setAttribute('aria-pressed',String(mode==='recent'));el('lifetime').setAttribute('aria-pressed',String(mode==='lifetime'));el('period').textContent=t(metric==='launches'?'periodLaunch':mode==='recent'?'periodRecent':'periodLife');
  const rows=[...(d.board??[])].filter(x=>metric==='launches'?x.ageSeconds<300:(x[mode].volume===null?x[mode].buys>0:Number(x[mode].volume)>0)).sort((a,b)=>el('sort').value==='age'?a.ageSeconds-b.ageSeconds:b[mode][el('sort').value]-a[mode][el('sort').value]||a.address.localeCompare(b.address));el('count').textContent=fmt(rows.length);el('rows').replaceChildren();
- for(const x of rows){const m=x[mode],r=node('tr',''),name=node('td','');const meta=node('div','','token-meta');meta.append(node('strong',x.symbol),node('small',t('age',{value:Math.floor(x.ageSeconds/60)})));name.append(meta,node('small',x.name));const links=node('div','','links');if(/^0x[0-9a-f]{40}$/i.test(x.address))links.append(link(t('openPons'),'https://ponsfamily.com/launchpad/'+x.address));const twitter=safeX(x.twitter);links.append(twitter?link('X',twitter):node('small',t('noX')));name.append(links);if(x.historyComplete===false)name.append(node('small',t('partial'),'quality'));r.append(name);
+ for(const x of rows){const m=x[mode],r=node('tr',''),name=node('td','');const meta=node('div','','token-meta');const age=node('small','');const launchedAt=Number.isFinite(x.ageSeconds)&&Number.isFinite(d.windowEnd)?d.windowEnd-x.ageSeconds:null;if(launchedAt!==null){age.dataset.launchedAt=launchedAt;age.textContent=launchAge(launchedAt);}else age.textContent=t('unknown');meta.append(node('strong',x.symbol),age);name.append(meta,node('small',x.name));const links=node('div','','links');if(/^0x[0-9a-f]{40}$/i.test(x.address))links.append(link(t('openPons'),'https://ponsfamily.com/launchpad/'+x.address));const twitter=safeX(x.twitter);links.append(twitter?link('X',twitter):node('small',t('noX')));name.append(links);if(x.historyComplete===false)name.append(node('small',t('partial'),'quality'));r.append(name);
  const cell=(label,value,sub)=>{const td=node('td','');td.dataset.label=t(label);td.append(node('strong',value));if(sub)td.append(node('small',sub));return td};
  r.append(cell('buyers',fmt(m.buyers),mode==='recent'&&x.newBuyers!=null?t('newBuyer',{value:fmt(x.newBuyers)}):null));r.append(cell('buys',fmt(m.buys),t('perAddress',{value:m.buyers?fmt(m.buys/m.buyers):'—'})));
  const volume=cell('volume',amount(m.volume)+' '+x.quote);volume.append(node('small',t('top3')+': '+fmt(m.top3Pct)+(m.top3Pct==null?'':'%'),'desktop-sub'));if(m.missingAmounts)volume.append(node('small',t('missingAmounts')));
@@ -28,7 +37,7 @@ function dataMessage(d){
 function render(d){lastData=d;dataMessage(d);const {bad,stale}=quality(d);el('status').textContent=t(unavailable?'sourceError':d.preview?'preview':d.loading?'loading':d.error?'error':stale?'stale':!d.complete?'partial':d.refreshing?'collecting':'ready');el('timezone').textContent=t('local',{zone:Intl.DateTimeFormat().resolvedOptions().timeZone});
  const c=d.collection;el('coverage-text').textContent=c?t('coverageText',{complete:fmt(c.complete),expected:fmt(c.expected),partial:fmt(c.incomplete),missing:fmt(c.missing)}):t('unknown');el('gaps').replaceChildren();if(c?.gaps?.length){for(const g of c.gaps){const item=node('li','');item.append(node('span',clock(g.fromEnd-300)+' – '+clock(g.to)),node('small',t('gapCount',{value:fmt(g.intervals)})));el('gaps').append(item)}}else el('gaps').append(node('li',t(c?'noGaps':'unknown')));el('attempts').replaceChildren();for(const a of c?.recentAttempts??[])el('attempts').append(node('p',clock(a.started)+' · '+t(['complete','partial','error','interrupted','running'].includes(a.status)?a.status:'unknown')));
  el('market-label').textContent=t('comparison');el('market-time').textContent=t('comparisonTime',{time:clock(d.windowEnd,false,'Europe/Moscow')+' MSK'});const m=d.market;el('market-description').textContent=[!bad&&m?.today?t('todayRank',{value:fmt(m.today.buyers),count:fmt(m.todaySamples)}):t('insufficient'),!bad&&m?.seasonal?t('seasonRank',{value:fmt(m.seasonal.buyers),count:fmt(m.seasonalQualifiedDays)}):''].filter(Boolean).join(' ');
- el('time').textContent=d.updated?t('saved',{time:clock(d.updated)}):'';if(d.current)drawSelection();else{
+ if(d.current)drawSelection();else{
   for(const id of ['chart','rows','volumes'])el(id).replaceChildren();
   el('selected-time').textContent='';el('heat-detail').textContent='';el('latest').hidden=true;el('heat-metric').disabled=true;
   const row=node('tr',''),cell=node('td',t(d.loading?'noteLoading':'noteUnavailable'),'empty');cell.colSpan=5;row.append(cell);el('rows').append(row);el('count').textContent='';
@@ -88,7 +97,7 @@ function drawSelection(){const d=selected();if(!d?.current)return;el('heat-metri
    const height=Number.isFinite(value)?value/scale*100:0;bar.style.setProperty('--bar-height',height+'%');
    const fill=node('span','','trend-fill');fill.style.height=height+'%';
    bar.append(fill,node('span',shortCount(value),'trend-value'));
-   bar.onclick=()=>{if(x.board){selectedEnd=x.windowEnd;metric=k;drawSelection();el('chart').querySelector('.trend-bar[aria-pressed="true"]')?.focus({preventScroll:true});}else{el('heat-detail').textContent=t('heatUnavailable');}};
+   bar.onclick=()=>{if(x.board){selectedEnd=x.windowEnd;selectedSnapshot=x;metric=k;drawSelection();el('chart').querySelector('.trend-bar[aria-pressed="true"]')?.focus({preventScroll:true});}else{el('heat-detail').textContent=t('heatUnavailable');}};
    plot.append(bar);
   }
   const times=node('div','','trend-times');times.style.setProperty('--windows',intervals.length||1);
@@ -100,5 +109,28 @@ function drawSelection(){const d=selected();if(!d?.current)return;el('heat-metri
 }
 el('heat-metric').onchange=e=>{metric=e.target.value;drawSelection()};
 el('latest').onclick=()=>{if(new URLSearchParams(location.search).has('interval')){location.href='/';return}selectedEnd=null;drawSelection()};
-async function tick(){if(fetching)return;fetching=true;if(!lastData)dataMessage(null);el('refresh').disabled=true;el('refresh').textContent=t('loading');try{const r=await fetch(new URLSearchParams(location.search).has('interval')?'/api/interval?end='+encodeURIComponent(new URLSearchParams(location.search).get('interval')):'/api/status',{signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error();unavailable=false;const d=await r.json();render(d);if(d.loading)setTimeout(tick,5000)}catch{unavailable=true;if(lastData)render(lastData);else {el('status').textContent=t('sourceError');fetching=false;dataMessage(null)}}finally{fetching=false;el('refresh').disabled=false;el('refresh').textContent=t('refresh')}}
-el('refresh').onclick=tick;document.addEventListener('languagechange',()=>{if(lastData)render(lastData);else dataMessage(null);if(fetching)el('refresh').textContent=t('loading')});tick();setInterval(()=>{if(lastData&&Date.now()/1000-lastData.windowEnd>660)render({...lastData,stale:true})},30000);
+let refreshTimer=null,manualRefresh=false;
+function scheduleRefresh(){clearTimeout(refreshTimer);if(!document.hidden)refreshTimer=setTimeout(tick,30000);}
+async function tick(manual=false){
+ if(fetching)return;clearTimeout(refreshTimer);fetching=true;manualRefresh=manual;if(!lastData)dataMessage(null);
+ if(manual){el('refresh').disabled=true;el('refresh').textContent=t('loading');}
+ const focus=document.activeElement?.closest('.trend-bar');
+ const focusKey=focus?{metric:focus.dataset.metricKey,end:focus.dataset.end}:null;
+ try{
+  const r=await fetch(new URLSearchParams(location.search).has('interval')?'/api/interval?end='+encodeURIComponent(new URLSearchParams(location.search).get('interval')):'/api/status',{cache:'no-store',signal:AbortSignal.timeout(8000)});
+  if(!r.ok)throw Error();const d=await r.json();if(!d||typeof d!=='object'||Array.isArray(d))throw Error();
+  unavailable=false;
+  if(selectedEnd){const updated=d.intervals?.find(x=>x.windowEnd===selectedEnd);if(updated)selectedSnapshot=updated;}
+  const restoreFocus=focus&&document.activeElement===focus;
+  render(d);
+  if(restoreFocus)el('chart').querySelector(`.trend-bar[data-metric-key="${focusKey.metric}"][data-end="${focusKey.end}"]`)?.focus({preventScroll:true});
+ }catch{unavailable=true;if(lastData)render(lastData);else{el('status').textContent=t('sourceError');dataMessage(null)}}
+ finally{fetching=false;if(manual){el('refresh').disabled=false;el('refresh').textContent=t('refresh');}manualRefresh=false;scheduleRefresh();}
+}
+el('refresh').onclick=()=>tick(true);
+document.addEventListener('visibilitychange',()=>{clearTimeout(refreshTimer);if(!document.hidden)tick();});
+window.addEventListener('online',()=>{if(!document.hidden)tick();});
+document.addEventListener('languagechange',()=>{if(lastData)render(lastData);else dataMessage(null);if(manualRefresh)el('refresh').textContent=t('loading')});
+tick();
+
+setInterval(updateLaunchAges,30000);

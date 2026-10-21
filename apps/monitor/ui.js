@@ -141,9 +141,21 @@ const U=(()=>{
  Object.assign(copy,{interval:['Interval','时段','Интервал'],close:['Close','关闭','Закрыть'],positionsValue:['Value of available positions','可用持仓总估值','Стоимость доступных позиций'],partialValuation:['Partial valuation','部分估值','Оценена только часть позиций']});
  Object.assign(copy,{save:['Add to favorites','加入收藏','В избранное'],unsave:['Remove favorite','取消收藏','Убрать из избранного']});
  Object.assign(copy,{signalsTitle:['Market signals','市场信号','Сигналы рынка']});
+ Object.assign(copy,{
+ launchedAgo:['Launched {time}','上线于{time}','Запущен {time}'],
+ launchedNow:['Launched less than a minute ago','上线不到一分钟','Запущен меньше минуты назад']
+ });
  let lang='en';try{lang=localStorage.getItem('pw-language')??(navigator.language.startsWith('zh')?'zh':navigator.language.startsWith('ru')?'ru':'en')}catch{}if(!['en','zh','ru'].includes(lang))lang='en';
  const t=(key,values={})=>(copy[key]?.[lang==='ru'?2:lang==='zh'?1:0]??key).replace(/\{(\w+)\}/g,(_,k)=>String(values[k]??'—'));
  Object.assign(copy,{freeService:['Free monitor, wallets and activity notifications. No token purchase required.','监控、钱包与活跃通知均免费，无需购买代币。','Монитор, кошельки и оповещения бесплатны. Покупать токен для доступа не нужно.']});
+ Object.assign(copy,{
+  pwTokenTitle:['PW · Support the project','PW · 支持项目','PW · Поддержать проект'],
+  pwTokenBody:['The monitor stays free. PW supports this project and future tools. Custom contracts distribute collected creator fees.','监测工具保持免费。PW 支持本项目与未来工具的开发，自定义合约分配收到的创建者手续费。','Монитор остаётся бесплатным. PW поддерживает проект и создание новых инструментов. Полученные комиссии создателя распределяют собственные контракты.'],
+  pwHolders:['To holders','给持币者','Холдерам'],pwRaffle:['Monthly raffle','月度抽奖','В месячный розыгрыш'],pwDevelopment:['Development','开发','На развитие'],
+  pwSplitNote:['Shares of collected creator fees, not of the purchase amount. Creator fee: 3%.','以上为收到的创建者手续费的分配比例，并非买入金额的比例。创建者手续费为 3%。','Доли от полученных комиссий создателя, не от суммы покупки. Комиссия создателя — 3%.'],
+  pwServiceStatus:['Token launched. Payout and raffle services are being activated.','代币已发行，派发和抽奖服务正在启用。','Токен выпущен. Обслуживание выплат и розыгрыша подключается.'],
+  pwOnPons:['PW on Pons ↗','在 Pons 查看 PW ↗','PW на Pons ↗'],pwBot:['Telegram bot ↗','Telegram 机器人 ↗','Telegram-бот ↗']
+ });
  const locale=()=>lang==='ru'?'ru-RU':lang==='zh'?'zh-CN':'en-US';
  const num=n=>n==null?'—':Number(n).toLocaleString(locale(),{maximumFractionDigits:2});
  const amount=n=>{if(n==null)return '—';let text=String(n);if(!/^\d+(\.\d+)?$/.test(text)){const value=Number(n);return Number.isFinite(value)?value.toLocaleString(locale(),{maximumSignificantDigits:6}):'—'}let [whole,f='']=text.split('.');whole=whole.replace(/^0+(?=\d)/,'');const first=f.search(/[1-9]/),places=whole==='0'&&first>=0?Math.max(2,first+2):2;let scaled=BigInt(whole+f.padEnd(places,'0').slice(0,places));if(Number(f[places]??0)>=5)scaled++;const rounded=scaled.toString().padStart(places+1,'0');whole=rounded.slice(0,-places);f=rounded.slice(-places).replace(/0+$/,'');const parts=new Intl.NumberFormat(locale()).formatToParts(1234.5),group=parts.find(x=>x.type==='group')?.value??'',decimal=parts.find(x=>x.type==='decimal')?.value??'.';return whole.replace(/\B(?=(\d{3})+(?!\d))/g,group)+(f?decimal+f:'')};
@@ -155,6 +167,10 @@ const U=(()=>{
 })();
 function mountSiteFooter(){
  const footer=document.createElement('footer');footer.className='site-footer';
+ const token=document.createElement('section');token.className='pw-token';token.id='pw-token';
+ token.innerHTML='<div class="pw-token-intro"><h2 data-i18n="pwTokenTitle"></h2><p data-i18n="pwTokenBody"></p><div class="pw-token-links"><a href="https://www.ponsfamily.com/launchpad/0xe0c6b2040624dde42c3ce55cfbf818d8b79035b7" target="_blank" rel="noopener noreferrer" data-i18n="pwOnPons"></a><a href="https://t.me/qianqi_hub_bot?start=pw" target="_blank" rel="noopener noreferrer" data-i18n="pwBot"></a></div><details><summary>PW · Robinhood Chain</summary><code>0xe0c6b2040624dde42c3ce55cfbf818d8b79035b7</code></details></div><div class="pw-token-mechanics"><div class="pw-fee-split"><div><strong>60%</strong><span data-i18n="pwHolders"></span></div><div><strong>20%</strong><span data-i18n="pwRaffle"></span></div><div><strong>20%</strong><span data-i18n="pwDevelopment"></span></div></div><small data-i18n="pwSplitNote"></small><p class="pw-token-status" data-i18n="pwServiceStatus"></p></div>';
+ // Keep the working monitor first; token information sits above the footer.
+ document.body.append(token);
  footer.innerHTML=`<div class="footer-grid"><div class="footer-brand"><a class="brand" href="/"><span class="brand-eye" aria-hidden="true"><img src="/imgs/pw_eye.png" alt="" width="48" height="48"></span>Pattern Watcher</a><p data-i18n="footerAbout"></p><p data-i18n="freeService"></p></div><nav data-label="footerNav"><h2 data-i18n="footerExplore"></h2><a href="/" data-i18n="tokens"></a><a href="/wallets" data-i18n="wallets"></a><a href="https://qianqi.site" target="_blank" rel="noopener noreferrer" data-i18n="footerHub"></a></nav><div class="footer-contact"><h2 data-i18n="footerContact"></h2><a href="https://t.me/valentin_marapulets" target="_blank" rel="noopener noreferrer">Telegram</a><a href="https://x.com/ui_uallas" target="_blank" rel="noopener noreferrer">X</a><a href="mailto:marapulets1987@gmail.com">Email</a></div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} Pattern Watcher</span><p data-i18n="footerSource"></p></div>`;
  document.body.append(footer);
 }

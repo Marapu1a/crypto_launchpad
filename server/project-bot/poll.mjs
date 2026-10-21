@@ -1,8 +1,18 @@
+import {language} from '../monitor-alerts/language.mjs';
 import {actions} from './replies.mjs';
 
-export async function dispatch({catalog,update,username,api,alertHandler}){
- if(alertHandler&&await alertHandler(update,api))return;
- for(const action of actions(catalog,update,username)){
+export async function dispatch({catalog,update,username,api,alertHandler,state={}}){
+ const cb=update.callback_query,m=cb?.message??update.message,from=cb?.from??m?.from;
+ const privateUser=m?.chat?.type==='private'&&Number.isSafeInteger(m.chat.id)&&m.chat.id>0&&from?.id===m.chat.id&&!from?.is_bot;
+ const bridge=alertHandler?await alertHandler(update,api):null;
+ let lang=language(from?.language_code);
+ if(privateUser){
+  const key=String(m.chat.id),choice=/^lang:(en|ru|zh)$/.exec(cb?.data??'')?.[1]??/^\/language (en|ru|zh)$/.exec(m.text??'')?.[1];
+  lang=bridge?.language??choice??state.languages?.[key]??lang;
+  state.languages??={};state.languages[key]=lang;
+ }
+ if(bridge===true||bridge?.handled)return;
+ for(const action of actions(catalog,update,username,lang)){
   try{await api(action.method,action.body);}
   catch(e){
    // Expired callback acknowledgements must not discard the requested card.
@@ -20,7 +30,7 @@ export async function pollOnce({catalog,username,api,state,save,signal,alertHand
  for(const update of updates){
   if(signal?.aborted)break;
   if(update.update_id<state.offset)continue;
-  await dispatch({catalog,update,username,api,alertHandler});
+  await dispatch({catalog,update,username,api,alertHandler,state});
   const next={...state,offset:update.update_id+1};await save(next);Object.assign(state,next);
  }
 }

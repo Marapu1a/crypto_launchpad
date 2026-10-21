@@ -18,8 +18,10 @@ export function validateCatalog(c){
   check(['launched','prelaunch'].includes(p.status),'Invalid project status');
   if(p.status==='prelaunch')check(p.contract===null&&p.buy===null,'Prelaunch trading links prohibited');
   else check(/^0x[0-9a-f]{40}$/i.test(p.contract)&&https(p.buy)&&new URL(p.buy).pathname.toLowerCase().includes(p.contract.toLowerCase()),'Invalid launch links');
+  check(p.descriptions===undefined||(p.descriptions&&['ru','zh'].every(k=>text(p.descriptions[k]))),'Invalid translated descriptions');
   check(p.story===undefined||text(p.story),'Invalid story');
   check(p.art&&/^[a-z0-9-]+$/.test(p.art.class),'Invalid project artwork');
+  check(p.kind===undefined||['monitor','draw'].includes(p.kind),'Invalid project kind');
   if(p.art.image)check(/^\/hub-assets\/[a-z0-9-]+\.(webp|png)$/.test(p.art.image)&&text(p.art.alt),'Invalid artwork path');
  }
  return c;
@@ -27,4 +29,7 @@ export function validateCatalog(c){
 export async function loadCatalog(file=catalogFile){return validateCatalog(JSON.parse(await readFile(file,'utf8')));}
 export const explorer=p=>p.contract?'https://robinhoodchain.blockscout.com/token/'+p.contract:null;
 
-export function hubCards(c){return c.projects.map(p=>`<article class="project"><div class="art ${p.art.class}">${p.art.image?`<img src="${escapeHtml(p.art.image)}" width="1400" height="470" alt="${escapeHtml(p.art.alt)}">`:''}</div><div class="project-content"><div class="project-title"><h3>${escapeHtml(p.symbol)}</h3><span class="badge">USDG draws</span></div><p>${escapeHtml(p.description)}</p><iframe title="${escapeHtml(p.symbol)} draw status" src="${escapeHtml(p.website)}project-status.html" loading="lazy" style="width:100%;height:76px;border:0;display:block;margin:12px 0"></iframe><a class="project-link" href="${escapeHtml(p.website)}">Visit website</a></div></article>`).join('\n');}
+export function hubCards(c){return c.projects.filter(p=>!p.botOnly).map(p=>{
+ const monitor=p.kind==='monitor';
+ return `<article class="project${monitor?' project-monitor':''}"><div class="art ${p.art.class}">${p.art.image?`<img src="${escapeHtml(p.art.image)}" width="1400" height="470" alt="${escapeHtml(p.art.alt)}">`:''}</div><div class="project-content"><div class="project-title"><h3>${escapeHtml(monitor?p.name:p.symbol)}</h3><span class="badge">${monitor?'Free monitor':'USDG draws'}</span></div><p>${escapeHtml(p.description)}</p>${monitor?`<div class="project-actions"><a href="${escapeHtml(p.website)}">Open monitor →</a><a href="${escapeHtml(p.buy)}" target="_blank" rel="noopener noreferrer">PW on Pons ↗</a><a href="https://t.me/${escapeHtml(c.botUsername)}?start=pw" target="_blank" rel="noopener noreferrer">Telegram ↗</a></div><small class="project-contract">PW · Robinhood Chain<br><code>${escapeHtml(p.contract)}</code></small>`:`<iframe title="${escapeHtml(p.symbol)} draw status" src="${escapeHtml(p.website)}project-status.html" loading="lazy" style="width:100%;height:76px;border:0;display:block;margin:12px 0"></iframe><a class="project-link" href="${escapeHtml(p.website)}">Visit website</a>`}</div></article>`;
+ }).join('\n');}

@@ -14,7 +14,7 @@ let server;try{
  assert.throws(()=>validateSubscription({...subscription,endpoint:'http://127.0.0.1/private'}),/INVALID_PUSH/);
  assert.throws(()=>validateSubscription({...subscription,endpoint:'https://fcm.googleapis.com.attacker.test/test'}),/INVALID_PUSH/);
  const device=await alerts.device(owner,{subscription});await assert.rejects(alerts.device(other,{subscription}),/DEVICE_ALREADY_LINKED/);
- const link=await alerts.link(owner),code=new URL(link.url).searchParams.get('start');
+ const link=await alerts.link(owner,{language:'ru'}),code=new URL(link.url).searchParams.get('start');
  await alerts.telegramUpdate({message:{chat:{id:5,type:'group'},from:{id:5},text:'/start '+code}});assert.equal((await alerts.state(owner)).telegramLinked,false);
  await alerts.telegramUpdate({message:{chat:{id:5,type:'private'},from:{id:5},text:'/start '+code}});assert.equal((await alerts.state(owner)).telegramLinked,true);
  await alerts.telegramUpdate({message:{chat:{id:6,type:'private'},from:{id:6},text:'/start '+code}});assert.equal((await pool.query('SELECT chat FROM monitor_alerts.chats')).rows[0].chat,'5');
@@ -27,7 +27,7 @@ let server;try{
  events.push({...events[0],seq:3,timestamp:now});await ingest(pool,feed,{now});assert.equal((await pool.query('SELECT * FROM monitor_alerts.outbox')).rowCount,2); // cooldown
  now+=61;events.push({...events[0],seq:4,token:'0x'+'5'.repeat(40),quoteUsd:null,timestamp:now});await ingest(pool,feed,{now});const jobs=await pool.query("SELECT * FROM monitor_alerts.outbox WHERE state='pending'");assert.equal(jobs.rowCount,2);assert.ok(!jobs.rows[0].payload.body.includes('$0'));
  await deliver(pool,{...senders,now,sendPush:async()=>{throw Object.assign(Error('expired'),{statusCode:410})}});assert.equal((await alerts.state(owner)).devices.length,0);
- await alerts.test(owner,{channel:'telegram'});await assert.rejects(alerts.test(owner,{channel:'telegram'}),/TEST_COOLDOWN/);await alerts.unlink(owner);await deliver(pool,{...senders,now});assert.equal((await pool.query("SELECT * FROM monitor_alerts.outbox WHERE target='test' AND state='cancelled'")).rowCount,1);
+ await alerts.test(owner,{channel:'telegram'});assert.equal((await pool.query("SELECT payload FROM monitor_alerts.outbox WHERE target='test' ORDER BY id DESC LIMIT 1")).rows[0].payload.body,'Тестовое уведомление. Канал подключён.');await assert.rejects(alerts.test(owner,{channel:'telegram'}),/TEST_COOLDOWN/);await alerts.unlink(owner);await deliver(pool,{...senders,now});assert.equal((await pool.query("SELECT * FROM monitor_alerts.outbox WHERE target='test' AND state='cancelled'")).rowCount,1);
  // Existing auth/CSRF protects all rule and device mutations.
  const billing={enabled:false,session:async token=>token==='a'.repeat(64)?owner:null,access:async()=>({active:true})};
  server=billingHttp({billing,alerts,origin:'http://127.0.0.1:4445',secure:false,telegramIngressSecret:'test-secret'});await new Promise(r=>server.listen(4445,'127.0.0.1',r));

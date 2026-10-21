@@ -36,3 +36,19 @@ are missing. Selecting a time highlights it in all rows and updates the token ta
 On phones one selectable metric shows all seven intervals without side scrolling.
 Data freshness and missing-data messages appear next to the counts. The selected summary shows the exact count and preceding 30-minute mean when available. Wallet navigation refers to the latest snapshot, not token-specific
 buyer lists. Colours describe activity, not price forecasts.
+
+## Automatic refresh and selection — 21.10.2026
+
+The overview fetches the saved snapshot every 30 seconds while visible, and on
+returning to the tab or reconnecting. Requests never overlap and never trigger
+collection or RPC. Failed requests retain the last snapshot and retry. Background refresh is silent; the snapshot save timestamp is hidden. A clicked
+interval remains pinned, including after it leaves the rolling chart; “Back to
+latest” resumes the latest view. URL-linked intervals remain historical.
+
+Gold marks the time across all rows. Blue joins the active bar, metric heading
+and explanation; incomplete selected bars retain their striped treatment.
+Validated with `node tests/studio/pons-monitor.mjs`: timer refresh, request failure
+and recovery, pinned selection, shared colours, and 1440/390/320px layouts.
+Local preview uses a saved snapshot and does not collect fresh market data.
+
+Token ages show elapsed time since launch relative to now, including when viewing historical intervals. The launch timestamp is recovered from the saved interval end minus ageSeconds; age labels update locally every 30 seconds without network requests.

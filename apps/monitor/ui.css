@@ -88,3 +88,20 @@
 @media(max-width:600px){.signals-layout{margin-top:16px}.signal-card{padding:16px}.signal-card-head h2{font-size:18px}.signal-reason{padding:14px;margin-top:18px}.signal-reason h3{font-size:16px}.signal-metrics{grid-template-columns:1fr 1fr;gap:8px}.signal-metrics .signal-metric:first-child:nth-last-child(3){grid-column:1/-1}.signal-metrics .signal-metric{padding:12px}.signal-metric strong{font-size:22px}.signal-compare-grid{gap:14px}.signal-source table tr{display:table-row}.signal-source table td{display:table-cell}.signal-source table td:before{display:none}.signal-source table thead{display:table-header-group}}
 
 .notification-panel{max-width:1040px;margin:16px 0 24px;padding:14px 18px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.notification-panel summary{cursor:pointer;color:var(--accent);font-size:14px}.notification-body p{max-width:760px;line-height:1.7}.notification-body .alert-controls{margin:12px 0}.notification-body small{color:var(--muted);line-height:1.6}
+
+/* Blue joins the selected metric, bar and explanation; gold still marks time. */
+.overview-page{--selection:#8bc9e8;--selection-line:#639bb5;--selection-bg:#1c2b30}
+.overview-page .trend-row[data-active=true]{border-color:var(--selection-line);background:#1c2828}
+.overview-page .trend-row[data-active=true] .trend-label{color:var(--selection)}
+.overview-page .trend-bar[aria-pressed=true][data-selected=true],.overview-page .trend-bar[aria-pressed=true][data-selected=true]:hover{background:#8bc9e81c!important;box-shadow:inset 0 0 0 2px var(--selection)}
+.overview-page .trend-bar[aria-pressed=true] .trend-fill{background:var(--selection);border-color:var(--selection)}
+.overview-page .trend-bar[aria-pressed=true].trend-gap .trend-fill{background:repeating-linear-gradient(135deg,var(--selection),var(--selection) 3px,#28434d 3px,#28434d 7px)}
+.overview-page .trend-bar[aria-pressed=true]:focus-visible{outline:2px solid var(--selection);outline-offset:3px}
+.overview-page .trend-row[data-active=true] .trend-times>span[data-selected=true]{color:var(--selection);background:#8bc9e81c}
+.overview-page .selected-summary{border-color:var(--selection-line);border-left-color:var(--selection);background:var(--selection-bg)}
+.overview-page .summary-eyebrow,.overview-page .summary-stat strong,.overview-page .summary-stat span{color:var(--selection)}
+.overview-page .summary-head,.overview-page .summary-compare{border-color:#3c555f}
+.overview-page .summary-compare strong{color:#c3dbe6}
+.overview-page .mobile-metric select{border-color:var(--selection-line);color:var(--selection)}
+
+.pw-token{max-width:1280px;margin:48px auto 0;padding:28px;border:1px solid var(--line,#3c3b34);border-radius:12px;background:#191d16;display:grid;grid-template-columns:1.2fr 1fr;gap:40px}.pw-token h2{margin:0 0 14px;font-size:21px}.pw-token p{line-height:1.65}.pw-token-links{display:flex;flex-wrap:wrap;gap:22px;margin:18px 0}.pw-token code{display:block;overflow-wrap:anywhere;margin-top:12px;font-size:12px}.pw-fee-split{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:4px 0 18px}.pw-fee-split strong{display:block;font-size:28px;color:var(--gold,#dfbf7c)}.pw-fee-split span{display:block;font-size:13px;margin-top:8px}.pw-token-mechanics small{display:block;color:var(--muted,#b4b6a8);line-height:1.6}.pw-token-status{font-size:12px;color:var(--muted,#b4b6a8);border-top:1px solid var(--line,#3c3b34);padding-top:14px}.pw-token details{font-size:12px}@media(max-width:760px){.pw-token{grid-template-columns:1fr;gap:22px;margin:30px 0 0;padding:20px}.pw-fee-split{gap:10px}.pw-fee-split strong{font-size:25px}}

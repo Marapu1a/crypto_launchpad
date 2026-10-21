@@ -20,7 +20,7 @@ export function billingHttp({billing,origin,monitor='http://127.0.0.1:4196',owne
     if(req.method!=='POST'||!alerts||!telegramIngressSecret||!timingSafeEqual(hash(supplied),hash(telegramIngressSecret)))fail('FORBIDDEN',403);
     let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>8192)fail('BODY_TOO_LARGE',413)}
     let update;try{update=JSON.parse(raw)}catch{fail('INVALID_JSON')}
-    await alerts.telegramUpdate(update);return reply(200,{ok:true});
+    const result=await alerts.telegramUpdate(update);return reply(200,{ok:true,...result});
    }
    let body={};
    if(req.method==='POST'){
@@ -45,7 +45,7 @@ export function billingHttp({billing,origin,monitor='http://127.0.0.1:4196',owne
     if(!alerts)fail('ALERTS_NOT_CONFIGURED',503);
     if(path==='/api/alerts'&&req.method==='GET')return reply(200,await alerts.state(w));
     if(req.method==='POST'){
-     const action={'/api/alerts/rule':'rule','/api/alerts/device':'device','/api/alerts/telegram-link':'link','/api/alerts/telegram-unlink':'unlink','/api/alerts/test':'test'}[path];
+     const action={'/api/alerts/rule':'rule','/api/alerts/language':'setLanguage','/api/alerts/device':'device','/api/alerts/telegram-link':'link','/api/alerts/telegram-unlink':'unlink','/api/alerts/test':'test'}[path];
      if(action)return reply(200,await alerts[action](w,body));
     }
     fail('NOT_FOUND',404);

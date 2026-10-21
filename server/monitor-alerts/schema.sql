@@ -21,3 +21,7 @@ CREATE TABLE IF NOT EXISTS monitor_alerts.outbox (
  retry_at bigint NOT NULL DEFAULT 0, created_at bigint NOT NULL,
  UNIQUE(event_key,owner,channel,destination)
 );
+
+CREATE TABLE IF NOT EXISTS monitor_alerts.languages (owner text PRIMARY KEY, language text NOT NULL CHECK(language IN ('en','ru','zh')));
+CREATE TABLE IF NOT EXISTS monitor_alerts.chat_languages (chat text PRIMARY KEY, language text NOT NULL CHECK(language IN ('en','ru','zh')));
+ALTER TABLE monitor_alerts.links ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'ru' CHECK(language IN ('en','ru','zh'));
