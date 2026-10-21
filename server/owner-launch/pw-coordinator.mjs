@@ -41,8 +41,10 @@ export function createPwOwnerCoordinator({pool,provider,profile,preparation,allo
  }
  function lock(id,run){return withOwnerLaunch({pool,projectId:id,owner},run);}
  function stateCheck(s){check(s?.schema==='pw-owner-launch-v1'&&s.binding===binding,'PW journal/profile mismatch');}
- async function history(s){stateCheck(s);await environment();await verifyOwnerHistory(provider,s.history);
-  for(const pin of Object.values(s.contracts))check(keccak256(await provider.getCode(pin.address))===pin.codeHash,'Deployed runtime changed');
+ async function history(s,{full=true}={}){stateCheck(s);
+  if(full)await environment();else check(Number((await provider.getNetwork()).chainId)===4663,'Wrong chain');
+  await verifyOwnerHistory(provider,s.history);
+  if(full)for(const pin of Object.values(s.contracts))check(keccak256(await provider.getCode(pin.address))===pin.codeHash,'Deployed runtime changed');
  }
  const c=(target,name)=>new Contract(target,a[name].abi,provider);
  async function finish(s){
@@ -89,7 +91,10 @@ export function createPwOwnerCoordinator({pool,provider,profile,preparation,allo
   });},
   async read(id){return lock(id,async({state})=>{await history(state);return state;});},
   async quote(id){return lock(id,async({state:s})=>{
-   await history(s);check(!s.pending&&!s.walletPending&&!['failed','deployed','awaiting-finality'].includes(s.stage),'Resolve launch before next quote');
+   // A quote grants no authority. Full environment and canonical history checks
+   // remain mandatory in armWallet/record immediately before accepting a send.
+   stateCheck(s);check(Number((await provider.getNetwork()).chainId)===4663,'Wrong chain');
+   check(!s.pending&&!s.walletPending&&!['failed','deployed','awaiting-finality'].includes(s.stage),'Resolve launch before next quote');
    const step=s.steps[s.history.length];check(step,'No next launch step');
    check(await provider.getTransactionCount(owner,'latest')===step.request.nonce&&await provider.getTransactionCount(owner,'pending')===step.request.nonce,'Owner nonce changed');
    const fees=await provider.getFeeData(),feeBlock=await provider.getBlock('latest');
@@ -112,7 +117,8 @@ export function createPwOwnerCoordinator({pool,provider,profile,preparation,allo
    s.walletPending={kind:step.kind,request:plain(r)};s.stage='wallet-pending';await save(s);return s;
   });},
   async attachWallet(id,hash){return lock(id,async({state:s,save})=>{
-   check(/^0x[0-9a-fA-F]{64}$/.test(hash),'Invalid transaction hash');await history(s);
+   check(/^0x[0-9a-fA-F]{64}$/.test(hash),'Invalid transaction hash');stateCheck(s);
+   check(Number((await provider.getNetwork()).chainId)===4663,'Wrong chain');
    if(s.pending){check(s.pending.hash.toLowerCase()===hash.toLowerCase(),'Different pending transaction');return s;}
    check(s.walletPending&&s.stage==='wallet-pending','No wallet reservation');
    const actual=await provider.getTransaction(hash);check(actual,'Wallet transaction not visible yet');
@@ -144,8 +150,11 @@ export function createPwOwnerCoordinator({pool,provider,profile,preparation,allo
    });
   },
   async resolve(id){return lock(id,async({state:s,save})=>{
-   await history(s);
-   if(!s.pending){if(s.history.length===s.steps.length){await finish(s);await save(s);}return s;}
+   // Receipt resolution cannot send. Recheck the canonical prefix, then verify
+   // this receipt and deployed code. Full external validation is repeated at
+   // the next signing gate and before completing the entire launch.
+   await history(s,{full:false});
+   if(!s.pending){if(s.history.length===s.steps.length){await environment();await finish(s);await save(s);}return s;}
    const receipt=await provider.getTransactionReceipt(s.pending.hash);if(!receipt)return s;
    const block=await provider.getBlock(receipt.blockNumber);check(block.hash===receipt.blockHash&&same(receipt.from,owner),'Launch receipt branch changed');
    const actual=await provider.getTransaction(s.pending.hash),signed=Transaction.from(s.pending.raw);
@@ -155,7 +164,7 @@ export function createPwOwnerCoordinator({pool,provider,profile,preparation,allo
    if(step.contract){check(same(receipt.contractAddress,step.contract),'Deployment address mismatch');const code=await provider.getCode(step.contract);check(code!=='0x','Missing deployed code');s.contracts[step.kind]={address:step.contract,codeHash:keccak256(code)};}
    if(step.kind==='launch')for(const [role,target] of [['token',s.scope.token],['curve',s.curve]]){const code=await provider.getCode(target);check(code!=='0x','Missing Pons '+role);s.contracts[role]={address:target,codeHash:keccak256(code)};}
    s.history.push({kind:step.kind,hash:receipt.hash,blockNumber:receipt.blockNumber,blockHash:receipt.blockHash});s.pending=null;s.stage='prepared';
-   if(s.history.length===s.steps.length)await finish(s);await save(s);return s;
+   if(s.history.length===s.steps.length){await environment();await finish(s);}await save(s);return s;
   });}
  };
 }
