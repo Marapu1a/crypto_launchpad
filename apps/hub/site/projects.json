@@ -69,8 +69,8 @@
       "creatorTelegram": "https://t.me/valentin_marapulets",
       "art": {
         "class": "pw-art",
-        "image": "/hub-assets/pw-eye.png",
-        "alt": "Pattern Watcher eye emblem"
+        "image": "/hub-assets/pw-mascot.png",
+        "alt": "Pattern Watcher mascot"
       },
       "kind": "monitor",
       "links": [
