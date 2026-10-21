@@ -157,7 +157,7 @@
   },
   "operationalPreparation": {
     "source": "tokens/PatternWatcher/service-plan.json",
-    "status": "local-not-deployed",
+    "status": "code-deployed-financial-config-pending",
     "snapshotPageItems": 100,
     "financialExecutionApproved": false
   },
