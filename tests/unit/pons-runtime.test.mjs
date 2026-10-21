@@ -34,9 +34,27 @@ test('budget exhaustion across host restart preserves saved work and rejects bef
  const journal=join(c.lockFile,'..','pending.json');await writeFile(journal,'{"pending":"signed-intent"}');
  await budget.persistentRpcGate(c.rpcBudget)([{},{}]);
  const prepare=async({provider})=>{await provider('http://127.0.0.1:1').send('eth_chainId',[]);throw Error('unreachable');};
- for(let i=0;i<2;i++)await assert.rejects(runPonsRuntime({...c,prepare}),{code:'RPC_BUDGET_EXHAUSTED'});
+ for(let i=0;i<2;i++)await assert.rejects(runPonsRuntime({...c,once:true,prepare}),{code:'RPC_BUDGET_EXHAUSTED'});
  assert.equal(JSON.parse(await readFile(c.rpcBudget.file)).used,2);
  assert.equal(await readFile(journal,'utf8'),'{"pending":"signed-intent"}');
+}));
+test('bootstrap waits with host lock held and aborts without a restart or a second preparation',()=>fixture(async c=>{
+ let at=1000,calls=0,waits=0;const stop=new AbortController();
+ await runPonsRuntime({...c,now:()=>at,signal:stop.signal,prepare:async()=>{calls++;throw Object.assign(Error('quota'),{code:'RPC_BUDGET_EXHAUSTED',retryAt:121000});},bootstrapWait:async ms=>{
+  waits++;assert.equal(ms,60000);assert.ok(await readFile(c.lockFile));
+  const health=JSON.parse(await readFile(c.healthFile));assert.equal(health.reason,'rpc-budget-exhausted');assert.equal(health.retryAt,121000);
+  await assert.rejects(runPonsRuntime({...c,prepare:async()=>{throw Error('second owner');}}),{code:'EEXIST'});
+  at+=ms;if(waits===2)stop.abort();
+ }});
+ assert.equal(calls,1);assert.equal(waits,2);await assert.rejects(readFile(c.lockFile),{code:'ENOENT'});
+}));
+test('bootstrap resumes preparation when the persisted quota deadline arrives',()=>fixture(async c=>{
+ let at=1000,calls=0;
+ await assert.rejects(runPonsRuntime({...c,now:()=>at,prepare:async()=>{
+  if(++calls===1)throw Object.assign(Error('quota'),{code:'RPC_BUDGET_EXHAUSTED',retryAt:2000});
+  assert.equal(at,2000);throw Error('resumed preparation');
+ },bootstrapWait:async ms=>{assert.equal(ms,1000);at+=ms;}}),/resumed preparation/);
+ assert.equal(calls,2);await assert.rejects(readFile(c.lockFile),{code:'ENOENT'});
 }));
 test('gated loopback bootstrap validates adapter and graceful stop closes resources',()=>fixture(async c=>{
  const stop=new AbortController();let closed=0;
@@ -48,7 +66,9 @@ test('gated loopback bootstrap validates adapter and graceful stop closes resour
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  try{
   await runPonsRuntime({...c,signal:stop.signal,prepare:async({provider})=>{
-   const p=provider('http://127.0.0.1:'+server.address().port);
+   // Two startup reads still fit the host quota, even though the PW worker
+   // allowance is only one. Soft PW limits cannot block common host startup.
+   const p=provider('http://127.0.0.1:'+server.address().port,{reserveRequests:1});
    return {close:async()=>{closed++;},projects:[{id:'qianqi',adapter:'qianqi',publish:async()=>{},input:{provider:p,executor:Wallet.createRandom().connect(p),loadReport:async()=>({})}}]};
   }});
   assert.equal(closed,1);await assert.rejects(readFile(c.lockFile),{code:'ENOENT'});

@@ -1,0 +1,48 @@
+{
+  "schema": "pw-service-plan-v1",
+  "status": "prepared-not-executable",
+  "preparedAt": "2026-10-21",
+  "executionEnabled": false,
+  "snapshot": {
+    "mode": "resumable-fixed-finalized-block",
+    "maxHolders": 5000,
+    "maxRpcCalls": 5010,
+    "maxAgeSeconds": 86400,
+    "pageItems": 100,
+    "pageRpcReservationOverhead": 10,
+    "requiredMigration": 22,
+    "tokenCodeHash": null,
+    "semanticsReviewed": false,
+    "restartRequiresExplicitRequest": true
+  },
+  "exclusions": {
+    "categoriesSource": "preparation.json#/holders/exclusionCategories",
+    "resolvedAddresses": null,
+    "curveRequired": true,
+    "excludeAllContracts": false
+  },
+  "rpc": {
+    "maxRequests": 2000,
+    "windowMs": 3600000,
+    "reserveRequests": 1000,
+    "intervalMs": 150,
+    "sharedLedgerRequired": true,
+    "paidProviderAllowed": false
+  },
+  "approvedWalletReservesWei": {
+    "executor": "1000000000000000",
+    "publisher": "500000000000000"
+  },
+  "serviceLimits": null,
+  "holderExecutionLimits": null,
+  "monthlyGasBudgetWei": null,
+  "automaticPaymentsEnabled": false,
+  "blockers": [
+    "deploy-and-verify-rpc-package-and-migration-022",
+    "finalized-token-launch-and-runtime-review",
+    "resolve-actual-exclusion-addresses",
+    "approve-service-and-holder-execution-gas-limits",
+    "register-and-verify-production-handoffs",
+    "explicit-financial-activation"
+  ]
+}

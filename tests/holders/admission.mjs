@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import {mkdirSync,writeFileSync,readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
+import {createServer} from 'node:http';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 import {BrowserProvider,ContractFactory,keccak256} from 'ethers';
 import {compileProduction} from '../../src/worker/production-build.mjs';
 import {collectHolderSnapshot,validateHolderSnapshot} from '../../src/holders/snapshot.mjs';
 import {admitHolderSnapshot} from '../../src/holders/admission.mjs';
 import {createHolderProgram,HOLDER_PERIOD_SECONDS} from '../../src/holders/program.mjs';
 import {identity} from '../../src/holders/values.mjs';
-import {registerHolderPreparation,appendHolderPreparation,admitHolderPreparation,readHolderPreparation} from '../../server/shared/holder-preparation.mjs';
+import {registerHolderPreparation,appendHolderPreparation,admitHolderPreparation,resumeHolderAdmission,readHolderPreparation} from '../../server/shared/holder-preparation.mjs';
 import {createTestPostgres} from '../contracts/production-postgres.mjs';
+import {inProject} from '../../server/shared/store.mjs';
 process.env.HARDHAT_CONFIG=resolve('tests/contracts/production-worker-hardhat.config.cjs');
 const {default:hre}=await import('hardhat');
 const provider=new BrowserProvider(hre.network.provider,undefined,{cacheTimeout:-1});provider.pollingInterval=10;
@@ -56,7 +60,14 @@ try{
  }};
  await assert.rejects(admitHolderPreparation(db.pools.jobs,scope,{provider:beforeCommit,candidateId:candidate.id,now}),/before commit/);
  assert.equal((await readHolderPreparation(db.pools.api,scope,{now,candidateId:candidate.id})).revision,1);
- const stored=await admitHolderPreparation(db.pools.jobs,scope,{provider,candidateId:candidate.id,now});assert.equal(stored.rpcCalls,11);
+ let reservedCalls=0,scanCalls=0;
+ const insufficient={send:async()=>{scanCalls++;throw Error('must not scan');},withRpcReservation:async count=>{reservedCalls=count;throw Object.assign(Error('full window too small'),{code:'RPC_OPERATION_TOO_LARGE'});}};
+ await assert.rejects(admitHolderPreparation(db.pools.jobs,scope,{provider:insufficient,candidateId:candidate.id,now:now+1000}),/Stale/);
+ assert.equal(reservedCalls,0);assert.equal(scanCalls,0);
+ await assert.rejects(admitHolderPreparation(db.pools.jobs,scope,{provider:insufficient,candidateId:candidate.id,now}),{code:'RPC_OPERATION_TOO_LARGE'});
+ assert.equal(reservedCalls,13);assert.equal(scanCalls,0);assert.equal((await readHolderPreparation(db.pools.api,scope,{now,candidateId:candidate.id})).revision,1);
+ const reservationAware={send:(...args)=>provider.send(...args),withRpcReservation:async(count,run)=>{assert.equal(count,13);return run();}};
+ const stored=await admitHolderPreparation(db.pools.jobs,scope,{provider:reservationAware,candidateId:candidate.id,now});assert.equal(stored.rpcCalls,11);
  const repeated=await admitHolderPreparation(db.pools.jobs,scope,{provider,candidateId:candidate.id,now});assert.equal(repeated.replayed,true);assert.equal(repeated.revision,stored.revision);
  const view=await readHolderPreparation(db.pools.api,scope,{now});assert.equal(view.preview.eligibleCount,3);assert.ok(!view.preview.blockers.includes('snapshot-atomicity-unverified'));
  assert.ok(view.preview.blockers.includes('minimum-payment-not-approved'));assert.equal(view.preview.executionEnabled,false);assert.equal(view.preview.ledger.owed,'0');
@@ -65,5 +76,38 @@ try{
  await assert.rejects(admitHolderPreparation(db.pools.jobs,scope,{provider,candidateId:other.id,now}),/already admitted/);
  assert.ok((await readHolderPreparation(db.pools.api,scope,{now:args.until})).preview.blockers.includes('holder-period-missed'));
  report.checks.push('Trusted admission only; transactional reorg rollback, stable retry, one immutable candidate per period, no fixture allocation, no debts or payments created');
+ const pagedScope={...scope,asset:'0x'+'1'.repeat(40)};
+ const pagedPolicy={...policy,scopeId:identity(pagedScope)},pagedProgram=createHolderProgram({scope:pagedScope,preset:'pw-v1-60-20-20',launchAt:b.timestamp-HOLDER_PERIOD_SECONDS,minimumPayment:null,exclusions:[],snapshotPolicy:pagedPolicy});
+ await registerHolderPreparation(db.pools.jobs,pagedProgram);
+ await appendHolderPreparation(db.pools.jobs,pagedScope,{id:'paged-source',scopeId:identity(pagedScope),type:'snapshot.observed',candidate});
+ const pageOptions={provider,candidateId:candidate.id,now,maxItems:1};
+ const first=await resumeHolderAdmission(db.pools.jobs,pagedScope,pageOptions);assert.equal(first.status,'progress');assert.equal(first.checked,1);
+ assert.equal((await readHolderPreparation(db.pools.api,pagedScope,{now})).revision,1);
+ assert.ok((await readHolderPreparation(db.pools.api,pagedScope,{now,candidateId:candidate.id})).preview.blockers.includes('snapshot-atomicity-unverified'));
+ const restarted=await resumeHolderAdmission(db.pools.jobs,pagedScope,{...pageOptions,restart:true});assert.equal(restarted.attempt,2);assert.equal(restarted.checked,1);
+ assert.equal((await db.admin.query('SELECT count(*)::int n FROM launchpad.holder_admission_pages WHERE project_id=$1 AND scope_id=$2',[pagedScope.projectId,identity(pagedScope)])).rows[0].n,2);
+ // Every call reloads its cursor from PostgreSQL; no process-local continuation.
+ const broken={send:async(method,args)=>{if(method==='eth_call')throw Error('interrupted page');return provider.send(method,args);}};
+ await assert.rejects(resumeHolderAdmission(db.pools.jobs,pagedScope,{...pageOptions,provider:broken}),/interrupted page/);
+ await assert.rejects(resumeHolderAdmission(db.pools.jobs,pagedScope,{...pageOptions,provider:reorg}),/reorg/);
+ let reserved=0;await assert.rejects(resumeHolderAdmission(db.pools.jobs,pagedScope,{...pageOptions,provider:{send:()=>{throw Error('must not send');},withRpcReservation:async n=>{reserved=n;throw Object.assign(Error('quota'),{code:'RPC_BUDGET_EXHAUSTED'});}}}),{code:'RPC_BUDGET_EXHAUSTED'});assert.equal(reserved,11);
+ await assert.rejects(resumeHolderAdmission(db.pools.jobs,pagedScope,{...pageOptions,clock:()=>now+1000}),/Stale/);
+ const bridge=createServer(async(req,res)=>{try{let body='';for await(const x of req)body+=x;const q=JSON.parse(body),result=await provider.send(q.method,q.params);res.setHeader('content-type','application/json');res.end(JSON.stringify({jsonrpc:'2.0',id:q.id,result}));}catch{res.writeHead(500);res.end();}});
+ await new Promise(r=>bridge.listen(0,'127.0.0.1',r));let second;
+ try{
+  const code="import {createPool} from './server/shared/store.mjs';import {runtimeProvider} from './server/short-runtime/rpc-provider.mjs';import {resumeHolderAdmission} from './server/shared/holder-preparation.mjs';const x=JSON.parse(process.env.TEST_PAGE_INPUT),pool=createPool(x.database),provider=runtimeProvider(x.rpc);try{console.log(JSON.stringify(await resumeHolderAdmission(pool,x.scope,{...x.options,provider})));}finally{await pool.end();provider.destroy();}";
+  const child=await promisify(execFile)(process.execPath,['--input-type=module','-e',code],{cwd:resolve('.'),windowsHide:true,env:{...process.env,TEST_PAGE_INPUT:JSON.stringify({database:db.url('lp_jobs'),rpc:'http://127.0.0.1:'+bridge.address().port,scope:pagedScope,options:{candidateId:candidate.id,now,maxItems:1}})}});
+  second=JSON.parse(child.stdout);
+ }finally{bridge.closeAllConnections();await new Promise(r=>bridge.close(r));}
+ assert.equal(second.checked,2);assert.equal(second.status,'progress');assert.deepEqual(second.block,first.block);
+ let fixedReads=0;const commitReorg={send:async(method,args)=>{const value=await provider.send(method,args);return method==='eth_getBlockByNumber'&&args[0]!=='finalized'&&++fixedReads===3?{...value,hash:'0x'+'d'.repeat(64)}:value;}};
+ await assert.rejects(resumeHolderAdmission(db.pools.jobs,pagedScope,{...pageOptions,provider:commitReorg}),/before commit/);
+ assert.equal((await readHolderPreparation(db.pools.api,pagedScope,{now})).revision,1);
+ const finishes=await Promise.all([resumeHolderAdmission(db.pools.jobs,pagedScope,pageOptions),resumeHolderAdmission(db.pools.jobs,pagedScope,pageOptions)]);
+ const completed=finishes.find(x=>!x.replayed);assert.equal(finishes.filter(x=>x.replayed).length,1);assert.equal(completed.status,'admitted');assert.equal(completed.checked,3);assert.equal(completed.revision,2);assert.deepEqual(completed.block,first.block);
+ const replayed=await resumeHolderAdmission(db.pools.jobs,pagedScope,pageOptions);assert.equal(replayed.replayed,true);assert.equal(replayed.revision,2);
+ const acceptedView=await readHolderPreparation(db.pools.api,pagedScope,{now,candidateId:candidate.id});assert.ok(!acceptedView.preview.blockers.includes('snapshot-atomicity-unverified'));assert.equal(acceptedView.preview.ledger.owed,'0');
+ const invisible=await inProject(db.pools.jobs,'66666666-6666-4666-8666-666666666666',async c=>(await c.query('SELECT count(*)::int n FROM launchpad.holder_admission_pages')).rows[0].n);assert.equal(invisible,0);
+ report.checks.push('Paged admission survives RPC failure/quota wait, rejects inter-page and commit reorgs, retains one fixed block, accepts only the complete universe and replays without a second event');
  report.status='PASS';console.log(report.checks.map(s=>'PASS '+s).join('\n'));
 }finally{writeFileSync(root+'/report.json',JSON.stringify(report,null,2));console.log(root+'/report.json');await db?.close();provider.destroy();}

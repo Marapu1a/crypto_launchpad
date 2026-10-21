@@ -13,7 +13,8 @@ export function validateRpcUrl(url,{mode,allowedRpcHosts=[]}){
 // operator never creates or resets an allowance; every actual RPC is reserved.
 export async function operatorRpc(url,config){
  validateRpcUrl(url,{mode:'production',allowedRpcHosts:config.allowedRpcHosts});
- const gate=budget.persistentRpcGate(config.rpcBudget??{});
+ const policy=config.rpcBudget??{};
+ const gate=budget.persistentRpcGate({...policy,reserveRequests:policy.reserveRequests??Math.floor(policy.maxRequests/2)});
  await gate.preflight();
  return {provider:runtimeProvider(url,{gate}),usage:()=>gate.snapshot()};
 }

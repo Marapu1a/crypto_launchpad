@@ -41,9 +41,9 @@
   "launchBudget": {
     "approved": true,
     "totalNativeLimit": "3000000000000000",
-    "maxGasLimit": null,
-    "maxFeePerGas": null,
-    "nativeFloor": null
+    "maxGasLimit": "6500000",
+    "maxFeePerGas": "42000000",
+    "nativeFloor": "500000000000000"
   },
   "serviceBudget": {
     "approved": true,
@@ -63,9 +63,9 @@
   },
   "holderSnapshot": {
     "reviewedTokenCodeHash": null,
-    "maxHolders": null,
-    "maxRpcCalls": null,
-    "maxAgeSeconds": null
+    "maxHolders": 5000,
+    "maxRpcCalls": 5010,
+    "maxAgeSeconds": 86400
   },
   "release": {
     "buildApproval": null,
@@ -154,5 +154,17 @@
     "publisherReserveETH": "0.0005",
     "transfersAuthorizedNow": false,
     "launchAuthorizedNow": false
+  },
+  "operationalPreparation": {
+    "source": "tokens/PatternWatcher/service-plan.json",
+    "status": "local-not-deployed",
+    "snapshotPageItems": 100,
+    "financialExecutionApproved": false
+  },
+  "feeCapApproval20261021": {
+    "maxFeePerGas": "42000000",
+    "source": "explicit-owner-reply",
+    "totalNativeLimitUnchanged": "3000000000000000",
+    "signingAuthorized": false
   }
 }

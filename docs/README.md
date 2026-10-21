@@ -155,6 +155,7 @@
 - [PW: исправления промежуточного ревью и замеры](PW_INTERIM_FIXES_20261018.md).
 
 - [Допуск снимка холдеров: Pons и finalized balances](HOLDER_SNAPSHOT_ADMISSION.md).
+- [PW: проверка холдеров частями и настройки обслуживания](PW_HOLDER_PAGES_20261021.md).
 
 - [Начисления и выплаты холдерам — локальный прототип](HOLDER_PAYOUT.md).
 

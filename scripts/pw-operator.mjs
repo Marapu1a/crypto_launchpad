@@ -7,10 +7,10 @@ import {createPool,verifyRole} from '../server/shared/store.mjs';
 import {createPwOwnerCoordinator} from '../server/owner-launch/pw-coordinator.mjs';
 import {preparePwHolderHandoff,registerPwHolderHandoff} from '../server/owner-launch/pw-handoff.mjs';
 import {createPwHolderOperator} from '../server/shared/pw-holder-operator.mjs';
-import {importHolderFunding,appendHolderPreparation,admitHolderPreparation,advanceHolderPeriod} from '../server/shared/holder-preparation.mjs';
+import {importHolderFunding,appendHolderPreparation,admitHolderPreparation,resumeHolderAdmission,advanceHolderPeriod} from '../server/shared/holder-preparation.mjs';
 import {prepareHolderAllocation,scanHolderPayments} from '../server/shared/holder-execution.mjs';
 
-const commands=['service-handoff-preview','service-handoff-register','launch-prepare','launch-read','launch-quote','launch-record','launch-broadcast','launch-resolve','handoff-preview','handoff-register','holder-quote','holder-record','holder-broadcast','holder-resolve','holder-reconcile','holder-scan','holder-funding','holder-recover-funding','holder-snapshot','holder-admit','holder-plan','holder-advance'];
+const commands=['service-handoff-preview','service-handoff-register','launch-prepare','launch-read','launch-quote','launch-record','launch-broadcast','launch-resolve','handoff-preview','handoff-register','holder-quote','holder-record','holder-broadcast','holder-resolve','holder-reconcile','holder-scan','holder-funding','holder-recover-funding','holder-snapshot','holder-admit','holder-admit-page','holder-plan','holder-advance'];
 if(process.argv.includes('--help')){
  console.log('node scripts/pw-operator.mjs PRIVATE_CONFIG COMMAND [PAYLOAD_JSON]\n'+commands.join('\n')+'\nNo keys or automatic signing. Sending defaults to disabled; config paths must be absolute.');
 }else{
@@ -43,7 +43,9 @@ if(process.argv.includes('--help')){
    else if(command==='handoff-preview')result=await preparePwHolderHandoff(handoffOptions);
    else if(command==='handoff-register')result=await registerPwHolderHandoff({...handoffOptions,jobsPool:await pool('jobs'),executorPool:executor,adminPool:await pool('admin')});
    else{
-    const state=await coordinator.read(id);if(state.stage!=='deployed')throw Error('Completed PW launch required');
+    // Paged admission is read-only and verifies its own fixed-block token proof.
+    // Do not rescan the entire deployment history before every 100 addresses.
+    const state=command==='holder-admit-page'?await coordinator.inspect(id):await coordinator.read(id);if(state?.stage!=='deployed')throw Error('Completed PW launch required');
     const scope=state.scope,operator=createPwHolderOperator({pool:executor,provider,scope,allowPublicTransactions:config.allowPublicTransactions});
     switch(command){
      case 'holder-quote':result=await operator.quote(input.period,input.operation);break;
@@ -56,6 +58,7 @@ if(process.argv.includes('--help')){
      case 'holder-funding':result=await importHolderFunding(await pool('jobs'),scope,{...input,provider});break;
      case 'holder-snapshot':result=await appendHolderPreparation(await pool('jobs'),scope,input);break;
      case 'holder-admit':result=await admitHolderPreparation(await pool('jobs'),scope,{...input,provider});break;
+     case 'holder-admit-page':result=await resumeHolderAdmission(await pool('jobs'),scope,{...input,now:Math.floor(Date.now()/1000),clock:()=>Math.floor(Date.now()/1000),provider});break;
      case 'holder-plan':result=await prepareHolderAllocation(executor,scope,{...input,provider});break;
      case 'holder-advance':result=await advanceHolderPeriod(await pool('jobs'),executor,scope,{...input,provider});break;
     }
@@ -65,7 +68,7 @@ if(process.argv.includes('--help')){
  }catch(error){
   // RPC/DB exceptions may contain credential URLs or signed payloads.
   console.error('PW operator failed at '+phase+'; no automatic retry or new signature. Check the private configuration and durable journal.');process.exitCode=1;
-  if(['HOLDER_FUNDING_EVIDENCE_MISSING','RPC_BUDGET_EXHAUSTED','RPC_BUDGET_LOCKED'].includes(error.code))console.error(error.code==='HOLDER_FUNDING_EVIDENCE_MISSING'?'holder-funding-evidence-missing: run holder-recover-funding with bounded ranges, then retry.':error.code);
+  if(['HOLDER_FUNDING_EVIDENCE_MISSING','RPC_BUDGET_EXHAUSTED','RPC_BUDGET_LOCKED','RPC_OPERATION_TOO_LARGE'].includes(error.code))console.error(error.code==='HOLDER_FUNDING_EVIDENCE_MISSING'?'holder-funding-evidence-missing: run holder-recover-funding with bounded ranges, then retry.':error.code==='RPC_OPERATION_TOO_LARGE'?'RPC_OPERATION_TOO_LARGE: operation cannot fit its reserved allowance; do not retry the same full scan.':error.code);
  }finally{
   if(usage){const s=usage();console.error(JSON.stringify({rpcBudget:{...s,remaining:s.maxRequests-s.used}}));}
   await Promise.allSettled(Object.values(pools).map(p=>p.end()));provider?.destroy();

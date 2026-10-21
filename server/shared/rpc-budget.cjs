@@ -14,13 +14,15 @@ async function initializeBudget(file,{maxRequests,windowMs,now=Date.now}){
 }
 // No stale-lock deletion: after a crash an operator must verify the owner is gone.
 // Missing/corrupt state fails closed, never creates a fresh allowance automatically.
-function persistentRpcGate({file,maxRequests,windowMs,intervalMs=50,now=Date.now,wait=ms=>new Promise(r=>setTimeout(r,ms)),lockAttempts=100}){
+function persistentRpcGate({file,maxRequests,windowMs,reserveRequests=0,intervalMs=50,now=Date.now,wait=ms=>new Promise(r=>setTimeout(r,ms)),lockAttempts=100}){
  if(!isAbsolute(file)||!Number.isSafeInteger(lockAttempts)||lockAttempts<1)throw Error('Invalid RPC budget path or lock policy');
  valid({schema:'rpc-budget-v1',maxRequests,windowMs,startedAt:0,used:0});
+ if(!Number.isSafeInteger(reserveRequests)||reserveRequests<0||reserveRequests>=maxRequests)throw Error('Invalid protected RPC reserve');
  const pace=createRpcGate({intervalMs,now,sleep:wait});let last=null;
  const gate=async payload=>{
   await pace(payload);
   const count=Array.isArray(payload)?payload.length:1,lock=file+'.lock';let owner;
+  if(count>maxRequests-reserveRequests)throw Object.assign(Error('Operation cannot fit RPC window'),{code:'RPC_OPERATION_TOO_LARGE'});
   for(let i=0;i<lockAttempts;i++){
    try{owner=await fs.open(lock,'wx',0o600);break;}catch(e){if(e.code!=='EEXIST')throw e;if(i+1<lockAttempts)await wait(20);}
   }
@@ -36,19 +38,30 @@ function persistentRpcGate({file,maxRequests,windowMs,intervalMs=50,now=Date.now
    if(s.maxRequests!==maxRequests||s.windowMs!==windowMs)throw Error('RPC budget policy mismatch');
    const at=now();if(at>=s.startedAt+s.windowMs){s.startedAt=at;s.used=0;}
    last={...s};
-   if(s.used+count>s.maxRequests)throw Object.assign(Error('RPC request budget exhausted'),{code:'RPC_BUDGET_EXHAUSTED',retryAt:s.startedAt+s.windowMs});
+   if(s.used+count>s.maxRequests-reserveRequests)throw Object.assign(Error('RPC request budget exhausted'),{code:'RPC_BUDGET_EXHAUSTED',retryAt:s.startedAt+s.windowMs});
    s.used+=count;temporary=file+'.'+randomUUID()+'.tmp';
    const handle=await fs.open(temporary,'wx',0o600);
    try{await handle.writeFile(JSON.stringify(s));await handle.sync();}finally{await handle.close();}
    await fs.rename(temporary,file);temporary=null;last={...s};
    if(process.platform!=='win32'){const directory=await fs.open(dirname(file),'r');try{await directory.sync();}finally{await directory.close();}}
    // Reservation is durable before the caller is allowed to send.
+   return {...s};
   }finally{
    if(temporary)await fs.unlink(temporary).catch(()=>{});
    await owner.close();await fs.unlink(lock);
   }
  };
  gate.snapshot=()=>last?{...last,persistent:true}: {persistent:true,checked:false};
+ gate.reserve=async count=>{
+  if(!Number.isSafeInteger(count)||count<1)throw Error('Invalid RPC operation size');
+  if(count>maxRequests-reserveRequests)throw Object.assign(Error('Operation cannot fit RPC window'),{code:'RPC_OPERATION_TOO_LARGE'});
+  const reservation=await gate(Array(count).fill(null));let remaining=count;const expiresAt=reservation.startedAt+reservation.windowMs;
+  return async payload=>{const n=Array.isArray(payload)?payload.length:1;
+   if(n>remaining)throw Object.assign(Error('RPC operation reservation exhausted'),{code:'RPC_OPERATION_TOO_LARGE'});
+   remaining-=n;await pace(payload);
+   if(now()>=expiresAt)throw Object.assign(Error('RPC reservation window expired'),{code:'RPC_BUDGET_EXHAUSTED',retryAt:expiresAt});
+  };
+ };
  gate.preflight=async()=>{
   const s=valid(JSON.parse(await fs.readFile(file,'utf8')));
   if(s.maxRequests!==maxRequests||s.windowMs!==windowMs)throw Error('RPC budget policy mismatch');

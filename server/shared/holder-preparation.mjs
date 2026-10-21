@@ -5,7 +5,7 @@ import {applyHolderProgramEvent,previewHolderProgram,replayHolderProgram,HOLDER_
 import {collectHolderSnapshot} from '../../src/holders/snapshot.mjs';
 import {observeHolderFunding} from '../../src/holders/funding-receipt.mjs';
 import {reconcileHolderFunding} from '../../src/holders/reconcile.mjs';
-import {admitHolderSnapshot,recheckAdmissionBlock} from '../../src/holders/admission.mjs';
+import {admitHolderSnapshot,recheckAdmissionBlock,validateSnapshotRequest,verifyHolderSnapshotPage} from '../../src/holders/admission.mjs';
 import {readHolderExecution,resumeHolderReconciliation} from './holder-execution.mjs';
 import {observeExecution,recheckExecutionBlock} from '../../src/holders/execution.mjs';
 
@@ -138,6 +138,8 @@ export async function admitHolderPreparation(pool,input,{provider,candidateId,no
  }
  const candidate=state.candidates.find(c=>c.id===candidateId);check(candidate,'Stored candidate required');
  const window=holderObservationWindow(saved.program,state,now);
+ validateSnapshotRequest({candidate,policy:saved.program.snapshotPolicy,scope:instance,period,dueAt:window.dueAt,until:window.until,now});
+ const run=async()=>{
  const result=await admitHolderSnapshot({provider,candidate,policy:saved.program.snapshotPolicy,scope:instance,period,dueAt:window.dueAt,until:window.until,now});
  const event={id:'snapshot-admission:'+period,type:'snapshot.admitted',scopeId:id,proof:result.proof};
  const written=await appendEvent(pool,instance,event,{expectedRevision:saved.revision},async previous=>{
@@ -145,6 +147,53 @@ export async function admitHolderPreparation(pool,input,{provider,candidateId,no
   await recheckAdmissionBlock(provider,result.proof);
  });
  return {...written,rpcCalls:result.rpcCalls+2};
+ };
+ // Whole fixed-block check plus commit rechecks and provider network detection.
+ // Refuse before scanning if it cannot fit; never accept a truncated holder list.
+ return provider.withRpcReservation?provider.withRpcReservation(candidate.holders.length+10,run):run();
+}
+
+// Jobs-owned durable cursor. Lock the preparation row across one bounded page:
+// concurrent import/acceptance cannot replace its policy or accept another snapshot.
+export async function resumeHolderAdmission(pool,input,{provider,candidateId,now,maxItems=100,restart=false,clock=()=>now}){
+ const instance=scope(input),id=identity(instance);
+ check(typeof restart==='boolean'&&Number.isSafeInteger(maxItems)&&maxItems>=1&&maxItems<=200,'Invalid holder page options');
+ return inProject(pool,instance.projectId,async c=>{
+  await binding(c,instance);
+  const {rows:[row]}=await c.query('SELECT * FROM launchpad.holder_preparations WHERE project_id=$1 AND scope_id=$2 FOR UPDATE',[instance.projectId,id]);
+  const program=decode(row),state=replayHolderProgram(program),period=state.lastPeriod+1;
+  const accepted=state.admissions[period];
+  if(accepted){
+   check(accepted.candidateId===candidateId,'Holder period already admitted');
+   await recheckAdmissionBlock(provider,accepted);
+   return {status:'admitted',replayed:true,revision:row.revision,period,executionEnabled:false};
+  }
+  const candidate=state.candidates.find(x=>x.id===candidateId);check(candidate,'Stored candidate required');
+  const window=holderObservationWindow(program,state,now);
+  const args={provider,candidate,policy:program.snapshotPolicy,scope:instance,period,dueAt:window.dueAt,until:window.until,now,maxItems};
+  validateSnapshotRequest(args);
+  const {rows:[saved]}=await c.query('SELECT * FROM launchpad.holder_admission_pages WHERE project_id=$1 AND scope_id=$2 AND period=$3 AND candidate_id=$4 ORDER BY attempt DESC LIMIT 1',[instance.projectId,id,period,candidateId]);
+  if(saved)check(identity(saved.body)===saved.body_hash,'Holder progress checksum mismatch');
+  const progress=restart?null:saved?.body??null,attempt=saved?(restart?saved.attempt+1:saved.attempt):1;
+  const run=async()=>{
+   const result=await verifyHolderSnapshotPage({...args,progress});
+   await recheckAdmissionBlock(provider,{block:result.progress.block});
+   const completedAt=clock();check(Number.isSafeInteger(completedAt)&&completedAt>=now,'Holder clock regressed');
+   validateSnapshotRequest({...args,now:completedAt});
+   check(completedAt-result.progress.block.timestamp<=program.snapshotPolicy.maxAgeSeconds,'Stale holder checkpoint before commit');
+   result.progress.checkedAt=completedAt;if(result.proof)result.proof.checkedAt=completedAt;
+   let revision=row.revision;
+   if(result.proof){
+    const event={id:'snapshot-admission:'+period,type:'snapshot.admitted',scopeId:id,proof:result.proof};
+    const next=applyHolderProgramEvent(program,event);revision++;
+    await c.query('UPDATE launchpad.holder_preparations SET revision=$3,body=$4,body_hash=$5 WHERE project_id=$1 AND scope_id=$2',[instance.projectId,id,revision,JSON.stringify(next),identity(next)]);
+   }
+   await c.query('INSERT INTO launchpad.holder_admission_pages VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(project_id,scope_id,period,candidate_id,attempt) DO UPDATE SET body=EXCLUDED.body,body_hash=EXCLUDED.body_hash',[instance.projectId,id,period,candidateId,attempt,JSON.stringify(result.progress),identity(result.progress)]);
+   return {status:result.proof?'admitted':'progress',period,attempt,checked:result.progress.cursor,total:candidate.holders.length,block:result.progress.block,revision,rpcCalls:result.rpcCalls+2,executionEnabled:false};
+  };
+  const count=Math.min(maxItems,candidate.holders.length-(progress?.cursor??0))+10;
+  return provider.withRpcReservation?provider.withRpcReservation(count,run):run();
+ },{readOnly:false});
 }
 
 // Separate job/executor roles: jobs cannot fabricate execution receipts or read raw bytes.

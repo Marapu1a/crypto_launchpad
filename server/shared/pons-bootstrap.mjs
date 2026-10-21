@@ -38,7 +38,7 @@ export function configuredPonsBootstrap(config){
     const loadReport=()=>json(entry.reportFile);
     if(entry.adapter==='pw'){
      validatePwRuntimeEntry(entry);
-     const provider=makeProvider(await privateText(entry.rpcFile)),pool=createPool(await privateText(entry.databaseFile)),jobsPool=createPool(await privateText(entry.jobsDatabaseFile));pools.push(pool,jobsPool);
+     const provider=makeProvider(await privateText(entry.rpcFile),{reserveRequests:config.pwRpcReserveRequests??Math.floor(config.rpcBudget.maxRequests/2)}),pool=createPool(await privateText(entry.databaseFile)),jobsPool=createPool(await privateText(entry.jobsDatabaseFile));pools.push(pool,jobsPool);
      await verifyRole(pool,'lp_executor');await verifyRole(jobsPool,'lp_jobs');
      const {policy}=await readPwService(pool,entry.id);
      if(policy.mode!==config.mode||entry.policyHash!==digest(policy)||!isAbsolute(entry.publicFile??''))throw Error('PW runtime binding mismatch');
