@@ -53,12 +53,11 @@
     "enforcementImplemented": true,
     "automaticTopUpAllowed": false,
     "financialActivationAuthorized": false,
-    "enforcementStatus": "locally-verified-not-deployed",
+    "enforcementStatus": "deployed-awaiting-finalized-launch-handoff",
     "requiredMigration": 23
   },
   "automaticPaymentsEnabled": false,
   "blockers": [
-    "deploy-gas-budget-migration-023-and-final-preflight",
     "finalized-token-launch-and-runtime-review",
     "resolve-actual-exclusion-addresses",
     "register-and-verify-production-handoffs",

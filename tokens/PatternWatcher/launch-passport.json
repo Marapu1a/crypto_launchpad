@@ -55,7 +55,7 @@
     "monthlyGasBudgetWei": "1000000000000000",
     "approvalDate": "2026-10-21",
     "enforcementImplemented": true,
-    "enforcementStatus": "locally-verified-not-deployed"
+    "enforcementStatus": "deployed-awaiting-finalized-launch-handoff"
   },
   "rpcPolicy": {
     "paidProviderAllowed": false,
@@ -161,7 +161,7 @@
   },
   "operationalPreparation": {
     "source": "tokens/PatternWatcher/service-plan.json",
-    "status": "gas-budget-locally-verified-not-deployed",
+    "status": "gas-budget-deployed-preflight-passed-launch-disabled",
     "snapshotPageItems": 100,
     "financialExecutionApproved": false
   },
