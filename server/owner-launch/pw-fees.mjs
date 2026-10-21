@@ -11,3 +11,11 @@ export function boundedPwFees(fees,baseFee,ceiling){
  check(baseFee+priority<=maxFee,'Launch fee exceeds approved budget');
  return {maxFeePerGas:maxFee,maxPriorityFeePerGas:priority};
 }
+
+export function boundedPwGas(estimate,ceiling){
+ const cap=BigInt(ceiling),preferred=(estimate*120n+99n)/100n;
+ // Retain at least 10% headroom. A slightly smaller than 20% margin is
+ // acceptable without changing the approved gas cap or total launch budget.
+ check(estimate>0n&&(estimate*110n+99n)/100n<=cap,'Launch gas exceeds approved budget');
+ return preferred<cap?preferred:cap;
+}

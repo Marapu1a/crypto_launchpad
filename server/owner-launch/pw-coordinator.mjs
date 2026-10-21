@@ -7,7 +7,7 @@ import {FACTORY,NETWORK} from '../../src/pons/client.mjs';
 import {holderFundingInstance} from '../../src/holders/funding-receipt.mjs';
 import {identity,uint,address} from '../../src/holders/values.mjs';
 import {validatePwProductionProfile,verifyPwProductionEnvironment} from './pw-profile.mjs';
-import {boundedPwFees} from './pw-fees.mjs';
+import {boundedPwFees,boundedPwGas} from './pw-fees.mjs';
 
 let cachedBuild;
 // Keyless coordinator. Public recording/broadcast requires a server-owned switch.
@@ -95,8 +95,7 @@ export function createPwOwnerCoordinator({pool,provider,profile,preparation,allo
    const fees=await provider.getFeeData(),feeBlock=await provider.getBlock('latest');
    const {maxFeePerGas:maxFee,maxPriorityFeePerGas:priority}=boundedPwFees(fees,feeBlock?.baseFeePerGas,profile.maxFeePerGas);
    const request={...step.request,from:owner,type:2,maxFeePerGas:maxFee,maxPriorityFeePerGas:priority};
-   const estimate=await provider.estimateGas(request),gasLimit=(estimate*120n+99n)/100n;
-   check(gasLimit<=uint(profile.maxGasLimit),'Launch gas exceeds approved budget');
+   const estimate=await provider.estimateGas(request),gasLimit=boundedPwGas(estimate,profile.maxGasLimit);
    const maximum=gasLimit*maxFee+BigInt(request.value);
    check(await provider.getBalance(owner)>=maximum+uint(profile.nativeFloor??'0'),'Owner gas reserve insufficient');
    return plain({kind:step.kind,request:{...request,gasLimit},estimatedGas:estimate,maximumNativeCost:maximum,totalNativeLimit:profile.totalNativeLimit,authorizationToSend:false});
