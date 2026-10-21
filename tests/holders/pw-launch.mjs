@@ -13,6 +13,7 @@ import {createPool} from '../../server/shared/store.mjs';
 import {initialDraft} from '../../src/pons/plan.mjs';
 import {FACTORY,NETWORK} from '../../src/pons/client.mjs';
 import {compilePwLaunch} from '../../src/launch/pw-build.mjs';
+import {sendPwBrowserStep} from '../../src/launch/pw-browser-wallet.mjs';
 const root='.local/test-results/pw-launch-'+new Date().toISOString().replace(/[:.]/g,'-');mkdirSync(root,{recursive:true});
 const report={status:'FAIL',checks:[],remoteReads:0,limits:['Local fork only; no public sends','Temporary funded Hardhat wallets; not production identities','Service registered locally, disabled; no production signing switch']};
 const endpoint=readFileSync('.local/config/pons-rpc.txt','utf8').trim();assert.ok(new URL(endpoint).hostname.endsWith('.alchemy.com'));
@@ -45,9 +46,27 @@ try{
  const quote=await coordinator.quote(input.id);assert.equal(quote.kind,'vault');assert.equal(quote.request.nonce,state.steps[0].request.nonce);assert.equal(quote.authorizationToSend,false);report.quote=quote;
  assert.deepEqual((await coordinator.prepare(input)).steps,state.steps);
  await assert.rejects(coordinator.prepare({...input,slug:'different'}),/input changed/);
+ const revised={...input,draft:{...input.draft,telegram:'https://t.me/qianqi_hub_bot'}};
+ state=await coordinator.prepare(revised,{replaceUnsent:true});
+ assert.equal(state.input.draft.telegram,revised.draft.telegram);assert.equal(state.superseded.length,1);
  const sign=async(step,extra={})=>signing.signTransaction({...step.request,type:2,gasLimit:15000000,maxFeePerGas:3000000000,maxPriorityFeePerGas:1000000000,...extra});
  await assert.rejects(coordinator.record(input.id,await sign(state.steps[0],{value:1})),/mismatch/);
  for(let i=0;i<9;i++){
+  if(i<4){
+   const q=await coordinator.quote(input.id);await coordinator.armWallet(input.id,q);
+   coordinator=make();state=await coordinator.inspect(input.id);assert.equal(state.stage,'wallet-pending');
+   await assert.rejects(coordinator.quote(input.id),/Resolve/);
+   await assert.rejects(coordinator.prepare(input,{replaceUnsent:true}),/input changed/);
+   const wallet={request:({method,params})=>hre.network.provider.request({method:method==='eth_requestAccounts'?'eth_accounts':method,params:params??[]})};
+   const hash=await sendPwBrowserStep(wallet,q.request,owner);
+   coordinator=make();assert.equal((await coordinator.inspect(input.id)).walletPending.kind,q.kind);
+   await assert.rejects(sendPwBrowserStep(wallet,q.request,owner),/Номер транзакции/);
+   await assert.rejects(coordinator.attachWallet(input.id,'0x'+'0'.repeat(64)),/not visible/);
+   state=await coordinator.attachWallet(input.id,hash);assert.equal(state.pending.hash,hash);
+   assert.equal((await coordinator.attachWallet(input.id,hash)).pending.hash,hash);
+   state=await make().resolve(input.id);assert.equal(state.history.length,i+1);
+   continue;
+  }
   const step=state.steps[i],raw=await sign(step);await coordinator.record(input.id,raw);
   coordinator=make();state=await coordinator.read(input.id);assert.equal(state.pending.raw,raw);
   assert.equal((await coordinator.resolve(input.id)).history.length,i);

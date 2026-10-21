@@ -7,18 +7,19 @@ export function launchView(s){
  if(!s)return {stage:'not-prepared',history:[],steps:[],pending:null};
  return {stage:s.stage,token:s.scope?.token,launchAt:s.launchAt,finality:s.finality,
   steps:s.steps.map(x=>({kind:x.kind})),history:s.history.map(x=>({kind:x.kind,hash:x.hash,blockNumber:x.blockNumber})),
-  pending:s.pending?{kind:s.pending.kind,hash:s.pending.hash}:null};
+  pending:s.pending?{kind:s.pending.kind,hash:s.pending.hash}:null,
+  walletPending:s.walletPending?{kind:s.walletPending.kind,request:s.walletPending.request}:null};
 }
 
 // No caller-controlled calldata or keys. Review tokens expire on restart and are
 // bound to the exact quoted request. Signed bytes enter the existing durable
 // coordinator before a separate broadcast action can become available.
-export function createPwConsole({coordinator,input,owner,signer,enabled=false,usage=()=>null,now=Date.now}){
+export function createPwConsole({coordinator,input,owner,signer,browserWallet=false,enabled=false,usage=()=>null,now=Date.now}){
  let busy=false,review=null;
  const status=async()=>({...launchView(await coordinator.inspect(input.id)),rpcBudget:usage()});
  return {
-  config:()=>({name:input.draft.name,symbol:input.draft.symbol,website:input.draft.website,owner,chainId:4663,
-   signingEnabled:enabled&&!!signer,sendEnabled:enabled,mode:coordinator.info().mode}),
+  config:()=>({name:input.draft.name,symbol:input.draft.symbol,description:input.draft.description,telegram:input.draft.telegram,website:input.draft.website,owner,chainId:4663,
+   browserWallet,signingEnabled:enabled&&(browserWallet||!!signer),sendEnabled:enabled,mode:coordinator.info().mode}),
   async run(action,body={}){
    check(!busy,'Операция уже выполняется. Обновите состояние.');busy=true;
    try{
@@ -46,6 +47,20 @@ export function createPwConsole({coordinator,input,owner,signer,enabled=false,us
      }
      const result=await coordinator.record(input.id,review.raw);review=null;return launchView(result);
     }
+    if(action==='wallet-arm'){
+     check(enabled&&browserWallet,'Подпись в браузере отключена.');
+     const saved=await coordinator.inspect(input.id);
+     if(saved?.walletPending)return launchView(saved);
+     check(review&&review.id===body.reviewId&&now()<review.expiresAt,'Расчёт устарел. Получите новую оценку.');
+     // armWallet checks chain/history, nonce, balance and eth_call again under
+     // the journal lock. Keep the reviewed fee ceiling instead of chasing a
+     // different quote on every block or spending RPC on a duplicate estimate.
+     const result=await coordinator.armWallet(input.id,review.quote);review=null;return launchView(result);
+    }
+    if(action==='wallet-attach'){
+     check(browserWallet,'Браузерный режим отключён.');
+     return launchView(await coordinator.attachWallet(input.id,body.hash));
+    }
     if(action==='broadcast'){
      check(enabled,'Отправка отключена в конфигурации.');
      const s=await coordinator.inspect(input.id);
@@ -69,7 +84,7 @@ export function pwConsoleHttp(consoleApp,{origin}){
    if(req.method==='GET'&&route==='/api/pw-owner/config')return reply(200,consoleApp.config());
    if(req.method!=='POST'||req.headers.origin!==origin)return reply(403,{error:'Недопустимый запрос.'});
    if(req.headers['content-type']!=='application/json'||req.headers['content-encoding'])return reply(415,{error:'Требуется JSON.'});
-   const action=route.slice('/api/pw-owner/'.length),keys={status:[],prepare:[],quote:[],sign:['reviewId'],broadcast:['hash'],resolve:[]}[action];
+   const action=route.slice('/api/pw-owner/'.length),keys={status:[],prepare:[],quote:[],sign:['reviewId'],'wallet-arm':['reviewId'],'wallet-attach':['hash'],broadcast:['hash'],resolve:[]}[action];
    if(!keys)return reply(404,{error:'Неизвестная операция.'});
    let text='',size=0;for await(const chunk of req){size+=chunk.length;if(size>4096)return reply(413,{error:'Слишком большой запрос.'});text+=chunk;}
    let body;try{body=JSON.parse(text);}catch{return reply(400,{error:'Некорректный JSON.'});}

@@ -30,3 +30,17 @@ test('signer cannot change reviewed fees even within launch policy limits',async
  const f=fixture({signer:{getAddress:()=>owner.getAddress(),signTransaction:r=>owner.signTransaction({...r,maxFeePerGas:101})}});
  await f.app.run('prepare');const q=await f.app.run('quote');await assert.rejects(f.app.run('sign',{reviewId:q.reviewId}));assert.equal(f.counts().records,0);
 });
+
+test('browser arm uses a live review, persists before returning and recovers after restart without signing',async()=>{
+ let state={stage:'prepared',steps:[{kind:'vault'}],history:[],pending:null},armed=0,quotes=0,at=0;
+ const request={from:owner.address,nonce:0};
+ const coordinator={info:()=>({mode:'preview'}),inspect:async()=>state,quote:async()=>{quotes++;return {kind:'vault',request};},armWallet:async(id,q)=>{armed++;state={...state,stage:'wallet-pending',walletPending:q};return state;}};
+ const make=(enabled=true)=>createPwConsole({coordinator,input:{id:'fixture',draft:{name:'PW'}},owner:owner.address,browserWallet:true,enabled,now:()=>at});
+ let app=make();const q=await app.run('quote');
+ await assert.rejects(app.run('wallet-arm',{reviewId:'wrong'}));assert.equal(armed,0);
+ await assert.rejects(make(false).run('wallet-arm',{reviewId:q.reviewId}));
+ at=120001;await assert.rejects(app.run('wallet-arm',{reviewId:q.reviewId}));assert.equal(armed,0);
+ const live=await app.run('quote');const result=await app.run('wallet-arm',{reviewId:live.reviewId});
+ assert.deepEqual(result.walletPending.request,request);assert.equal(armed,1);assert.equal(quotes,2);
+ app=make();assert.deepEqual((await app.run('wallet-arm')).walletPending.request,request);assert.equal(armed,1);
+});

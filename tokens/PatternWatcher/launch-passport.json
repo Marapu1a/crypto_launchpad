@@ -14,7 +14,8 @@
     "descriptionStatus": "prepared",
     "approvedAt": "2026-10-19",
     "websiteStatus": "published-https",
-    "description": "Pattern Watcher explores the first hour of tokens on Pons: buyer addresses, purchases, volumes and wallet activity. Observe the patterns. Draw your own conclusions."
+    "description": "Pattern Watcher explores the first hour of tokens on Pons: buyer addresses, purchases, volumes and wallet activity. Observe the patterns. Draw your own conclusions.",
+    "telegram": "https://t.me/qianqi_hub_bot"
   },
   "proposals": {},
   "assets": {

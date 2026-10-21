@@ -59,9 +59,12 @@ export function createPwOwnerCoordinator({pool,provider,profile,preparation,allo
  return {
   info(){return {mode:profile.mode,profileHash:identity(profile),preparationHash:identity(preparation),buildHash:build.manifest.buildHash,signingEnabled:!production||allowPublicTransactions,executionEnabled:false};},
   async inspect(id){return lock(id,async({state})=>{if(state)stateCheck(state);return state;});},
-  async prepare(input){return lock(input.id,async({state,save})=>{
+  async prepare(input,{replaceUnsent=false}={}){return lock(input.id,async({state,save})=>{
    if(production)check(input.id===profile.id&&input.draft.name===preparation.name&&typeof input.draft.symbol==='string'&&input.draft.symbol.length>0,'Production project/name/ticker required');
-   if(state){stateCheck(state);check(identity(input)===state.inputHash,'Launch input changed');await history(state);return state;}
+   if(state){stateCheck(state);
+    if(identity(input)===state.inputHash){await history(state);return state;}
+    check(replaceUnsent&&state.stage==='prepared'&&state.history.length===0&&!state.pending&&!state.walletPending,'Launch input changed');
+   }
    check(/^[a-z0-9][a-z0-9-]{1,49}$/.test(input.slug),'Invalid slug');await environment();
    const nonce=await provider.getTransactionCount(owner,'latest');check(nonce===await provider.getTransactionCount(owner,'pending'),'Owner has pending transactions');
    const addresses=Object.fromEntries(['vault','draw','splitter','collector'].map((role,i)=>[role,getCreateAddress({from:owner,nonce:nonce+i})]));
@@ -79,11 +82,13 @@ export function createPwOwnerCoordinator({pool,provider,profile,preparation,allo
    steps.forEach((step,i)=>{step.request.nonce=nonce+i;step.request.chainId=4663;});
    const maximum=steps.reduce((sum,s)=>sum+BigInt(s.request.value)+uint(profile.maxGasLimit)*uint(profile.maxFeePerGas),0n);
    check(maximum<=uint(profile.totalNativeLimit)&&await provider.getBalance(owner)>=maximum+uint(profile.nativeFloor??'0'),'Deployment budget insufficient');
-   const s=plain({schema:'pw-owner-launch-v1',identity:identity({binding,input,scope,nonce}),binding,input,inputHash:identity(input),roles,scope,instance,addresses,curve:launchPlan.curve,steps,history:[],contracts:{},pending:null,stage:'prepared',executionEnabled:false});await save(s);return s;
+   const s=plain({schema:'pw-owner-launch-v1',identity:state?.identity??identity({binding,input,scope,nonce}),binding,input,inputHash:identity(input),roles,scope,instance,addresses,curve:launchPlan.curve,steps,history:[],contracts:{},pending:null,stage:'prepared',executionEnabled:false});
+   if(state)s.superseded=[...(state.superseded??[]),{input:state.input,inputHash:state.inputHash,steps:state.steps,scope:state.scope}];
+   await save(s);return s;
   });},
   async read(id){return lock(id,async({state})=>{await history(state);return state;});},
   async quote(id){return lock(id,async({state:s})=>{
-   await history(s);check(!s.pending&&!['failed','deployed','awaiting-finality'].includes(s.stage),'Resolve launch before next quote');
+   await history(s);check(!s.pending&&!s.walletPending&&!['failed','deployed','awaiting-finality'].includes(s.stage),'Resolve launch before next quote');
    const step=s.steps[s.history.length];check(step,'No next launch step');
    check(await provider.getTransactionCount(owner,'latest')===step.request.nonce&&await provider.getTransactionCount(owner,'pending')===step.request.nonce,'Owner nonce changed');
    const fees=await provider.getFeeData(),maxFee=fees.maxFeePerGas??fees.gasPrice,priority=fees.maxPriorityFeePerGas??0n;
@@ -95,10 +100,31 @@ export function createPwOwnerCoordinator({pool,provider,profile,preparation,allo
    check(await provider.getBalance(owner)>=maximum+uint(profile.nativeFloor??'0'),'Owner gas reserve insufficient');
    return plain({kind:step.kind,request:{...request,gasLimit},estimatedGas:estimate,maximumNativeCost:maximum,totalNativeLimit:profile.totalNativeLimit,authorizationToSend:false});
   });},
+  async armWallet(id,quote){check(!production||allowPublicTransactions,'Public signing is disabled');return lock(id,async({state:s,save})=>{
+   await history(s);
+   check(!s.pending&&!s.walletPending&&s.stage==='prepared','Resolve pending launch transaction first');
+   const step=s.steps[s.history.length],r=quote.request;
+   check(step&&quote.kind===step.kind&&same(r.from,owner)&&Number(r.chainId)===4663&&r.type===2&&r.nonce===step.request.nonce&&same(r.to,step.request.to??null)&&r.data===step.request.data&&BigInt(r.value)===BigInt(step.request.value),'Wallet request mismatch');
+   check(BigInt(r.gasLimit)>0n&&BigInt(r.gasLimit)<=uint(profile.maxGasLimit)&&BigInt(r.maxFeePerGas)>0n&&BigInt(r.maxFeePerGas)<=uint(profile.maxFeePerGas)&&BigInt(r.maxPriorityFeePerGas)>=0n&&BigInt(r.maxPriorityFeePerGas)<=BigInt(r.maxFeePerGas),'Launch gas budget exceeded');
+   check(await provider.getTransactionCount(owner,'latest')===r.nonce&&await provider.getTransactionCount(owner,'pending')===r.nonce,'Owner nonce changed');
+   check(await provider.getBalance(owner)>=BigInt(r.value)+BigInt(r.gasLimit)*BigInt(r.maxFeePerGas)+uint(profile.nativeFloor??'0'),'Owner gas reserve insufficient');
+   await provider.call(r);
+   s.walletPending={kind:step.kind,request:plain(r)};s.stage='wallet-pending';await save(s);return s;
+  });},
+  async attachWallet(id,hash){return lock(id,async({state:s,save})=>{
+   check(/^0x[0-9a-fA-F]{64}$/.test(hash),'Invalid transaction hash');await history(s);
+   if(s.pending){check(s.pending.hash.toLowerCase()===hash.toLowerCase(),'Different pending transaction');return s;}
+   check(s.walletPending&&s.stage==='wallet-pending','No wallet reservation');
+   const actual=await provider.getTransaction(hash);check(actual,'Wallet transaction not visible yet');
+   const tx=Transaction.from(actual),r=s.walletPending.request;
+   check(tx.isSigned()&&same(tx.hash,hash)&&same(tx.from,owner)&&Number(tx.chainId)===4663&&tx.nonce===r.nonce&&same(tx.to,r.to??null)&&tx.data===r.data&&tx.value===BigInt(r.value),'Wallet transaction mismatch');
+   check(tx.type===2&&tx.gasLimit>0n&&tx.gasLimit<=BigInt(r.gasLimit)&&tx.maxFeePerGas>0n&&tx.maxFeePerGas<=BigInt(r.maxFeePerGas)&&tx.maxPriorityFeePerGas<=tx.maxFeePerGas,'Reviewed wallet budget exceeded');
+   s.pending={kind:s.walletPending.kind,hash:tx.hash,raw:tx.serialized};s.walletPending=null;s.stage='pending';await save(s);return s;
+  });},
   async record(id,raw){check(!production||allowPublicTransactions,'Public signing is disabled');return lock(id,async({state:s,save})=>{
    await history(s);const tx=Transaction.from(raw);
    if(s.pending){check(s.pending.raw===tx.serialized,'Resolve pending launch transaction first');return s;}
-   check(!['failed','deployed'].includes(s.stage),'Launch not writable');
+   check(!s.walletPending&&!['failed','deployed'].includes(s.stage),'Launch not writable');
    const step=s.steps[s.history.length];check(step,'No next launch step');const r=step.request;
    check(tx.isSigned()&&same(tx.from,owner)&&Number(tx.chainId)===4663&&tx.nonce===r.nonce&&same(tx.to,r.to??null)&&tx.data===r.data&&tx.value===BigInt(r.value),'Signed launch request mismatch');
    check(tx.type===2&&tx.gasLimit>0n&&tx.gasLimit<=uint(profile.maxGasLimit)&&tx.maxFeePerGas>0n&&tx.maxFeePerGas<=uint(profile.maxFeePerGas)&&tx.maxPriorityFeePerGas<=tx.maxFeePerGas,'Launch gas budget exceeded');

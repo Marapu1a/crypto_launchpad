@@ -17,7 +17,7 @@ try{
  const preparation=JSON.parse(await readFile(new URL('../tokens/PatternWatcher/preparation.json',import.meta.url),'utf8'));
  const coordinator=createPwOwnerCoordinator({pool,provider,profile:c.profile,preparation,allowPublicTransactions:c.allowPublicTransactions});
  const signer=await loadPwOwnerSigner(c);
- const app=createPwConsole({coordinator,input:c.launchInput,owner:c.profile.owner,signer,enabled:c.allowPublicTransactions,usage:rpc.usage});
+ const app=createPwConsole({coordinator,input:c.launchInput,owner:c.profile.owner,signer,browserWallet:c.browserWallet===true,enabled:c.allowPublicTransactions,usage:rpc.usage});
  const origin='http://127.0.0.1:'+c.httpPort,middleware=pwConsoleHttp(app,{origin});
  server=createServer((req,res)=>middleware(req,res,async()=>{
   try{
