@@ -3,6 +3,19 @@ import {Transaction} from 'ethers';
 import {identity} from '../../src/holders/values.mjs';
 
 const check=(ok,message)=>{if(!ok)throw Object.assign(Error(message),{code:'PW_CONSOLE'});};
+export function pwConsoleError(e){
+ if(e.code==='PW_CONSOLE')return e.message;
+ if(e.code==='RPC_BUDGET_EXHAUSTED')return 'Лимит RPC исчерпан. Сохранённый шаг остаётся в журнале.';
+ const known={
+  'Launch fee exceeds approved budget':'Текущая цена газа выше согласованного лимита. Попробуйте рассчитать шаг позже; предыдущие шаги сохранены.',
+  'Launch fee data unavailable':'RPC не вернул корректную цену газа. Повторите расчёт шага.',
+  'Launch gas exceeds approved budget':'Оценка расхода газа превысила лимит шага. Нужна проверка оператора.',
+  'Owner nonce changed':'Номер транзакции кошелька изменился. Проверьте журнал и историю кошелька.',
+  'PW production clock/finality outside policy':'Данные сети или финализированный блок отстают. Повторите расчёт позже.',
+  'Wallet transaction not visible yet':'RPC пока не видит транзакцию. Сохраните её хеш и повторите проверку.',
+ };
+ return e.code==='OWNER_LAUNCH'&&known[e.message]||'Шаг не завершён. Обновите состояние; журнал сохранён.';
+}
 export function launchView(s){
  if(!s)return {stage:'not-prepared',history:[],steps:[],pending:null};
  return {stage:s.stage,token:s.scope?.token,launchAt:s.launchAt,finality:s.finality,
@@ -92,7 +105,7 @@ export function pwConsoleHttp(consoleApp,{origin}){
    return reply(200,await consoleApp.run(action,body));
   }catch(e){
    // Provider/DB errors can contain credentials or raw signed bytes.
-   return reply(409,{error:e.code==='PW_CONSOLE'?e.message:e.code==='RPC_BUDGET_EXHAUSTED'?'Лимит RPC исчерпан. Сохранённый шаг остаётся в журнале.':'Шаг не завершён. Обновите состояние; журнал сохранён.'});
+   return reply(409,{error:pwConsoleError(e)});
   }
  };
 }

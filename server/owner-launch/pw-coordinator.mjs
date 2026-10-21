@@ -7,6 +7,7 @@ import {FACTORY,NETWORK} from '../../src/pons/client.mjs';
 import {holderFundingInstance} from '../../src/holders/funding-receipt.mjs';
 import {identity,uint,address} from '../../src/holders/values.mjs';
 import {validatePwProductionProfile,verifyPwProductionEnvironment} from './pw-profile.mjs';
+import {boundedPwFees} from './pw-fees.mjs';
 
 let cachedBuild;
 // Keyless coordinator. Public recording/broadcast requires a server-owned switch.
@@ -91,8 +92,8 @@ export function createPwOwnerCoordinator({pool,provider,profile,preparation,allo
    await history(s);check(!s.pending&&!s.walletPending&&!['failed','deployed','awaiting-finality'].includes(s.stage),'Resolve launch before next quote');
    const step=s.steps[s.history.length];check(step,'No next launch step');
    check(await provider.getTransactionCount(owner,'latest')===step.request.nonce&&await provider.getTransactionCount(owner,'pending')===step.request.nonce,'Owner nonce changed');
-   const fees=await provider.getFeeData(),maxFee=fees.maxFeePerGas??fees.gasPrice,priority=fees.maxPriorityFeePerGas??0n;
-   check(maxFee>0n&&maxFee<=uint(profile.maxFeePerGas)&&priority<=maxFee,'Launch fee exceeds approved budget');
+   const fees=await provider.getFeeData(),feeBlock=await provider.getBlock('latest');
+   const {maxFeePerGas:maxFee,maxPriorityFeePerGas:priority}=boundedPwFees(fees,feeBlock?.baseFeePerGas,profile.maxFeePerGas);
    const request={...step.request,from:owner,type:2,maxFeePerGas:maxFee,maxPriorityFeePerGas:priority};
    const estimate=await provider.estimateGas(request),gasLimit=(estimate*120n+99n)/100n;
    check(gasLimit<=uint(profile.maxGasLimit),'Launch gas exceeds approved budget');
