@@ -85,5 +85,5 @@ test('Three languages, project menu and launched PW are available without typing
 });
 test('Hub gives PW monitor links instead of an unrelated USDG draw iframe',()=>{
  const html=hubCards(liveCatalog),pw=html.slice(html.indexOf('<article class="project project-monitor"'));
- assert.ok(pw.includes('PW on Pons'));assert.ok(pw.includes('qianqi_hub_bot'));assert.ok(!pw.includes('<iframe'));assert.ok(!pw.includes('USDG draws'));
+ assert.ok(pw.includes('Visit website'));assert.ok(!pw.includes('project-actions'));assert.ok(!pw.includes('<iframe'));assert.ok(!pw.includes('USDG draws'));
 });
