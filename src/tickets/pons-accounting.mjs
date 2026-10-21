@@ -9,6 +9,14 @@ const check=(v,m)=>{if(!v)throw Error(m);};
 const same=(a,b)=>String(a).toLowerCase()===String(b).toLowerCase();
 const uint=v=>typeof v==='string'&&/^(0|[1-9]\d*)$/.test(v);
 const idOf=e=>e.transactionHash.toLowerCase()+':'+Number(e.logIndex);
+// The persisted QIANQI USDG policy predates the asset field. Resolve its units
+// without rewriting the policy: its digest binds existing credits and journals.
+function accountingAsset(policy){
+ const config=policy.template.config;
+ if(Object.hasOwn(config,'asset'))return drawAsset(config.asset).symbol;
+ check(same(policy.contracts.quote?.address,drawAsset('USDG').address),'Unsupported legacy accounting asset');
+ return 'USDG';
+}
 
 // Pons observations are an explicitly trusted source, not on-chain purchase proofs.
 // This adapter preserves old credited amounts when the same purchase appears in Pons.
@@ -16,8 +24,8 @@ export function advancePonsAccounting({policy,report,prior,legacyCredits=[],head
  check(report?.schema==='pons-purchase-accounting-v1'&&report.source==='Pons API'&&report.status==='current'&&!report.error&&!report.reviewCount,'Pons report unavailable/requires review');
  check(Number.isSafeInteger(report.checkedAt)&&now-report.checkedAt>=0&&now-report.checkedAt<=maxAge,'Stale Pons report');
  check(Number.isSafeInteger(head.number)&&Number.isSafeInteger(head.timestamp)&&/^0x[0-9a-f]{64}$/i.test(head.hash),'Invalid source checkpoint');
- const p=report.profile;
- check(same(p.token,policy.contracts.token.address)&&same(p.quote,quoteAddress(policy))&&p.decimals===drawAsset(policy.template.config.asset).decimals&&amount(p.threshold,undefined,policy.template.config.asset)===amount(policy.template.config.ticketPurchase,undefined,policy.template.config.asset),'Pons profile mismatch');
+ const p=report.profile,asset=accountingAsset(policy);
+ check(same(p.token,policy.contracts.token.address)&&same(p.quote,quoteAddress(policy))&&p.decimals===drawAsset(asset).decimals&&amount(p.threshold,undefined,asset)===amount(policy.template.config.ticketPurchase,undefined,asset),'Pons profile mismatch');
  check(Array.isArray(p.excludedWallets)&&Array.isArray(p.venues)&&p.venues.length===1&&p.venues[0]==='curve','Invalid Pons eligibility profile');
  const binding=digest({policy:digest(policy),profile:p});
  check(!prior||prior.binding===binding,'Pons accounting identity changed');
@@ -47,7 +55,7 @@ export function advancePonsAccounting({policy,report,prior,legacyCredits=[],head
    [{id,decision:'preserve-existing-credit',legacyWallet:e.recipient,legacyAmountRaw:e.netQuoteDebitRaw,pons:observed??null}]:[];
  });
  // Validate original credits before exposing a new state to the caller.
- ponsWallets(next,String(amount(p.threshold,undefined,policy.template.config.asset)),head.number);
+ ponsWallets(next,String(amount(p.threshold,undefined,asset)),head.number);
  return next;
 }
 
@@ -70,7 +78,7 @@ export function ponsWallets(state,threshold,cutoff=state.head.number,revision=st
 
 export async function snapshotPonsTickets(policy,state,program,cutoff=state.head,revision=state.revision){
  check(Number.isSafeInteger(revision)&&revision>0&&revision<=state.revision,'Invalid Pons snapshot revision');
- const wallets=ponsWallets(state,String(amount(policy.template.config.ticketPurchase,undefined,policy.template.config.asset)),cutoff.number,revision),participants=[];
+ const wallets=ponsWallets(state,String(amount(policy.template.config.ticketPurchase,undefined,accountingAsset(policy))),cutoff.number,revision),participants=[];
  for(const wallet of Object.keys(wallets).sort()){
   const used=BigInt(await program.consumedThrough(wallet)),end=BigInt(wallets[wallet].tickets);
   check(used>=0n&&used<=end,'Consumed attempts exceed Pons/migrated history');

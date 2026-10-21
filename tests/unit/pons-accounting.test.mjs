@@ -11,6 +11,23 @@ const report={schema:'pons-purchase-accounting-v1',source:'Pons API',status:'cur
  profile:{project:'sample',token,quote,decimals:6,threshold:'100',excludedWallets:[],venues:['curve']},tradeCount:1,activity:[row]};
 const advance=(extra={})=>advancePonsAccounting({policy,report,head,now:1000,...extra});
 const legacy={status:'ELIGIBLE',transactionHash:tx,logIndex:0,recipient:wallet,netQuoteDebitRaw:'200000000'};
+
+test('Persisted pre-asset QIANQI policy retains identity, credits and snapshots',async()=>{
+ const usd='0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168';
+ const oldPolicy=structuredClone(policy);delete oldPolicy.template.config.asset;oldPolicy.contracts.quote.address=usd;
+ const oldReport={...report,profile:{...report.profile,quote:usd}};
+ const before=JSON.stringify(oldPolicy);
+ // Persisted accounting created by the earlier USDG-only implementation.
+ const prior=advance({policy:{...oldPolicy,template:{config:{...oldPolicy.template.config,asset:'USDG'}}},report:oldReport,legacyCredits:[legacy]});
+ prior.binding=digest({policy:digest(oldPolicy),profile:oldReport.profile});
+ const next=advance({policy:oldPolicy,report:oldReport,prior});
+ assert.equal(next.binding,prior.binding);assert.equal(JSON.stringify(oldPolicy),before);
+ assert.deepEqual(ponsWallets(next,'100000000'),ponsWallets(prior,'100000000'));
+ const snapshot=await snapshotPonsTickets(oldPolicy,next,{target:token,consumedThrough:async()=>1n});
+ assert.deepEqual(snapshot.participants,[{wallet,firstAttempt:'2',lastAttempt:'2'}]);
+ assert.throws(()=>advance({policy:{...oldPolicy,contracts:policy.contracts},report:oldReport}),/Unsupported legacy/);
+ for(const asset of [null,'INVALID'])assert.throws(()=>advance({policy:{...oldPolicy,template:{config:{...oldPolicy.template.config,asset}}},report:oldReport}),/Unsupported draw asset/);
+});
 test('Pons amounts and migrated credits are not counted twice',()=>{
  assert.equal(ponsWallets(advance(),'100000000')[wallet].tickets,'1');
  const old=advance({legacyCredits:[legacy]});assert.equal(ponsWallets(old,'100000000')[wallet].tickets,'2');
