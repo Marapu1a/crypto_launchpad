@@ -61,36 +61,80 @@ def read(url):
     return validate_page(data)
 
 def history(token, cutoff, end=None):
+    """Resume bounded pagination; only certified ranges may mark a bucket complete."""
     end = int(time.time())-60 if end is None else end
-    cached = CACHE.get(token["address"])
-    # Legacy cache has no lower coverage bound. Never assume it covers an outage.
-    if cached and (cached.get('from', float('inf')) > cutoff or cached.get('until', 0) > end):
-        cached = None
-    overlap = max(cutoff, cached["until"]-300) if cached else cutoff
-    # Refresh the covered overlap, including deletions; retain only older rows.
-    rows = {k:v for k,v in cached['rows'].items() if v['timestamp'] < overlap} if cached else {}
-    cursor = None
-    seen = set()
+    address=token['address']
+    cached=CACHE.get(address)
+    if cached and (cached.get('from',float('inf'))>cutoff or cached.get('until',0)>end):
+        cached=None
+    pending=cached.get('pending') if cached else None
+    ranges=[]
     issue='page_limit'
     for _ in range(TRADE_PAGES):
-        url = BASE + '/' + token['address'] + '?view=trades'
-        if cursor:
-            url += '&cursor=' + urllib.parse.quote(str(cursor))
-        data = validate_page(read(url))
-        for row in data['items']:
-            rows[row['id']] = row
-        cursor = data.get('nextCursor')
-        if not cursor or (data['items'] and min(x['timestamp'] for x in data['items']) < overlap):
-            rows = {k:v for k,v in rows.items() if v['timestamp'] >= cutoff}
-            CACHE[token['address']] = dict(rows=rows, **{'from':cutoff}, until=end)
-            HISTORY_ISSUES.pop(token['address'],None)
-            return token, list(rows.values()), True
-        if str(cursor) in seen:
-            issue='cursor_repeated'
+        if pending is None:
+            overlap=max(cutoff,cached['until']-300) if cached else cutoff
+            pending=dict(cursor=None,seen=[],rows={},overlap=overlap,end=end,oldest=None)
+        url=BASE+'/'+address+'?view=trades'
+        if pending['cursor']:
+            url+='&cursor='+urllib.parse.quote(pending['cursor'])
+        try:
+            data=validate_page(read(url))
+        except (OSError, TimeoutError, ScanLimitError) as exc:
+            issue=type(exc).__name__
             break
-        seen.add(str(cursor))
-    HISTORY_ISSUES[token['address']]=issue
-    return token, list(rows.values()), False
+        stamps=[r['timestamp'] for r in data['items']]
+        # A cursor must walk backwards, including ties at page boundaries.
+        if stamps and pending['oldest'] is not None and max(stamps)>pending['oldest']:
+            issue='page_order';pending=None
+            break
+        pending['rows'].update({r['id']:r for r in data['items']})
+        if stamps:pending['oldest']=min(stamps)
+        cursor=data['nextCursor']
+        if not cursor or (stamps and min(stamps)<pending['overlap']):
+            rows={k:v for k,v in (cached or {}).get('rows',{}).items() if cutoff<=v['timestamp']<pending['overlap']}
+            rows.update({k:v for k,v in pending['rows'].items() if v['timestamp']>=cutoff})
+            cached=dict(rows=rows,**{'from':cutoff},until=pending['end'])
+            CACHE[address]=cached
+            pending=None
+            if cached['until']>=end:
+                HISTORY_ISSUES.pop(address,None)
+                return token,list(rows.values()),True
+            # Completed an older pass: spend remaining pages on the fresh head.
+            continue
+        if cursor in pending['seen']:
+            issue='cursor_repeated';pending=None
+            break
+        pending['seen'].append(cursor)
+        pending['cursor']=cursor
+    rows=dict((cached or {}).get('rows',{}))
+    if cached:ranges.append([cached['from'],cached['until']])
+    if pending:
+        # Replace the overlap only where the new pass actually reached it.
+        lower=pending['oldest']+1 if pending['oldest'] is not None else pending['end']
+        rows={k:v for k,v in rows.items() if not lower<=v['timestamp']<pending['end']}
+        rows.update(pending['rows'])
+        if lower<pending['end']:ranges.append([lower,pending['end']])
+        base=cached or dict(rows={},**{'from':cutoff},until=cutoff)
+        CACHE[address]={**base,'pending':pending}
+    elif cached and 'pending' in cached:
+        CACHE[address]={k:v for k,v in cached.items() if k!='pending'}
+    HISTORY_ISSUES[address]=issue
+    # Coverage travels with this scan, never inferred from an unrelated cache.
+    token={**token,'tradeCoverage':ranges}
+    return token,list(rows.values()),False
+
+
+def interval_complete(histories, end, launches):
+    if not launches:return False
+    for token,rows,complete in histories:
+        start=max(end-300,token['createdAt'])
+        stop=min(end,token['createdAt']+3600)
+        if complete or start>=stop:continue
+        for a,b in sorted(token.get('tradeCoverage',[])):
+            if a<=start: start=max(start,b)
+        if start<stop:return False
+    return True
+
 
 def measure(tokens, histories, end):
     events = {}
@@ -208,7 +252,7 @@ def collect(end=None):
         histories = list(pool.map(lambda x: history(x, min(cutoff,x['createdAt']), end), tokens.values()))
     for address in list(CACHE):
         if address not in tokens: CACHE.pop(address,None)
-    complete = list_complete and all(x[2] for x in histories)
+    complete = interval_complete(histories,end,list_complete)
     CURRENT_TOKENS=list(tokens.values())
     CURRENT_HISTORIES=histories
     trade_archive.append(LOG/'trades.sqlite3',histories,end,complete)
@@ -236,7 +280,7 @@ def run_once(database, cachefile, collector=collect):
         # complete buckets. Never reconstruct partial rows from an older good cache.
         for bucket in range(end-LOOKBACK+PERIOD, end+1, PERIOD):
             aligned=measure(CURRENT_TOKENS, CURRENT_HISTORIES, bucket)
-            aligned.update(windowEnd=bucket, complete=result['complete'], coverage=result['coverage'], collectedAt=time.time())
+            aligned.update(windowEnd=bucket, complete=interval_complete(CURRENT_HISTORIES,bucket,result['coverage']['launches']), coverage=result['coverage'], collectedAt=time.time())
             observations.append((bucket,aligned))
         old=dict(samples(database,summary=True))
         merged=dict(old)
@@ -244,7 +288,15 @@ def run_once(database, cachefile, collector=collect):
             if not old.get(bucket,{}).get('complete') or value['complete']:
                 merged[bucket]=value
         result['market']=comparison(result,sorted(merged.items()))
-        result['intervals']=[dict(value, windowEnd=bucket) for bucket,value in observations]
+        # Load full saved payloads only for the visible buckets needing fallback.
+        from storage import complete_windows
+        saved=complete_windows(database,[t for t,v in observations if not v['complete']])
+        result['intervals']=[dict(saved.get(bucket,value),windowEnd=bucket) for bucket,value in observations]
+        latest=result['intervals'][-1]
+        if latest['complete']:
+            for key in ('current','board','volumes','breadth','walletActivity','coverage','complete'):
+                if key in latest:result[key]=latest[key]
+        result['chart']=[x['current'] for x in result['intervals']]
         result['scanSeconds']=round(time.time()-started,1)
         result['requests']=REQUESTS
         result['refreshing']=False

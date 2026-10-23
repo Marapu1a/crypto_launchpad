@@ -67,9 +67,12 @@ class ReliabilityTests(unittest.TestCase):
         self.assertFalse(latest_snapshot(self.db)['complete'])
         self.run_scan(complete=True)
         self.assertTrue(all(x['complete'] for _,x in samples(self.db)))
-        self.run_scan(complete=False,rows=[])
+        fallback=self.run_scan(complete=False,rows=[])
         self.assertEqual(sum(x['current']['buys'] for _,x in samples(self.db)),1)
         self.assertTrue(all(x['complete'] for _,x in samples(self.db)))
+        self.assertTrue(all(x['complete'] for x in fallback['intervals']))
+        self.assertEqual(sum(x['current']['buys'] for x in fallback['intervals']),1)
+        self.assertTrue(latest_snapshot(self.db)['complete'])
 
     def test_failures_and_interrupted_attempts_survive_restart_without_exposing_urls(self):
         self.run_scan()

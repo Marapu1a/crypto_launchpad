@@ -49,6 +49,17 @@ def latest_snapshot(path):
         return json.loads(row[0]) if row else None
 
 
+def complete_windows(path, ends):
+    result={}
+    with connect(path) as db:
+        for end in ends:
+            row=db.execute('SELECT payload FROM samples WHERE end=?',(end,)).fetchone()
+            if row:
+                value=json.loads(row[0])
+                if value.get('complete') and not value.get('error'):result[end]=value
+    return result
+
+
 def quality(path, end, span=86400):
     """Coverage since first observed/attempted bucket, limited to the requested span."""
     end = int(end // PERIOD) * PERIOD
